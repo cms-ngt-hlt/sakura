@@ -1,0 +1,9 @@
+universe              = vanilla
+arguments             = $(par1) $(par2) 
+executable            = submitDQM.sh
+output                = $(par2)/outfiles/harvest_$(par1).out
+error                 = $(par2)/outfiles/harvest_$(par1).err
+log                   = $(par2)/outfiles/harvest_$(par1).log
+transfer_output_files = ""
++JobFlavour = "tomorrow" 
+queue
