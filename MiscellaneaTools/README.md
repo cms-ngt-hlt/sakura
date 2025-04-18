@@ -6,6 +6,7 @@ Miscellaneous tools and scripts for NGT Task 3.4 - "HLT Optimal Calibrations"
 cmsrel CMSSW_15_0_4
 cd CMSSW_15_0_4/src
 cmsenv
+git cms-init
 scram b -j 20
 ```
 
