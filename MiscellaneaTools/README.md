@@ -1,5 +1,5 @@
-# NGT-Task-3.4
-Tools and scripts for NGT Task 3.4 - "HLT Optimal Calibrations"
+# SAKURA - Miscellanea Tools
+Miscellaneous tools and scripts for NGT Task 3.4 - "HLT Optimal Calibrations"
 
 ## Provisional recipe
 ```
@@ -9,8 +9,8 @@ cmsenv
 git cms-addpkg DQM/Integration
 git cms-addpkg Configuration/StandardSequences
 scram b -j 20
-git clone git@github.com:mmusich/NGT-Task-3.4.git
-cd NGT-Task-3.4
+git clone git@github.com:cms-hlt-ngt/SAKURA.git
+cd SAKURA
 ./testOfflineGT.sh
 cd ..
 mkdir -p upload
@@ -31,6 +31,6 @@ python3 submitAllTemplatedJobs.py -j ReHLT_PromptGT -i configPrompt.ini --submit
 ## Recipe to run the DQM hlt client
 ```
 cd $CMSSW_BASE/src
-cp -pr NGT-Task-3.4/dmqHarvesting/submit* .
+cp -pr SAKURA/dqmHarvesting/submit* .
 ./submitAll.sh
 ```
