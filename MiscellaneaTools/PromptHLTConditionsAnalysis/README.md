@@ -2,7 +2,7 @@
 Analysis of using prompt conditions directly at HLT.
 
 ## CMSSW setup
-```
+```bash
 cmsrel CMSSW_14_2_0_pre4
 cd CMSSW_14_2_0_pre4/src
 cmsenv
@@ -11,7 +11,7 @@ scram b -j 20
 ```
 
 ## Provisional recipe
-```
+```bash
 cd $CMSSW_BASE/src
 git cms-addpkg DQM/Integration
 git cms-addpkg Configuration/StandardSequences
@@ -32,7 +32,7 @@ cmsRun DQM/Integration/python/clients/hlt_dqm_sourceclient-live_cfg.py inputFile
 ```
 
 ## Recipe to run on full statistic of `/EphemeralHLTPhysics0/Run2024H-v1/RAW`
-```
+```bash
 # optional, to re-generate the configuration
 ./prepareConfiguration.sh
 python3 submitAllTemplatedJobs.py -j ReHLT_HLTGT -i configHLT.ini --submit
@@ -40,7 +40,7 @@ python3 submitAllTemplatedJobs.py -j ReHLT_PromptGT -i configPrompt.ini --submit
 ```
 
 ## Recipe to run the DQM hlt client
-```
+```bash
 cd $CMSSW_BASE/src
 cp -pr SAKURA/MiscellaneaTools/PromptHLTConditionsAnalysis/dqmHarvesting/submit* .
 ./submitAll.sh
