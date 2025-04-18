@@ -2,7 +2,7 @@
 
 # CMSSW_15_0_4
 
-hltGetConfiguration /users/musich/tests/dev/CMSSW_15_0_0/NGT_DEMONSTRATOR/TestData/online/HLT/V1 \
+hltGetConfiguration /users/musich/tests/dev/CMSSW_15_0_0/NGT_DEMONSTRATOR/TestData/online/HLT/V3 \
             --globaltag 150X_dataRun3_Prompt_v1 \
             --data \
             --unprescale \

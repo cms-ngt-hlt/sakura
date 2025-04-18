@@ -8,7 +8,13 @@
 RUNNUMBER=386593
 LUMISECTION=250
 
-INPUTFILES="root://eoscms.cern.ch//store/data/Run2024I/EphemeralHLTPhysics1/RAW/v1/000/386/593/00000/9c067800-8618-4a0b-9a9d-bcfe833fc042.root root://eoscms.cern.ch//store/data/Run2024I/EphemeralHLTPhysics0/RAW/v1/000/386/593/00000/a79210d6-3442-4a75-95b2-670fc5f3e5b4.root root://eoscms.cern.ch//store/data/Run2024I/EphemeralHLTPhysics2/RAW/v1/000/386/593/00000/95bbef1b-9d8d-4a53-862c-32c94450bee2.root root://eoscms.cern.ch//store/data/Run2024I/EphemeralHLTPhysics3/RAW/v1/000/386/593/00000/cbec7838-61cc-4c46-8ad9-e2e0903e62c3.root root://eoscms.cern.ch//store/data/Run2024I/EphemeralHLTPhysics4/RAW/v1/000/386/593/00000/0bd73ec3-8d8b-4804-8ac3-c774a609049f.root root://eoscms.cern.ch//store/data/Run2024I/EphemeralHLTPhysics5/RAW/v1/000/386/593/00000/1a187ce0-0cc7-483f-b868-651a566e116a.root root://eoscms.cern.ch//store/data/Run2024I/EphemeralHLTPhysics6/RAW/v1/000/386/593/00000/e5a375b9-1abe-4a49-9d17-7f2fc6483135.root"
+INPUTFILES="root://eoscms.cern.ch//store/data/Run2024I/EphemeralHLTPhysics1/RAW/v1/000/386/593/00000/9c067800-8618-4a0b-9a9d-bcfe833fc042.root 
+            root://eoscms.cern.ch//store/data/Run2024I/EphemeralHLTPhysics0/RAW/v1/000/386/593/00000/a79210d6-3442-4a75-95b2-670fc5f3e5b4.root 
+            root://eoscms.cern.ch//store/data/Run2024I/EphemeralHLTPhysics2/RAW/v1/000/386/593/00000/95bbef1b-9d8d-4a53-862c-32c94450bee2.root 
+            root://eoscms.cern.ch//store/data/Run2024I/EphemeralHLTPhysics3/RAW/v1/000/386/593/00000/cbec7838-61cc-4c46-8ad9-e2e0903e62c3.root 
+            root://eoscms.cern.ch//store/data/Run2024I/EphemeralHLTPhysics4/RAW/v1/000/386/593/00000/0bd73ec3-8d8b-4804-8ac3-c774a609049f.root 
+            root://eoscms.cern.ch//store/data/Run2024I/EphemeralHLTPhysics5/RAW/v1/000/386/593/00000/1a187ce0-0cc7-483f-b868-651a566e116a.root 
+            root://eoscms.cern.ch//store/data/Run2024I/EphemeralHLTPhysics6/RAW/v1/000/386/593/00000/e5a375b9-1abe-4a49-9d17-7f2fc6483135.root"
 
 rm -rf run${RUNNUMBER}*
 
@@ -91,7 +97,8 @@ cmsRun hlt.py &> hlt.log
 # remove input files to save space
 rm -f run386593/run386593_ls0*_index*.*
 
-# now cat the files and run the FRD conversion
+# prepare the files by concatenating the .ini and .dat files
 cat run386593/run386593_ls0000_streamLocalTestDataRaw_pid3599953.ini run386593/run386593_ls0250_streamLocalTestDataRaw_pid3599953.dat > run386593_ls0250_streamLocalTestDataRaw_pid3599953.dat
-cp -pr /afs/cern.ch/user/m/mzarucki/public/NGT/SAKURA/Demonstrator/test_convertStreamerToFRD.py .
-cmsRun test_convertStreamerToFRD.py filePrepend=file: inputFiles=run386593_ls0250_streamLocalTestDataRaw_pid3599953.dat
+
+# run the FRD conversion
+cmsRun convertStreamerToFRD.py filePrepend=file: inputFiles=run386593_ls0250_streamLocalTestDataRaw_pid3599953.dat

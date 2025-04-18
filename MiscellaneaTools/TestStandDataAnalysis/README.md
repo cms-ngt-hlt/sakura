@@ -23,7 +23,7 @@ cd SAKURA/MiscellaneaTools/TestStandDataAnalysis
 cmsenv
 ```
 
-## Test HLT stand path
+## Test the HLT stand path
 ```bash
 ./testStand.sh
 wget https://raw.githubusercontent.com/sanuvarghese/L1PhysicsSkim/refs/heads/main/L1PhysicsFilter/test/cmsCondorData.py
@@ -33,15 +33,24 @@ python3 cmsCondorData.py dump.py $PWD /eos/cms/store/group/tsg-phase2/user/music
 condor_submit condor_cluster.sub
 ```
 
-## Conversion between streamer (.dat) files into FRD (.raw) DAQ format
+## Conversion of streamer files into the DAQ FRD format
+Conversion of streamer (.dat) files into the DAQ FRD (.raw) format:
 ```bash
 cmsRun convertStreamerToFRD.py runNumber=NNNNNN inputFiles=/store/path/file.root[,/store/path/file.root,...]
 
 # add filePrepend=file: if the files are stored locally
 ```
 
+## Large streamer preparation (2024 data)
+Preparation of a large streamer (.dat) file with 23k events, corresponding to ~ 1 % of HLT input (~ 1 kHz) in 1 LS (~ 23 s). This involves re-running the HLT with a [simplified menu](https://cmshltcfg.app.cern.ch/open?cfg=/users/musich/tests/dev/CMSSW_15_0_0/NGT_DEMONSTRATOR/TestData/online/HLT/V3&db=offline-run3) that runs the HLT test stand path (`HLT_TestData`) within the corresponding streams (`LocalTestDataRaw`, `LocalTestDataScouting`) and datasets (`TestDataRaw`, `TestDataScouting`). The script runs the streamer-to-FRD conversion of the file at the end.
+```bash
+./createStreamers.sh
 
-## Running a simple file-discovery (loop) 
+# Note the hard-coded values in the script that need to be changed accordingly
+```
+
+## Running a simple (loop) file-discovery
+Simple file-discovery of streamer (.dat) files based on `ls` and a simple loop, automatically running the streamer-to-FRD conversion (in background/parallel).
 ```bash
 ./watchDirectory.sh
 
