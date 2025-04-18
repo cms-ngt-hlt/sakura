@@ -24,6 +24,7 @@ cmsenv
 ```
 
 ## Test the HLT stand path
+Test the HLT test stand path (`HLT_TestData`) within the corresponding streams (`LocalTestDataRaw`, `LocalTestDataScouting`) and datasets (`TestDataRaw`, `TestDataScouting`) within a simplified menu ([/users/musich/tests/dev/CMSSW_15_0_0/NGT_DEMONSTRATOR/TestData/online/HLT/V3](https://cmshltcfg.app.cern.ch/open?cfg=/users/musich/tests/dev/CMSSW_15_0_0/NGT_DEMONSTRATOR/TestData/online/HLT/V3&db=offline-run3)).
 ```bash
 ./testStand.sh
 wget https://raw.githubusercontent.com/sanuvarghese/L1PhysicsSkim/refs/heads/main/L1PhysicsFilter/test/cmsCondorData.py
@@ -42,7 +43,7 @@ cmsRun convertStreamerToFRD.py runNumber=NNNNNN inputFiles=/store/path/file.root
 ```
 
 ## Large streamer preparation (2024 data)
-Preparation of a large streamer (.dat) file with 23k events, corresponding to ~ 1 % of HLT input (~ 1 kHz) in 1 LS (~ 23 s). This involves re-running the HLT with a [simplified menu](https://cmshltcfg.app.cern.ch/open?cfg=/users/musich/tests/dev/CMSSW_15_0_0/NGT_DEMONSTRATOR/TestData/online/HLT/V3&db=offline-run3) that runs the HLT test stand path (`HLT_TestData`) within the corresponding streams (`LocalTestDataRaw`, `LocalTestDataScouting`) and datasets (`TestDataRaw`, `TestDataScouting`). The script runs the streamer-to-FRD conversion of the file at the end.
+Preparation of a large streamer (.dat) file with 23 k events, corresponding to ~ 1 % of the HLT input (~ 1 kHz) in 1 LS (~ 23 s). This involves re-running the HLT with a simplified menu ([/users/musich/tests/dev/CMSSW_15_0_0/NGT_DEMONSTRATOR/TestData/online/HLT/V3](https://cmshltcfg.app.cern.ch/open?cfg=/users/musich/tests/dev/CMSSW_15_0_0/NGT_DEMONSTRATOR/TestData/online/HLT/V3&db=offline-run3)) with the HLT test stand path (`HLT_TestData`) within the corresponding streams (`LocalTestDataRaw`, `LocalTestDataScouting`) and datasets (`TestDataRaw`, `TestDataScouting`). The script runs the streamer-to-FRD conversion of the file at the end.
 ```bash
 ./createStreamers.sh
 
