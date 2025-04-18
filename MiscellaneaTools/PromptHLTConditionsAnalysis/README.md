@@ -12,6 +12,7 @@ scram b -j 20
 
 ## Provisional recipe
 ```
+cd $CMSSW_BASE/src
 git cms-addpkg DQM/Integration
 git cms-addpkg Configuration/StandardSequences
 scram b -j 20
