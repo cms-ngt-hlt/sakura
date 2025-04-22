@@ -13,7 +13,7 @@ scram b -j 20
 ## General recipe
 ```bash
 cd $CMSSW_BASE/src
-git clone git@github.com:cms-hlt-ngt/SAKURA.git
-cd SAKURA/MiscellaneaTools
+git clone git@github.com:cms-hlt-ngt/sakura.git
+cd sakura/MiscellaneaTools
 cmsenv
 ```
