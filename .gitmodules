@@ -1,0 +1,3 @@
+[submodule "MiscellaneaTools/Run3ScoutingAnalysisTools"]
+	path = MiscellaneaTools/Run3ScoutingAnalysisTools
+	url = git@github.com:jprendi/Run3ScoutingAnalysisTools.git
