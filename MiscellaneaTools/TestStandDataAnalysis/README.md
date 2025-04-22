@@ -18,8 +18,8 @@ scram b -j 20
 #scram b -j 20
 
 cd $CMSSW_BASE/src
-git clone git@github.com:cms-ngt-hlt/SAKURA.git
-cd SAKURA/MiscellaneaTools/TestStandDataAnalysis
+git clone git@github.com:cms-ngt-hlt/sakura.git
+cd sakura/MiscellaneaTools/TestStandDataAnalysis
 cmsenv
 ```
 

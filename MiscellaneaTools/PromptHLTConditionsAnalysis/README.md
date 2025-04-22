@@ -18,14 +18,14 @@ git cms-addpkg Configuration/StandardSequences
 scram b -j 20
 
 cd $CMSSW_BASE/src
-git clone git@github.com:cms-ngt-hlt/SAKURA.git
-cd SAKURA/MiscellaneaTools/PromptHLTConditionsAnalysis
+git clone git@github.com:cms-ngt-hlt/sakura.git
+cd sakura/MiscellaneaTools/PromptHLTConditionsAnalysis
 cmsenv
 ./testOfflineGT.sh
 
 cd $CMSSW_BASE/src
 mkdir -p upload
-cmsRun DQM/Integration/python/clients/hlt_dqm_sourceclient-live_cfg.py inputFiles=SAKURA/MiscellaneaTools/PromptHLTConditionsAnalysis/output_Prompt.root
+cmsRun DQM/Integration/python/clients/hlt_dqm_sourceclient-live_cfg.py inputFiles=sakura/MiscellaneaTools/PromptHLTConditionsAnalysis/output_Prompt.root
 
 # change the GT in the script to the HLT one (141X_dataRun3_HLT_v1), rinse and repeat
 # once both files are available run the plotting script
@@ -42,6 +42,6 @@ python3 submitAllTemplatedJobs.py -j ReHLT_PromptGT -i configPrompt.ini --submit
 ## Recipe to run the DQM hlt client
 ```bash
 cd $CMSSW_BASE/src
-cp -pr SAKURA/MiscellaneaTools/PromptHLTConditionsAnalysis/dqmHarvesting/submit* .
+cp -pr sakura/MiscellaneaTools/PromptHLTConditionsAnalysis/dqmHarvesting/submit* .
 ./submitAll.sh
 ```
