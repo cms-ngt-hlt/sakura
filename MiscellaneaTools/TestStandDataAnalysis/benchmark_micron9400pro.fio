@@ -3,48 +3,98 @@ ioengine=libaio # Linux native asynchronous I/O
 direct=1 # direct non-buffered I/O, bypassing OS cache
 runtime=60 # fixed test time
 time_based # run and loop for runtime duration
-iodepth=64 # number of issued IOs in-flight (outstanding) at the same time per job 
 size=23G # file size
 bs=1M # block size
 
 directory=/data/ssd1/
 
 # logging
-write_bw_log=fio_logs/benchmark_micron9400pro
-write_iops_log=fio_logs/benchmark_micron9400pro
-write_lat_log=fio_logs/benchmark_micron9400pro
+write_bw_log
+write_iops_log
+write_lat_log
 group_reporting
 
 log_avg_msec=200
 bwavgtime=500
 
+## iodepth = 1
+# 1 thread
+[seq_read_qd_1_1M_1w] # [<type>_qd_<queue_depth>_<blocksize>_<threads>w]
+rw=read
+numjobs=1
+iodepth=1 # number of issued I/Os in-flight (outstanding) at the same time per job
+stonewall
+
+[seq_write_qd_1_1M_1w]
+rw=write
+numjobs=1
+iodepth=1
+stonewall
+
+[seq_readwrite_qd_1_1M_1w]
+rw=readwrite
+#rwmixread=70 # 70 % reads, 30 % writes
+numjobs=1
+iodepth=1
+stonewall
+
+# 5 threads
+[seq_read_qd_5_1M_5w]
+rw=read
+numjobs=5 # concurrent I/O access with several threads/jobs
+iodepth=1
+stonewall
+
+[seq_write_qd_5_1M_5w]
+rw=write
+numjobs=5
+iodepth=1
+stonewall
+
+[seq_readwrite_qd_5_1M_5w]
+rw=readwrite
+#rwmixread=70
+numjobs=5
+iodepth=1
+stonewall
+
+## iodepth = 64
+# 1 thread
 [seq_read_qd_64_1M_1w] # [<type>_qd_<total_qd>_<blocksize>_<threads>]
 rw=read
 numjobs=1
+iodepth=64 # number of issued I/Os in-flight (outstanding) at the same time per job
 stonewall
 
 [seq_write_qd_64_1M_1w]
 rw=write
 numjobs=1
+iodepth=64
 stonewall
 
 [seq_readwrite_qd_64_1M_1w]
 rw=readwrite
+#rwmixread=70 # 70 % reads, 30 % writes
 numjobs=1
+iodepth=64
 stonewall
 
+# 5 threads
 [seq_read_qd_320_1M_5w]
 rw=read
-numjobs=5 # concurrent I/O access with several threads/jobs 
+numjobs=5 # concurrent I/O access with several threads/jobs
+iodepth=64
 stonewall
 
 [seq_write_qd_320_1M_5w]
 rw=write
 numjobs=5
+iodepth=64
 stonewall
 
 [seq_readwrite_qd_320_1M_5w]
 rw=readwrite
-#rwmixread=70 # 70 % reads, 30 % writes
+#rwmixread=70
 numjobs=5
+iodepth=64
 stonewall
