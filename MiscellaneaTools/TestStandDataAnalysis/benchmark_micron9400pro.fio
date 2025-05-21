@@ -1,7 +1,7 @@
 [global]
 ioengine=libaio # Linux native asynchronous I/O
 direct=1 # direct non-buffered I/O, bypassing OS cache
-runtime=60 # fixed test time
+runtime=600 # fixed test time
 time_based # run and loop for runtime duration
 size=23G # file size
 bs=1M # block size
@@ -13,88 +13,189 @@ write_bw_log
 write_iops_log
 write_lat_log
 group_reporting
-
+#per_job_logs=false # unsplit log files per thread/job
 log_avg_msec=200
 bwavgtime=500
 
 ## iodepth = 1
 # 1 thread
-[seq_read_qd_1_1M_1w] # [<type>_qd_<queue_depth>_<blocksize>_<threads>w]
+[read-iodepth-1-numjobs-1] # [<operation>-iodepth-<iodepth>-numjobs-<numjobs>]
 rw=read
 numjobs=1
 iodepth=1 # number of issued I/Os in-flight (outstanding) at the same time per job
 stonewall
 
-[seq_write_qd_1_1M_1w]
+[write-iodepth-1-numjobs-1]
 rw=write
 numjobs=1
 iodepth=1
 stonewall
 
-[seq_readwrite_qd_1_1M_1w]
+[readwrite-iodepth-1-numjobs-1]
 rw=readwrite
 #rwmixread=70 # 70 % reads, 30 % writes
 numjobs=1
 iodepth=1
 stonewall
 
-# 5 threads
-[seq_read_qd_5_1M_5w]
+# 5 threads/jobs
+[read-iodepth-1-numjobs-5]
 rw=read
 numjobs=5 # concurrent I/O access with several threads/jobs
 iodepth=1
 stonewall
 
-[seq_write_qd_5_1M_5w]
+[write-iodepth-1-numjobs-5]
 rw=write
 numjobs=5
 iodepth=1
 stonewall
 
-[seq_readwrite_qd_5_1M_5w]
+[readwrite-iodepth-1-numjobs-5]
 rw=readwrite
 #rwmixread=70
 numjobs=5
 iodepth=1
 stonewall
 
+# 10 threads/jobs
+[read-iodepth-1-numjobs-10]
+rw=read
+numjobs=10
+iodepth=1
+stonewall
+
+[write-iodepth-1-numjobs-10]
+rw=write
+numjobs=10
+iodepth=1
+stonewall
+
+[readwrite-iodepth-1-numjobs-10]
+rw=readwrite
+#rwmixread=70
+numjobs=5
+iodepth=1
+stonewall
+
+## iodepth = 32
+# 1 thread
+[read-iodepth-32-numjobs-1]
+rw=read
+numjobs=1
+iodepth=32 # number of issued I/Os in-flight (outstanding) at the same time per job
+stonewall
+
+[write-iodepth-32-numjobs-1]
+rw=write
+numjobs=1
+iodepth=32
+stonewall
+
+[readwrite-iodepth-32-numjobs-1]
+rw=readwrite
+#rwmixread=70 # 70 % reads, 30 % writes
+numjobs=1
+iodepth=32
+stonewall
+
+# 5 threads/jobs
+[read-iodepth-32-numjobs-5]
+rw=read
+numjobs=5 # concurrent I/O access with several threads/jobs
+iodepth=32
+stonewall
+
+[write-iodepth-32-numjobs-5]
+rw=write
+numjobs=5
+iodepth=32
+stonewall
+
+[readwrite-iodepth-32-numjobs-5]
+rw=readwrite
+#rwmixread=70
+numjobs=5
+iodepth=32
+stonewall
+
+# 10 threads/jobs
+[read-iodepth-32-numjobs-10]
+rw=read
+numjobs=10
+iodepth=32
+stonewall
+
+[write-iodepth-32-numjobs-10]
+rw=write
+numjobs=10
+iodepth=32
+stonewall
+
+[readwrite-iodepth-32-numjobs-10]
+rw=readwrite
+#rwmixread=70
+numjobs=10
+iodepth=32
+stonewall
+
 ## iodepth = 64
 # 1 thread
-[seq_read_qd_64_1M_1w] # [<type>_qd_<total_qd>_<blocksize>_<threads>]
+[read-iodepth-64-numjobs-1]
 rw=read
 numjobs=1
 iodepth=64 # number of issued I/Os in-flight (outstanding) at the same time per job
 stonewall
 
-[seq_write_qd_64_1M_1w]
+[write-iodepth-64-numjobs-1]
 rw=write
 numjobs=1
 iodepth=64
 stonewall
 
-[seq_readwrite_qd_64_1M_1w]
+[readwrite-iodepth-64-numjobs-1]
 rw=readwrite
 #rwmixread=70 # 70 % reads, 30 % writes
 numjobs=1
 iodepth=64
 stonewall
 
-# 5 threads
-[seq_read_qd_320_1M_5w]
+# 5 threads/jobs
+[read-iodepth-64-numjobs-5]
 rw=read
 numjobs=5 # concurrent I/O access with several threads/jobs
 iodepth=64
 stonewall
 
-[seq_write_qd_320_1M_5w]
+[write-iodepth-64-numjobs-5]
 rw=write
 numjobs=5
 iodepth=64
 stonewall
 
-[seq_readwrite_qd_320_1M_5w]
+[readwrite-iodepth-64-numjobs-5]
 rw=readwrite
 #rwmixread=70
 numjobs=5
+iodepth=64
+stonewall
+
+# 10 threads/jobs
+[read-iodepth-64-numjobs-10]
+rw=read
+numjobs=10
+iodepth=64
+stonewall
+
+[write-iodepth-64-numjobs-10]
+rw=write
+numjobs=10
+iodepth=64
+stonewall
+
+[readwrite-iodepth-64-numjobs-10]
+rw=readwrite
+#rwmixread=70
+numjobs=10
 iodepth=64
 stonewall
