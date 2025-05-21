@@ -59,7 +59,7 @@ Simple file-discovery of streamer (.dat) files based on `ls` and a simple loop, 
 ```
 
 ## SSD benchmarking 
-SSD (Micron 9400 PRO) benchmarking with [FIO (Flexible I/O tester)](https://fio.readthedocs.io). Benchmarking with configuration job file `benchmark_micron9400pro.fio` that runs 6 different benchmarks with realistic global I/O settings: read, write, read & write; with single or multiple I/O threads: 
+SSD (Micron 9400 PRO) benchmarking with [FIO (Flexible I/O tester)](https://fio.readthedocs.io). Benchmarking with configuration job file `benchmark_micron9400pro.fio` that runs 27 different benchmarks with realistic global I/O settings: read, write, read & write; with single or multiple I/O threads: 
 ```bash
 fio benchmark_micron9400pro.fio --output-format=json --output benchmark_micron9400pro.json
 ```

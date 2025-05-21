@@ -21,7 +21,7 @@ bwavgtime=500
 # 1 thread
 [read-iodepth-1-numjobs-1] # [<operation>-iodepth-<iodepth>-numjobs-<numjobs>]
 rw=read
-numjobs=1
+numjobs=1 # concurrent I/O access with several threads/jobs
 iodepth=1 # number of issued I/Os in-flight (outstanding) at the same time per job
 stonewall
 
@@ -41,7 +41,7 @@ stonewall
 # 5 threads/jobs
 [read-iodepth-1-numjobs-5]
 rw=read
-numjobs=5 # concurrent I/O access with several threads/jobs
+numjobs=5
 iodepth=1
 stonewall
 
@@ -102,7 +102,7 @@ stonewall
 # 5 threads/jobs
 [read-iodepth-32-numjobs-5]
 rw=read
-numjobs=5 # concurrent I/O access with several threads/jobs
+numjobs=5
 iodepth=32
 stonewall
 
@@ -144,7 +144,7 @@ stonewall
 [read-iodepth-64-numjobs-1]
 rw=read
 numjobs=1
-iodepth=64 # number of issued I/Os in-flight (outstanding) at the same time per job
+iodepth=64
 stonewall
 
 [write-iodepth-64-numjobs-1]
@@ -155,7 +155,7 @@ stonewall
 
 [readwrite-iodepth-64-numjobs-1]
 rw=readwrite
-#rwmixread=70 # 70 % reads, 30 % writes
+#rwmixread=70
 numjobs=1
 iodepth=64
 stonewall
