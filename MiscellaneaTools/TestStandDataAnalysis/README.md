@@ -66,5 +66,5 @@ fio benchmark_micron9400pro.fio --output-format=json --output benchmark_micron94
 which can be ran inside a `fio_logs` directory.
 Time series performance data in the logs in `fio_logs` can be plotted using [fio-plot](https://github.com/louwrentius/fio-plot):
 ```bash
-fio-plot -i fio_logs -r read  -d 1 32 64 -n 1 5 10 --title "Read Bandwidth (Micron 9400 PRO, SSD1_EXT4)" -t bw -g
+fio-plot -i fio_logs -r read  -d 1 32 64 -n 1 5 10 --title "Read Bandwidth (Micron 9400 PRO)" -t bw -g
 ```

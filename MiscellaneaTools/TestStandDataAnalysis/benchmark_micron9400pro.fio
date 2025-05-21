@@ -83,7 +83,7 @@ stonewall
 [read-iodepth-32-numjobs-1]
 rw=read
 numjobs=1
-iodepth=32 # number of issued I/Os in-flight (outstanding) at the same time per job
+iodepth=32
 stonewall
 
 [write-iodepth-32-numjobs-1]
@@ -163,7 +163,7 @@ stonewall
 # 5 threads/jobs
 [read-iodepth-64-numjobs-5]
 rw=read
-numjobs=5 # concurrent I/O access with several threads/jobs
+numjobs=5
 iodepth=64
 stonewall
 
