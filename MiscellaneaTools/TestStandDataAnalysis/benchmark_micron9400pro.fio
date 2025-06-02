@@ -74,7 +74,7 @@ stonewall
 [readwrite-iodepth-1-numjobs-10]
 rw=readwrite
 #rwmixread=70
-numjobs=5
+numjobs=10
 iodepth=1
 stonewall
 
