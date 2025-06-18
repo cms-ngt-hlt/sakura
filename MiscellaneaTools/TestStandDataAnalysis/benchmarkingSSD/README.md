@@ -14,6 +14,16 @@ Time series performance data in the logs in `fio_logs` can be plotted using [fio
 ```bash
 fio-plot -i fio_logs -r read  -d 1 32 64 -n 1 5 10 --title "Read Bandwidth (Micron 9400 PRO)" -t bw -g
 ```
+To install `fio-plot` on LXPLUS, it's best to do so in a virtual environment:
+```
+python3 -m venv fioenv
+source fioenv/bin/activate
+git clone https://github.com/louwrentius/fio-plot.git
+cd fio-plot
+pip install -r requirements.txt
+```
+
+3D plots of the average bandwidths (extracted from the output JSON files), can be plotted by running either `plot_bandwidth_iodepthJobs.py` or `plot_bandwidth_chunkBlock.py` (modifying the internal hard-coded parameters), to show their dependence on the I/O or queue depth (`iodepth`), parallel I/O jobs (`numjobs`), RAID0 chunk size, or striping granularity, (`cs`) and data block size (`bs`). 
 
 ### iostat
 
