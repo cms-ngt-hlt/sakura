@@ -57,14 +57,3 @@ Simple file-discovery of streamer (.dat) files based on `ls` and a simple loop, 
 
 # Note the hard-coded values in the script that need to be changed accordingly
 ```
-
-## SSD benchmarking 
-SSD (Micron 9400 PRO) benchmarking with [FIO (Flexible I/O tester)](https://fio.readthedocs.io). Benchmarking with configuration job file `benchmark_micron9400pro.fio` that runs 27 different benchmarks with realistic global I/O settings: read, write, read & write; with single or multiple I/O threads: 
-```bash
-fio benchmark_micron9400pro.fio --output-format=json --output benchmark_micron9400pro.json
-```
-which can be ran inside a `fio_logs` directory.
-Time series performance data in the logs in `fio_logs` can be plotted using [fio-plot](https://github.com/louwrentius/fio-plot):
-```bash
-fio-plot -i fio_logs -r read  -d 1 32 64 -n 1 5 10 --title "Read Bandwidth (Micron 9400 PRO)" -t bw -g
-```

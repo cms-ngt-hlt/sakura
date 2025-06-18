@@ -1,0 +1,60 @@
+[global]
+ioengine=libaio # Linux native asynchronous I/O
+direct=1 # direct non-buffered I/O, bypassing OS cache
+runtime=600 # fixed test time
+time_based # run and loop for runtime duration
+size=30G # file size
+bs=1M # block size
+
+directory=/data/ssds_raid0
+
+# logging
+write_bw_log
+write_iops_log
+write_lat_log
+group_reporting
+#per_job_logs=false # unsplit log files per thread/job
+log_avg_msec=200
+bwavgtime=500
+
+[readwrite-iodepth-1-numjobs-1] # [<operation>-iodepth-<iodepth>-numjobs-<numjobs>]
+rw=readwrite
+#rwmixread=70 # 70 % reads, 30 % writes
+numjobs=1 # concurrent I/O access with several threads/jobs
+iodepth=1 # number of issued I/Os in-flight (outstanding) at the same time per job
+stonewall
+
+[readwrite-iodepth-1-numjobs-5]
+rw=readwrite
+#rwmixread=70
+numjobs=5
+iodepth=1
+stonewall
+
+[readwrite-iodepth-1-numjobs-10]
+rw=readwrite
+#rwmixread=70
+numjobs=10
+iodepth=1
+stonewall
+
+[readwrite-iodepth-32-numjobs-1]
+rw=readwrite
+#rwmixread=70
+numjobs=1
+iodepth=32
+stonewall
+
+[readwrite-iodepth-32-numjobs-5]
+rw=readwrite
+#rwmixread=70
+numjobs=5
+iodepth=32
+stonewall
+
+[readwrite-iodepth-32-numjobs-10]
+rw=readwrite
+#rwmixread=70
+numjobs=10
+iodepth=32
+stonewall
