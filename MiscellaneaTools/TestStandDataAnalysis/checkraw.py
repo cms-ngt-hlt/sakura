@@ -15,15 +15,17 @@ def check_raw_file(rawfilepaths):
 
         fin = open(rfp, 'rb')
         ffhdr = fin.read(24)
-        hdr_event_count.append(struct.unpack_from('<H', ffhdr[-14:-12])[0])
-        open_files.append(fin)
+        ecount = struct.unpack_from('<H', ffhdr[-14:-12])[0]
+        ls = struct.unpack_from('<I', ffhdr[-12:-8])[0]
+        hdr_event_count.append([ecount,ls])
+        open_files.append([fin,ls])
 
-    counters = [ 0 for x in open_files]
-    event_ids = [set() for x in open_files]
-    event_ids_min = [-1 for x in open_files]
-    event_ids_max = [-1 for x in open_files]
-    sums = [ 0 for x in open_files]
-    sums2 = [ 0 for x in open_files]
+    counters = [ 0 for x in open_files[0]]
+    event_ids = [set() for x in open_files[0]]
+    event_ids_min = [-1 for x in open_files[0]]
+    event_ids_max = [-1 for x in open_files[0]]
+    sums = [ 0 for x in open_files[0]]
+    sums2 = [ 0 for x in open_files[0]]
     while True:
                         #new event
                         ebuf = bytearray()
@@ -31,7 +33,9 @@ def check_raw_file(rawfilepaths):
                         fhdr = fhdr0 = None
                         idx = 0
                         this_event_id = -1
-                        for fin in open_files:
+                        for finarr in open_files:
+                            fin = finarr[0]
+                            ls = finarr[1]
                             thiscnt = 0
                             fhdr = fin.read(24)
                             if not fhdr0:
@@ -44,6 +48,8 @@ def check_raw_file(rawfilepaths):
                                 raise Exception(f"unknown FRD event version {fhdr[0]}")
                             r_size = struct.unpack_from('<I', fhdr[-8:-4])[0]
                             event_id = struct.unpack_from('<I', fhdr[-12:-8])[0]
+                            e_ls = struct.unpack_from('<I', fhdr[-16:-12])[0]
+
                             if this_event_id == -1:
                                 this_event_id = event_id
                             elif this_event_id != event_id:
@@ -65,12 +71,15 @@ def check_raw_file(rawfilepaths):
                             sums[idx] += r_size + 24
                             sums2[idx] += len(tmpbuf) + len(fhdr)
                             print(f"index {idx} eventID: {event_id} add : {r_size + 24} {len(tmpbuf) + 24} {sums[idx]} {sums2[idx]} cnt: {counters[idx]}")
+                            if e_ls != ls:
+                                result = f"ERROR: inconsistent lumisection for this event! file: {ls} event: {e_ls}"
+                                raise Exception(result)
                             idx += 1
 
                         if not fhdr:
                             break
     for index in range(0, len(rawfilepaths)):
-        print(f"Summary for file {rawfilepaths[index]} events:{counters[idx]} eventsHeader:{hdr_event_count[idx]}")
+        print(f"Summary for file {rawfilepaths[index]} events:{counters[idx]} eventsHeader:{hdr_event_count[idx][0]} ls: {hdr_event_count[idx][1]}")
 
 
 if len(sys.argv) < 2:
