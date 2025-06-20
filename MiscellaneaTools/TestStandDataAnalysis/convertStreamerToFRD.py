@@ -23,17 +23,17 @@ options.register('runNumber',
                  VarParsing.VarParsing.varType.int,
                  "Run number")
 
-#options.register('numThreads', 
-#                 1,
-#                 VarParsing.VarParsing.multiplicity.singleton,
-#                 VarParsing.VarParsing.varType.int,
-#                 "Number of threads")
+options.register('numThreads', 
+                 1,
+                 VarParsing.VarParsing.multiplicity.singleton,
+                 VarParsing.VarParsing.varType.int,
+                 "Number of threads")
 
-#options.register('numStreams',
-#                 0,
-#                 VarParsing.VarParsing.multiplicity.singleton,
-#                 VarParsing.VarParsing.varType.int,
-#                 "Number of CMSSW streams")
+options.register('numStreams',
+                 0,
+                 VarParsing.VarParsing.multiplicity.singleton,
+                 VarParsing.VarParsing.varType.int,
+                 "Number of CMSSW streams")
 
 #options.register('lumiNumber',
 #                 None,
@@ -85,13 +85,13 @@ options.parseArguments()
 
 process = cms.Process("FAKE")
 
-#process.options.numberOfThreads = options.numThreads
-#process.options.numberOfStreams = options.numStreams
+process.options.numberOfThreads = options.numThreads
+process.options.numberOfStreams = options.numStreams
 
-#noConcurrentLumiBlocks = process.options.numberOfStreams > 1
-#noConcurrentLumiBlocks |= (process.options.numberOfStreams == 0 and process.options.numberOfThreads > 1)
-#if noConcurrentLumiBlocks:
-#    process.options.numberOfConcurrentLuminosityBlocks = 1
+noConcurrentLumiBlocks = process.options.numberOfStreams > 1
+noConcurrentLumiBlocks |= (process.options.numberOfStreams == 0 and process.options.numberOfThreads > 1)
+if noConcurrentLumiBlocks:
+    process.options.numberOfConcurrentLuminosityBlocks = 1
 
 process.maxEvents = cms.untracked.PSet(
   input = cms.untracked.int32(options.maxEvents)
