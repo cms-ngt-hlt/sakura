@@ -1,7 +1,7 @@
 #!/bin/bash
 WATCH_DIR=$PWD
 SCRIPT_DIR=$PWD
-CMD="cmsRun $SCRIPT_DIR/convertStreamerToFRD.py filePrepend=file: outputPath=/fff/output/"
+CMD="cmsRun $SCRIPT_DIR/convertStreamerToFRD.py filePrepend=file: outputPath=/fff/output/output"
 TIMESTAMP="awk '{print strftime(\"%Y-%m-%d %H:%M:%S\"), \$0}'"
 
 echo "Monitoring directory: $WATCH_DIR" | eval $TIMESTAMP
@@ -21,8 +21,6 @@ seenfiles=($FILES)
 while true; do
   NEWFILES=`ls -t "$WATCH_DIR"`
   if [ "$NEWFILES" != "$FILES" ]; then
-    #echo "Changes in directory detected."
-
     for f in $NEWFILES; do
       if [[ ! " ${seenfiles[*]} " =~ " $f " && "$f" == *.dat ]]; then
 	FULL_PATH="$WATCH_DIR/$f"
@@ -38,8 +36,12 @@ while true; do
         RUN_NUMBER=${f#run} # FIXME: runNumber to be retrieved from DAQ instead of file name
         RUN_NUMBER=${RUN_NUMBER%%_*}
 
-        LOGFILE="$SCRIPT_DIR/convertStreamerToFRD_${f%.dat}.log"
+        LOGFILE="$SCRIPT_DIR/logs/convertStreamerToFRD_${f%.dat}.log"
         CMD_FULL="$CMD inputFiles=$FULL_PATH runNumber=$RUN_NUMBER"
+
+	echo "Clearing cache..."
+	sync
+	echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null
 
 	(
           echo "Running command: $CMD_FULL" | eval $TIMESTAMP
