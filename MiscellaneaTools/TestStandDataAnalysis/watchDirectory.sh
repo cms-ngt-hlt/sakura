@@ -39,19 +39,21 @@ while true; do
         LOGFILE="$SCRIPT_DIR/logs/convertStreamerToFRD_${f%.dat}.log"
         CMD_FULL="$CMD inputFiles=$FULL_PATH runNumber=$RUN_NUMBER"
 
-	echo "Clearing cache..."
+	echo "Clearing cache..." | eval "$TIMESTAMP"
 	sync
 	echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null
 
 	(
           echo "Running command: $CMD_FULL" | eval $TIMESTAMP
           $CMD_FULL >& "$LOGFILE" && \
-          echo "Conversion completed. Deleting file $f." | eval "$TIMESTAMP" && \
-          rm "$WATCH_DIR/$f"
+          echo "Conversion completed. Deleting file $f and output FRD files." | eval "$TIMESTAMP" && \
+	  sleep 5 && \
+          rm "$WATCH_DIR/$f" && \
+          rm /fff/output/output/run*/${f%%_stream*}_index*.raw
         ) &
       fi
     done
     FILES="$NEWFILES"
   fi
-  sleep 1
+  sleep 3
 done

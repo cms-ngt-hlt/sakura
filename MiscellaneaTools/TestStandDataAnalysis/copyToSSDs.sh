@@ -1,11 +1,11 @@
 #!/bin/bash
 
-SOURCE_DIR="input"
+SOURCE_DIR="/fff/output/input"
 DEST_DIR="/data/ssds"
 TIMESTAMP="awk '{print strftime(\"%Y-%m-%d %H:%M:%S\"), \$0}'"
 
-while true; do
-  echo "Clearing cache..."
+#while true; do
+  echo "Clearing cache... " | eval $TIMESTAMP
   sync
   echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null 
 
@@ -15,5 +15,4 @@ while true; do
     cp "$file" "$DEST_DIR"
     sleep 23
   done
-  #rm -r output/run*/*.raw # FIXME: this is too aggressive in freeing up the ramdisk (400 GB) as it also deletes files that are being written by the conversion
-done
+#done
