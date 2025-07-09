@@ -2,10 +2,14 @@
 
 Repository for Task 3.4 of the CMS-NGT-HLT project (**S**peedy **A**lignment & **C**alibration **U**pgrade for **R**eal-time **A**lgorithms)
 
-## Schematics of the project
+## NGT Optimal Calibrations Workflow (Conceptual Design for Phase 2)
 
-![Phase-2 Upgrade Concept](images/NGT_OptimalCalibrations-SAKURA_Phase2_Workflow.png)
+![NGT Optimal Calibrations (SAKURA) Workflow](images/NGT_OptimalCalibrations-SAKURA_Phase2_Workflow.svg)
 
-## Schematics for the Run-3 demonstrator
+## NGT Optimal Calibrations Demonstrator (Run 3) Workflow
 
-![Demonstrator Workflow](images/NGT_OptimalCalibrations-SAKURA_HLTTestStand-Demonstrator_Workflow.png)
+![NGT Optimal Calibrations (SAKURA) Demonstrator Workflow](images/NGT_OptimalCalibrations-SAKURA_HLTTestStand-Demonstrator_Workflow.svg)
+
+Detailed data-flow (between SSDs and ramdisks) of the NGT demonstrator:
+
+![NGT Optimal Calibrations (SAKURA) Demonstrator SSDs Data Flow](images/NGT_OptimalCalibrations-SAKURA_HLTTestStand-Demonstrator_Workflow-DataFlowSSDs.svg)
