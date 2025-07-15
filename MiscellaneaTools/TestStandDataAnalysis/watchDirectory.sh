@@ -1,7 +1,9 @@
 #!/bin/bash
-WATCH_DIR=$PWD
-SCRIPT_DIR=$PWD
-CMD="cmsRun $SCRIPT_DIR/convertStreamerToFRD.py filePrepend=file: outputPath=/fff/output/output"
+WATCH_DIR="/fff/ssdcache/sm-c2b13-21-01_ssdcache"
+SCRIPT_DIR="/opt/hltteststand"
+OUTPUT_DIR="/fff/ramdisk"
+
+CMD="cmsRun $SCRIPT_DIR/convertStreamerToFRD.py filePrepend=file: outputPath=$OUTPUT_DIR"
 TIMESTAMP="awk '{print strftime(\"%Y-%m-%d %H:%M:%S\"), \$0}'"
 
 echo "Monitoring directory: $WATCH_DIR" | eval $TIMESTAMP
@@ -30,7 +32,7 @@ while true; do
           sleep 1
         done
 
-        echo "New stable streamer file detected: $f" | eval $TIMESTAMP
+        #echo "New stable streamer file detected: $f" | eval $TIMESTAMP
         seenfiles+=("$f")
 
         RUN_NUMBER=${f#run} # FIXME: runNumber to be retrieved from DAQ instead of file name
@@ -39,21 +41,21 @@ while true; do
         LOGFILE="$SCRIPT_DIR/logs/convertStreamerToFRD_${f%.dat}.log"
         CMD_FULL="$CMD inputFiles=$FULL_PATH runNumber=$RUN_NUMBER"
 
-	echo "Clearing cache..." | eval "$TIMESTAMP"
-	sync
-	echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null
+	#echo "Clearing cache..." | eval "$TIMESTAMP"
+	#sync
+	#echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null
 
 	(
           echo "Running command: $CMD_FULL" | eval $TIMESTAMP
-          $CMD_FULL >& "$LOGFILE" && \
-          echo "Conversion completed. Deleting file $f and output FRD files." | eval "$TIMESTAMP" && \
+          $CMD_FULL && \
+          echo "Conversion completed. Deleting input streamer file $f." | eval "$TIMESTAMP" && \
 	  sleep 5 && \
-          rm "$WATCH_DIR/$f" && \
-          rm /fff/output/output/run*/${f%%_stream*}_index*.raw
+          rm "$WATCH_DIR/$f"
+          #rm "$OUTPUT_DIR/run*/${f%%_stream*}_index*.raw"
         ) &
       fi
     done
     FILES="$NEWFILES"
   fi
-  sleep 3
+  sleep 2
 done
