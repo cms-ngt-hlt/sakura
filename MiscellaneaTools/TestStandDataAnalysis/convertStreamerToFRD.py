@@ -126,7 +126,8 @@ process.out = cms.OutputModule("RawStreamFileWriterForBU", # DAQ FRD (.raw)
   source = cms.InputTag(options.rawDataCollection), # default: "rawDataCollector"
   numEventsPerFile = cms.uint32(options.eventsPerFile),
   frdVersion = cms.uint32(6),
-  frdFileVersion = cms.uint32(options.frdFileVersion) # default: 1
+  frdFileVersion = cms.uint32(options.frdFileVersion), # default: 1
+  writeEoR = cms.untracked.bool(False)
 )
 
 process.endpath = cms.EndPath(process.out)
