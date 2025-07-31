@@ -1,0 +1,6 @@
+{
+    "evbHostName": "rubu-c2b13-23-01.cms",
+    "fuWhitelist": [ "hilton-c2b14-45-01.cms" ],
+    "fuBlacklist": [ ],
+    "listOfActiveRUs": [ ] 
+}

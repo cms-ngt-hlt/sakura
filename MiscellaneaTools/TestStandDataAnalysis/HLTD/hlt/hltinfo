@@ -1,0 +1,8 @@
+{
+   "isGlobalRun": false,
+   "daqSystem": "cdaq3",
+   "daqInstance": "global",
+   "fuGroup": "FUGroup0",
+   "className": "evb::BU",
+   "classInstance": "2"
+}
