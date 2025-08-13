@@ -1,7 +1,11 @@
 #!/bin/bash
-WATCH_DIR="/fff/ssdcache/sm-c2b13-21-01_ssdcache/mergeMacro/run395570/streamLocalTestDataRaw/data"
+WATCH_DIR="/fff/ssdcache/sm-c2b13-21-01_ssdcache/mergeMacro"
 SCRIPT_DIR="/opt/hltteststand"
 OUTPUT_DIR="/fff/ramdisk"
+LOG_DIR="/tmp/conversion"
+STREAM="LocalTestDataRaw"
+
+mkdir -p "$LOG_DIR"
 
 CMD="cmsRun $SCRIPT_DIR/convertStreamerToFRD.py filePrepend=file: outputPath=$OUTPUT_DIR"
 TIMESTAMP="awk '{print strftime(\"%Y-%m-%d %H:%M:%S\"), \$0}'"
@@ -17,41 +21,56 @@ is_file_stable() {
   [[ "$last_size" -eq "$new_size" ]]
 }
 
-FILES=`ls -t "$WATCH_DIR"`
-seenfiles=($FILES)
+NEWEST_DIR=""
+FILES=""
+seenfiles=()
+seenruns=()
 
 while true; do
-  NEWFILES=`ls -t "$WATCH_DIR"`
-  if [ "$NEWFILES" != "$FILES" ]; then
-    for f in $NEWFILES; do
-      if [[ ! " ${seenfiles[*]} " =~ " $f " && "$f" == *.dat ]]; then
-	FULL_PATH="$WATCH_DIR/$f"
+  NEW_DIR=$(ls -td "$WATCH_DIR"/run*/stream"$STREAM"/data 2>/dev/null | head -n1)
 
-        echo "New streamer file detected: $f" | eval $TIMESTAMP
-        until is_file_stable "$FULL_PATH"; do
-          sleep 1
-        done
+  if [[ -n "$NEW_DIR" && ! " ${seenruns[*]} " =~ " $NEW_DIR " && -d "$NEW_DIR" ]]; then
+    echo "New run directory detected: $NEW_DIR" | eval $TIMESTAMP
+    NEWEST_DIR="$NEW_DIR"
+    seenruns+=("$NEWEST_DIR")
+    seenfiles=()
+    FILES=""
+  fi
 
-        #echo "New stable streamer file detected: $f" | eval $TIMESTAMP
-        seenfiles+=("$f")
+  if [[ -n "$NEWEST_DIR" ]]; then
+    NEWFILES=$(ls -t "$NEWEST_DIR"/*.dat 2>/dev/null)
 
-        RUN_NUMBER=${f#run} # FIXME: runNumber to be retrieved from DAQ instead of file name
-        RUN_NUMBER=${RUN_NUMBER%%_*}
+    if [ "$NEWFILES" != "$FILES" ]; then
+      for f in $NEWFILES; do
+        fname=$(basename "$f")
+        if [[ ! " ${seenfiles[*]} " =~ " $fname " && "$fname" == *.dat ]]; then
 
-        LOGFILE="$SCRIPT_DIR/logs/convertStreamerToFRD_${f%.dat}.log"
-        CMD_FULL="$CMD inputFiles=$FULL_PATH runNumber=$RUN_NUMBER"
+          until is_file_stable "$f"; do
+            sleep 1
+          done
 
-	(
-          echo "Running command: $CMD_FULL" | eval $TIMESTAMP
-          $CMD_FULL && \
-          echo "Conversion completed. Deleting input streamer file $f." | eval "$TIMESTAMP" && \
-          ./addMissingEoLS.sh $RUN_NUMBER && \
-          sleep 5 && \
-          rm "$WATCH_DIR/$f"
-        ) &
-      fi
-    done
-    FILES="$NEWFILES"
+          echo "New streamer file detected: $fname" | eval $TIMESTAMP
+          seenfiles+=("$fname")
+
+	  RUN_NUMBER_DIR=$(basename "$(dirname "$(dirname "$NEWEST_DIR")")")
+          RUN_NUMBER=${RUN_NUMBER_DIR#run}
+
+          LOGFILE="$LOG_DIR/convertStreamerToFRD_${fname%.dat}.log"
+          CMD_FULL="$CMD inputFiles=$f runNumber=$RUN_NUMBER"
+
+          (
+            echo "Running command: $CMD_FULL" | eval $TIMESTAMP >> "$LOGFILE" &&
+            $CMD_FULL >& "$LOGFILE" && 
+            echo "Conversion completed. Deleting input streamer file $fname." | eval "$TIMESTAMP" >> "$LOGFILE" &&
+            ./addMissingEoLS.sh $RUN_NUMBER &&
+            # addMissingEoLS.sh only required for test runs not starting from LS = 1
+            sleep 5 &&
+            rm "$f"
+          ) &
+        fi
+      done
+      FILES="$NEWFILES"
+    fi
   fi
   sleep 2
 done
