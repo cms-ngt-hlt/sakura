@@ -118,8 +118,8 @@ process.EvFDaqDirector = cms.Service("EvFDaqDirector",
   buBaseDir = cms.untracked.string(options.outputPath),
   directorIsBU = cms.untracked.bool(True),
   useFileBroker = cms.untracked.bool(False), # NOTE: no need for file broker
-  fileBrokerHost = cms.untracked.string("")
-  #hltSourceDirectory = cms.untracked.string("/tmp/hlt/"), # HLTD picks up HLT configuration and fffParameters.jsn from hltSourceDirectory (copied by newHiltonMenu.py)
+  fileBrokerHost = cms.untracked.string(""),
+  hltSourceDirectory = cms.untracked.string("/opt/hltteststand/hlt"), # HLTD picks up HLT configuration and fffParameters.jsn from hltSourceDirectory
 )
 
 process.out = cms.OutputModule("RawStreamFileWriterForBU", # DAQ FRD (.raw)

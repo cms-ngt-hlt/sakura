@@ -1,5 +1,5 @@
 #!/bin/bash
-WATCH_DIR="/fff/ssdcache/sm-c2b13-21-01_ssdcache"
+WATCH_DIR="/fff/ssdcache/sm-c2b13-21-01_ssdcache/mergeMacro/run395570/streamLocalTestDataRaw/data"
 SCRIPT_DIR="/opt/hltteststand"
 OUTPUT_DIR="/fff/ramdisk"
 
@@ -41,17 +41,13 @@ while true; do
         LOGFILE="$SCRIPT_DIR/logs/convertStreamerToFRD_${f%.dat}.log"
         CMD_FULL="$CMD inputFiles=$FULL_PATH runNumber=$RUN_NUMBER"
 
-	#echo "Clearing cache..." | eval "$TIMESTAMP"
-	#sync
-	#echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null
-
 	(
           echo "Running command: $CMD_FULL" | eval $TIMESTAMP
           $CMD_FULL && \
           echo "Conversion completed. Deleting input streamer file $f." | eval "$TIMESTAMP" && \
-	  sleep 5 && \
+          ./addMissingEoLS.sh $RUN_NUMBER && \
+          sleep 5 && \
           rm "$WATCH_DIR/$f"
-          #rm "$OUTPUT_DIR/run*/${f%%_stream*}_index*.raw"
         ) &
       fi
     done
