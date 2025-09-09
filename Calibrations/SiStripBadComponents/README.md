@@ -1,4 +1,4 @@
-### How to run the modifications
+# How to run the modifications
 ## Environment
 To set up the area and get Marco's branch:
 
@@ -13,21 +13,21 @@ scram b -j
 
 ## Get payloads
 Here the recipe to use the scripts
-# AlcaProducer
+### AlcaProducer
 To get the AlcaProducer steps, using step2.sh:
 ```
 ./step2.sh
 ```
-which as an output will give `step2.root` and `expressStep2_RAW2DIGI_RECO_ALCAPRODUCER.py` (which is the file that will is executed within the bash script.
+which as an output will give `step2.root` and `expressStep2_RAW2DIGI_RECO_ALCAPRODUCER.py` (which is the file that will is executed within the bash script. It will also produce a timing file `timing_tracking_upperbound_s2.json` which can be then redirected to own website directory and viewed with circles.
 
-# AlcaOutput
+### AlcaOutput
 One can simply use the script again:
 ```
 ./step3.sh
 ```
-which as an output will give `step3_ALCAOUTPUT_ALCA.py` (which is executed within the script) and one it's executed, it will give out several `*.root` and `*.dat`. `PromptCalibProd.root` is related to BeamSpot while `SiStripQualit.root` and `PromptCalibProdSiStrip.root` is related to SiStripQuality.
+which as an output will give `step3_ALCAOUTPUT_ALCA.py` (which is executed within the script) and one it's executed, it will give out several `*.root` and `*.dat`. `PromptCalibProd.root` is related to BeamSpot while `SiStripQualit.root` and `PromptCalibProdSiStrip.root` is related to SiStripQuality. We also perform timing measurements here `timing_tracking_upperbound_s3.json`.
 
-# AlcaHarvest
+### AlcaHarvest
 This last step produces the `.db`-files from which we can read the payloads from ! 
 
 ```
