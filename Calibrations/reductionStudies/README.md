@@ -12,7 +12,7 @@ scram b -j
 ```
 
 ## Get payloads
-Here the recipe to use the scripts
+Here the recipe to use the scripts. There are three step2 and step3 scripts each. `nomod` referes to the upperbound, where no modifications have been made to the reconstruction. `mod` referes to modification made to the reconstruction, where we only run the first few iterations of the reconstruction (via `trackingIters01`). In `onlyTracking`, we remove everything related to muons, so have mostly tracking (we still include the modifications earlier of `trackingIters01`).
 ### AlcaProducer
 To get the AlcaProducer steps, using step2.sh:
 ```
