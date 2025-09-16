@@ -1,0 +1,9 @@
+executable            = runExpress.sh
+arguments             = $(ProcId)
+output                = output/hello.$(ClusterId).$(ProcId).out
+error                 = error/hello.$(ClusterId).$(ProcId).err
+log                   = log/hello.$(ClusterId).log
+MY.WantOS = "el8"
++JobFlavour = "tomorrow"
+RequestCpus = 8
+queue 18
