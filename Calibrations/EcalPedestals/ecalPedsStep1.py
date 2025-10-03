@@ -2,12 +2,12 @@
 # using: 
 # Revision: 1.19 
 # Source: /local/reps/CMSSW/CMSSW/Configuration/Applications/python/ConfigBuilder.py,v 
-# with command line options: expressStep2 --conditions 150X_dataRun3_Express_v2 -s RAW2DIGI,RECO,ALCAPRODUCER:EcalTestPulsesRaw --datatier ALCARECO --eventcontent ALCARECO --data --process RECO --scenario pp --era Run3 --nThreads 8 --nStreams 8 -n -1 --filein file:outputLocalTestDataRaw.root --fileout file:step2.root --no_exec --python_filename ecalPedsStep1.py
+# with command line options: expressStep2 --conditions 150X_dataRun3_Express_v2 -s RAW2DIGI,RECO,ALCAPRODUCER:EcalTestPulsesRaw --datatier ALCARECO --eventcontent ALCARECO --data --process RERECO --scenario pp --era Run3 --nThreads 8 --nStreams 8 -n -1 --filein file:/eos/cms/store/data/Run2025F/TestEnablesEcalHcal/RAW/Express-v1/000/397/368/00000/c38e47fd-8d7d-4f30-ab3d-08d14bb0432e.root --fileout file:step2.root --no_exec --python_filename ecalPedsStep1.py
 import FWCore.ParameterSet.Config as cms
 
 from Configuration.Eras.Era_Run3_cff import Run3
 
-process = cms.Process('RECO',Run3)
+process = cms.Process('RERECO',Run3)
 
 # import of standard configurations
 process.load('Configuration.StandardSequences.Services_cff')
@@ -29,7 +29,7 @@ process.maxEvents = cms.untracked.PSet(
 
 # Input source
 process.source = cms.Source("PoolSource",
-    fileNames = cms.untracked.vstring('file:outputLocalTestDataRaw.root'),
+    fileNames = cms.untracked.vstring('file:/eos/cms/store/data/Run2025F/TestEnablesEcalHcal/RAW/Express-v1/000/397/368/00000/c38e47fd-8d7d-4f30-ab3d-08d14bb0432e.root'),
     secondaryFileNames = cms.untracked.vstring()
 )
 
@@ -122,6 +122,3 @@ process = customiseEarlyDelete(process)
 process.load('HLTrigger.Timer.FastTimerService_cfi')
 process.FastTimerService.writeJSONSummary = True
 process.FastTimerService.jsonFileName = "timing_ECALpeds.json"
-process.ALCARECOEcalTestPulsesRawHLT.HLTPaths=['HLT_EcalCalibration_v*','HLT_HcalCalibration_v*']
-process.OutALCARECOEcalTestPulsesRaw.outputCommands = cms.untracked.vstring('keep  FEDRawDataCollection_*_*_*',
-                                        'keep  edmTriggerResults_*_*_*')

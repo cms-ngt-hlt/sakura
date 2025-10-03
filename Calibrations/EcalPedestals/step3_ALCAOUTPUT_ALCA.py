@@ -2,7 +2,7 @@
 # using: 
 # Revision: 1.19 
 # Source: /local/reps/CMSSW/CMSSW/Configuration/Applications/python/ConfigBuilder.py,v 
-# with command line options: step3 --conditions 150X_dataRun3_Express_v2 -s ALCAOUTPUT:EcalTestPulsesRaw,ALCA:PromptCalibProdEcalPedestals --datatier ALCARECO --eventcontent ALCARECO --triggerResultsProcess RECO -n -1 --filein file:step2.root --no_exec --fileout file:step3.root
+# with command line options: step3 --conditions 150X_dataRun3_Express_v2 -s ALCAOUTPUT:EcalTestPulsesRaw,ALCA:PromptCalibProdEcalPedestals --datatier ALCARECO --eventcontent ALCARECO --triggerResultsProcess RERECO -n -1 --filein file:step2.root --no_exec --fileout file:step3.root
 import FWCore.ParameterSet.Config as cms
 
 
@@ -75,7 +75,7 @@ process.configurationMetadata = cms.untracked.PSet(
 # Additional output definition
 process.ALCARECOStreamEcalTestPulsesRaw = cms.OutputModule("PoolOutputModule",
     SelectEvents = cms.untracked.PSet(
-        SelectEvents = cms.vstring('pathALCARECOEcalTestPulsesRaw:RECO')
+        SelectEvents = cms.vstring('pathALCARECOEcalTestPulsesRaw:RERECO')
     ),
     dataset = cms.untracked.PSet(
         dataTier = cms.untracked.string('ALCARECO'),
@@ -133,3 +133,4 @@ process.options.numberOfThreads = 8
 process.load('HLTrigger.Timer.FastTimerService_cfi')
 process.FastTimerService.writeJSONSummary = True
 process.FastTimerService.jsonFileName = "timing_ECALpeds_ALCAOUTPUT.json"
+process.ALCARECOEcalTestPulsesRaw.TriggerResultsTag = cms.InputTag("TriggerResults", "", "RERECO")
