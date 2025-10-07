@@ -1,6 +1,8 @@
 #!/bin/bash
 
-file_list='file:/eos/cms/store/data/Run2025F/TestEnablesEcalHcal/RAW/Express-v1/000/397/368/00000/c38e47fd-8d7d-4f30-ab3d-08d14bb0432e.root'
+#file_list='file:/eos/cms/store/data/Run2025F/TestEnablesEcalHcal/RAW/Express-v1/000/397/321/00000/*'
+file_list=$(xrdfs root://eoscms.cern.ch ls /eos/cms/store/data/Run2025F/TestEnablesEcalHcal/RAW/Express-v1/000/397/621/00000/ | sed 's|^|file:|g' | tr '\n' ',')
+
 
 cmsDriver.py expressStep2 \
              --conditions 150X_dataRun3_Express_v2 \
