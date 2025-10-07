@@ -1,8 +1,10 @@
 #!/bin/bash
 
 #file_list='file:/eos/cms/store/data/Run2025F/TestEnablesEcalHcal/RAW/Express-v1/000/397/321/00000/*'
-file_list=$(xrdfs root://eoscms.cern.ch ls /eos/cms/store/data/Run2025F/TestEnablesEcalHcal/RAW/Express-v1/000/397/621/00000/ | sed 's|^|file:|g' | tr '\n' ',')
-
+#file_list=$(xrdfs root://eoscms.cern.ch ls /eos/cms/store/data/Run2025F/TestEnablesEcalHcal/RAW/Express-v1/000/397/621/00000/ | sed 's|^|file:|g' | tr '\n' ',')
+dataset="/TestEnablesEcalHcal/Run2025F-Express-v1/RAW"
+run="397621"
+file_list=$(dasgoclient -query="file dataset=$dataset run=$run" | paste -sd,)
 
 cmsDriver.py expressStep2 \
              --conditions 150X_dataRun3_Express_v2 \
