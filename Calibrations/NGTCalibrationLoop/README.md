@@ -2,6 +2,10 @@
 
 (Still a pre-Alpha version, nothing actually works)
 
+## Prerequisites
+
+The `transitions` package. Install it with `pip` or `conda`.
+
 ## Instructions
 
 Run the loop with
