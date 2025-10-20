@@ -28,7 +28,7 @@ Currently, it is set to run the ECALPedestals.
 In `ngtcalfu-c2b03-43-01`:
 ```
 source /opt/offline/cmsset_default.sh
-cmsrel CMSSW_15_0_15
+cmsrel CMSSW_15_0_15_patch4
 cd CMSSW_15_0_15_patch4/src
 cmsenv
 # Follow the setup to be able to use pip in the online machines
