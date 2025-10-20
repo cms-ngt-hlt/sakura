@@ -10,7 +10,6 @@ from pathlib import Path
 
 from transitions import Machine, State
 
-
 class NGTLoopStep2(object):
 
     # Define some states.
@@ -56,10 +55,31 @@ class NGTLoopStep2(object):
         return weAreRunning
 
     # FIXME: Dummy
+    # def GetRunNumber(self):
+    #     targetPath = Path(self.pathWhereFilesAppear)
+    #     print(targetPath)
+    #     fileFound = next(targetPath.glob("*.root")).name
+    #     print(fileFound)
+    #     #runNumber = int(fileFound[3:9])
+    #     return runNumber
+
     def GetRunNumber(self):
         targetPath = Path(self.pathWhereFilesAppear)
-        fileFound = next(targetPath.glob("run*_ls*.root")).name
-        runNumber = int(fileFound[3:9])
+        print(targetPath)
+        fileFound = next(targetPath.glob("*.root")).name
+        print(fileFound)
+
+         # Build edmFileUtil command
+        full_path = f"file:{targetPath}/{fileFound}"
+        cmd = ["edmFileUtil", full_path, "--eventsInLumi"]
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        # Search for run number pattern in output (line starting with spaces + digits)
+        match = re.search(r'^\s*(\d{6})\s+', result.stdout, re.MULTILINE)
+        if not match:
+            raise RuntimeError(f"Could not parse run number from edmFileUtil output:\n{result.stdout}")
+        runNumber = int(match.group(1))
+
         return runNumber
 
     def CheckLSForProcessing(self):
@@ -67,8 +87,16 @@ class NGTLoopStep2(object):
         ### This could be a Luigi task, for instance
         # Do something to check if there are LS to process
         listOfLSFilesAvailable = self.GetListOfAvailableFiles()
+
+        print("listOfLSFilesAvailable", [str(p) for p in listOfLSFilesAvailable])
+        print(50*"*")
+                
         self.setOfLSObserved = self.setOfLSObserved.union(listOfLSFilesAvailable)
         self.setOfLSToProcess = listOfLSFilesAvailable - self.setOfLSProcessed
+
+        print("self.setOfLSToProcess",[str(p) for p in self.setOfLSToProcess])
+        print(50*"*")
+        
         self.waitingLS = len(self.setOfLSToProcess) > 0
         print("New LSs to process:")
         print(self.setOfLSToProcess)
@@ -81,7 +109,7 @@ class NGTLoopStep2(object):
     # files of the form "run*_ls*.root". Could be made smarter if needed
     def GetListOfAvailableFiles(self):
         targetPath = self.pathWhereFilesAppear
-        listOfAvailableFiles = set(list(Path(targetPath).glob("run*_ls*.root")))
+        listOfAvailableFiles = set(list(Path(targetPath).glob("*.root")))
         return listOfAvailableFiles
 
     def ExecutePrepareLS(self):
@@ -110,8 +138,33 @@ class NGTLoopStep2(object):
 
         # Extract all LS numbers (as integers)
         str_paths = {"file:" + str(p) for p in self.setOfLSToProcess}
-        ls_numbers = [int(re.search(r"ls(\d{4})", path).group(1)) for path in str_paths]
+        
+        ls_numbers = set()  # use a set to avoid duplicates
 
+        for file_path in str_paths:
+            print(str_paths)
+            cmd = ["edmFileUtil", f"{file_path}", "--eventsInLumi"]
+            print(cmd)
+            
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    
+            if result.returncode != 0:
+                print(f"edmFileUtil failed for") # {file_path}:\n{result.stderr}")
+                continue
+
+            # Find lumisection numbers -- second column in output table
+            # Example line: "         398348            187           2268"
+            for match in re.finditer(r'^\s*\d+\s+(\d+)\s+', result.stdout, re.MULTILINE):
+                ls_numbers.add(int(match.group(1)))
+
+        # Convert to sorted list if you want
+        ls_numbers = sorted(ls_numbers)
+
+        print(f"Found {len(ls_numbers)} unique lumisections:")
+        print(ls_numbers)
+        
+        #ls_numbers = [int(re.search(r"ls(\d{4})", path).group(1)) for path in str_paths]
+        
         # Compute min and max, then format back
         min_ls = min(ls_numbers, default=None)
         max_ls = max(ls_numbers, default=None)
@@ -243,7 +296,7 @@ class NGTLoopStep2(object):
         self.requestMinimumLS = True
         self.waitingLS = False
         self.enoughLS = False
-        self.pathWhereFilesAppear = "/tmp/tomei/input/"
+        self.pathWhereFilesAppear = "/eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/398/348/00000"
         self.workingDir = "/dev/null"
         self.preparedFinalLS = False
 
