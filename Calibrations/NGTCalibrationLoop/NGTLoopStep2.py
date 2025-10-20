@@ -113,7 +113,7 @@ class NGTLoopStep2(object):
         min_ls = min(ls_numbers, default=None)
         max_ls = max(ls_numbers, default=None)
         affix = f"LS{min_ls:04d}To{max_ls:04d}"
-        outputFileName = f"file:run{self.runNumber}_{affix}_step2.root"
+        outputFileName = f"run{self.runNumber}_{affix}_step2.root"
 
         # Here we should have some logic that prepares the Express jobs
         # Probably should have a call to cmsDriver
@@ -140,7 +140,7 @@ class NGTLoopStep2(object):
             # some massaging to go from PosixPath to string
             str_paths = {"file:" + str(p) for p in self.setOfLSToProcess}
             f.write(",".join(str_paths))
-            f.write(f" --fileout {outputFileName} --no_exec ")
+            f.write(f" --fileout file:{outputFileName} --no_exec ")
             f.write(
                 f"--python_filename run{self.runNumber}_{affix}_ecalPedsStep2.py\n\n"
             )
@@ -200,7 +200,7 @@ class NGTLoopStep2(object):
                     f.write(str(LS) + "\n")
             with open(self.workingDir + "/expectedOutputs.log", "w") as f:
                 for output in self.setOfExpectedOutputs:
-                    f.write(output + "\n")
+                    f.write("file:" + output + "\n")
             # And launch step3
             with open(self.workingDir + "/ALCAOUTPUT.sh", "w") as f:
                 f.write("#!/bin/bash -ex\n\n")
