@@ -28,8 +28,8 @@ Currently, it is set to run the ECALPedestals.
 In `ngtcalfu-c2b03-43-01`:
 ```
 source /opt/offline/cmsset_default.sh
-cmsrel CMSSW_15_0_14
-cd CMSSW_15_0_14_patch4/src
+cmsrel CMSSW_15_0_15
+cd CMSSW_15_0_15_patch4/src
 cmsenv
 # Follow the setup to be able to use pip in the online machines
 git clone git@github.com:cms-ngt-hlt/sakura.git
