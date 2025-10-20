@@ -2,14 +2,14 @@
 
 (Alpha version, just the first part of the loop (Express reconstruction) works.
 
-    ## Prerequisites
+## Prerequisites
 
     The `transitions` package. Install it with `pip` or `conda`. You can install it locally with
     ```
     pip3 install --user transitions
     ```
 
-    ## Overview
+## Overview
 
     The loop is modeled as a finite state machine (FSM). It has the following states
     - "NotRunning"
@@ -23,7 +23,7 @@
 
     Currently, it is set to run the ECALPedestals
 
-    ## Fast instructions
+## Fast instructions
 
     In `ngtcalfu-c2b03-43-01`:
     ```
@@ -57,7 +57,7 @@
 
     The whole output should appear in `/tmp/ngt/run396925/`
     
-    ## Explanation
+## Explanation
 
     Run the loop with
     ```
@@ -79,6 +79,6 @@
 
     Finally, we move to the "CleanupState". Here, if we came through the "PreparingFinalLS" state, that means that we just launched the last of the Express jobs. We write two log files: `allLSProcessed.log` with the name of all LS processed, and `expectedOutputs.log` with the name of all expected "step2" files. These are of the form "runXXXXXX_LSAAAAToBBBB_step2.root". We write a final script `ALCAOUTPUT.sh` that should run the step3 (FIXME: maybe this logic should belong to the next loop?). All of that is in the working directory, that currently is hardcoded as `/tmp/ngt/run386925/` (FIXME: should write it dinamically according to the run number).
         
-    ## TODO
+## TODO
     - Address all the FIXMEs above
     - Implement the second part of the loop
