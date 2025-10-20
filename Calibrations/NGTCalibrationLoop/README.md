@@ -76,4 +76,5 @@ Finally, we move to the "CleanupState". Here, if we came through the "PreparingF
         
 ## TODO
  - Address all the FIXMEs above
+ - Implement some kind of infrastructure such that the loop is always running (maybe give control to it to `systemd`?)
  - Implement the second part of the loop
