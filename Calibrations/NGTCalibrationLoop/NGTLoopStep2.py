@@ -57,7 +57,10 @@ class NGTLoopStep2(object):
 
     # FIXME: Dummy
     def GetRunNumber(self):
-        return 386925
+        targetPath = Path(self.pathWhereFilesAppear)
+        fileFound = next(targetPath.glob("run*_ls*.root")).name
+        runNumber = int(fileFound[3:9])
+        return runNumber
 
     def CheckLSForProcessing(self):
         print("I am in CheckLSForProcessing...")
