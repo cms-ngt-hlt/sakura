@@ -1,21 +1,21 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-from transitions import Machine, State
-import random
-import time
-from pathlib import Path
-import subprocess
+import json
 import re
-import tempfile
+import subprocess
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+from transitions import Machine, State
+
 
 class NGTLoopStep2(object):
 
     # Define some states.
     states = [
-        State(
-            name="NotRunning", on_enter="ResetTheMachine", on_exit="ExecuteRunStart"
-        ),
+        State(name="NotRunning", on_enter="ResetTheMachine", on_exit="ExecuteRunStart"),
         State(name="WaitingForLS", on_enter="AnnounceWaitingForLS"),
         State(name="CheckingLSForProcess", on_enter="CheckLSForProcessing"),
         State(name="PreparingLS", on_enter="ExecutePrepareLS"),
@@ -28,9 +28,13 @@ class NGTLoopStep2(object):
     def ExecuteRunStart(self):
         runNumber = self.runNumber
         print(f"Run {runNumber} has started!")
-        p = Path(f"/tmp/run{runNumber}")
+        # We live in directory /tmp/ngt.
+        p = Path(f"/tmp/ngt/run{runNumber}")
         p.mkdir(parents=True, exist_ok=True)
         self.workingDir = str(p)
+        # We assert the run start time for us as "now" in UTC
+        with open(self.workingDir + "/runStart.log", "w") as f:
+            f.write(datetime.now(timezone.utc).isoformat())
 
     def AnnounceWaitingForLS(self):
         print("I am WaitingForLS...")
@@ -38,7 +42,7 @@ class NGTLoopStep2(object):
     def AnnounceRunStop(self):
         print("The run stopped...")
 
-    # FIXME: to be substituted with some code to check if DAQ is running    
+    # FIXME: to be substituted with some code to check if DAQ is running
     # Right now we have a dummy check!
     # Should also check if the run is good for runs (e.g. only pp run?)
     def DAQIsRunning(self):
@@ -54,7 +58,7 @@ class NGTLoopStep2(object):
     # FIXME: Dummy
     def GetRunNumber(self):
         return 386925
-    
+
     def CheckLSForProcessing(self):
         print("I am in CheckLSForProcessing...")
         ### This could be a Luigi task, for instance
@@ -76,65 +80,74 @@ class NGTLoopStep2(object):
         targetPath = self.pathWhereFilesAppear
         listOfAvailableFiles = set(list(Path(targetPath).glob("run*_ls*.root")))
         return listOfAvailableFiles
-    
+
     def ExecutePrepareLS(self):
-        print("I am PreparingLS") 
+        print("I am PreparingLS")
         self.PrepareLSForProcessing()
 
     def ExecutePrepareFinalLS(self):
-        print("I am PreparingFinalLS") 
+        print("I am PreparingFinalLS")
         self.PrepareLSForProcessing()
         # Since this is final LS, they have to be enough!
         self.preparedFinalLS = True
-        
+
     def PrepareLSForProcessing(self):
         print("I am in PrepareLSForProcessing...")
         print("Will use the following LS:")
         print(self.setOfLSToProcess)
-        
+
     def PrepareExpressJobs(self):
         print("I am in PrepareExpressjobs...")
-        
+
+        # We may arrive here without a self.setOfLSToProcess if
+        # the run started and ended without producing LS.
+        # In that case, nothing to do
+        if not self.setOfLSToProcess:
+            return
+
         # Extract all LS numbers (as integers)
-        str_paths = {"file:"+str(p) for p in self.setOfLSToProcess}
-        ls_numbers = [
-            int(re.search(r"ls(\d{4})", path).group(1))
-            for path in str_paths
-        ]
+        str_paths = {"file:" + str(p) for p in self.setOfLSToProcess}
+        ls_numbers = [int(re.search(r"ls(\d{4})", path).group(1)) for path in str_paths]
 
         # Compute min and max, then format back
-        min_ls = min(ls_numbers)
-        max_ls = max(ls_numbers)
+        min_ls = min(ls_numbers, default=None)
+        max_ls = max(ls_numbers, default=None)
         affix = f"LS{min_ls:04d}To{max_ls:04d}"
-        
+        outputFileName = f"file:run{self.runNumber}_{affix}_step2.root"
+
         # Here we should have some logic that prepares the Express jobs
         # Probably should have a call to cmsDriver
         # There are better ways to do this, but right now I just do it with a file
 
-        with open(self.workingDir+"/cmsDriver.sh", "w") as f:
+        with open(self.workingDir + "/cmsDriver.sh", "w") as f:
             # Do we actually need to set the environment like this every time?
             f.write("#!/bin/bash -ex\n\n")
-            f.write("export $SCRAM_ARCH=el8_amd64_gcc12\n")
-            f.write("cmsrel CMSSW_15_0_12\n")
-            f.write("cd CMSSW_15_0_12/src\n")
+            f.write(f"export $SCRAM_ARCH={self.scramArch}\n")
+            f.write(f"cmsrel {self.cmsswVersion}\n")
+            f.write(f"cd {self.cmsswVersion}/src\n")
             f.write("cmsenv\n")
             f.write("cd -\n\n")
             # Now we do the cmsDriver.py proper
-            f.write("cmsDriver.py expressStep2 --conditions 150X_dataRun3_Express_v2 "+
-                    "-s RAW2DIGI,RECO,ALCAPRODUCER:EcalTestPulsesRaw " +
-                    "--datatier ALCARECO --eventcontent ALCARECO --data --process RERECO "+
-                    "--scenario pp --era Run3 "+
-                    "--nThreads 8 --nStreams 8 -n -1 ")
+            f.write(f"cmsDriver.py expressStep2 --conditions {self.globalTag} ")
+            f.write(
+                " -s RAW2DIGI,RECO,ALCAPRODUCER:EcalTestPulsesRaw "
+                + "--datatier ALCARECO --eventcontent ALCARECO --data --process RERECO "
+                + "--scenario pp --era Run3 "
+                + "--nThreads 8 --nStreams 8 -n -1 "
+            )
             # and we pass the list of LS to process (self.setOfLSToProcess)
             f.write("--filein ")
             # some massaging to go from PosixPath to string
-            str_paths = {"file:"+str(p) for p in self.setOfLSToProcess}
+            str_paths = {"file:" + str(p) for p in self.setOfLSToProcess}
             f.write(",".join(str_paths))
-            f.write(f" --fileout file:run{self.runNumber}_{affix}_step2.root --no_exec ")
-            f.write(f"--python_filename run{self.runNumber}_{affix}_ecalPedsStep1.py\n\n")
-            f.write(f"cmsRun run{self.runNumber}_{affix}_ecalPedsStep1.py &\n")
+            f.write(f" --fileout {outputFileName} --no_exec ")
+            f.write(
+                f"--python_filename run{self.runNumber}_{affix}_ecalPedsStep2.py\n\n"
+            )
+            f.write(f"cmsRun run{self.runNumber}_{affix}_ecalPedsStep2.py &\n")
 
         self.setOfExpressLS = self.setOfLSToProcess
+        self.setOfExpectedOutputs.add(self.workingDir + "/" + outputFileName)
         self.setOfLSToProcess = set()
 
     def LaunchExpressJobs(self):
@@ -174,37 +187,83 @@ class NGTLoopStep2(object):
 
     def WePreparedFinalLS(self):
         return self.preparedFinalLS
-    
+
     def ExecuteCleanup(self):
         print("I am in ExecuteCleanup")
         if self.preparedFinalLS:
-            print("We prepared Final LS, resetting the machine...")
-            ### We actually have to reset the machine when we go to not running!
-            #self.ResetTheMachine()
-            
+            print("We prepared Final LS, will reset the machine...")
+            # We actually have to reset the machine only when we go to NotRunning!
+
+            # Make a log of everything that we did
+            with open(self.workingDir + "/allLSProcessed.log", "w") as f:
+                for LS in sorted(self.setOfLSProcessed):
+                    f.write(str(LS) + "\n")
+            with open(self.workingDir + "/expectedOutputs.log", "w") as f:
+                for output in self.setOfExpectedOutputs:
+                    f.write(output + "\n")
+            # And launch step3
+            with open(self.workingDir + "/ALCAOUTPUT.sh", "w") as f:
+                f.write("#!/bin/bash -ex\n\n")
+                f.write(f"cd {self.cmsswVersion}/src\n")
+                f.write("cmsenv\n")
+                f.write("cd -\n\n")
+                f.write(f"cmsDriver.py expressStep3 --conditions {self.globalTag} ")
+                f.write(
+                    " -s ALCAOUTPUT:EcalTestPulsesRaw,ALCA:PromptCalibProdEcalPedestals "
+                    + "--datatier ALCARECO --eventcontent ALCARECO "
+                    + "--triggerResultsProcess RERECO "
+                    + "--nThreads 8 --nStreams 8 -n -1 "
+                )
+                # and we pass the list of files that we expected
+                # FIXME: what if any of those cmsRuns failed?
+                f.write("--filein ")
+                str_paths = {p for p in sorted(self.setOfExpectedOutputs)}
+                f.write(",".join(str_paths))
+                f.write(" --no_exec ")
+                f.write(
+                    f"--python_filename run{self.runNumber}_ecalPedsALCAOUTPUT.py\n\n"
+                )
+                # Some massaging to fix the source
+                f.write(f"cat <<@EOF>> run{self.runNumber}_ecalPedsALCAOUTPUT.py\n")
+                f.write(
+                    'process.ALCARECOEcalTestPulsesRaw.TriggerResultsTag = cms.InputTag("TriggerResults", "", "RERECO")\n'
+                )
+                f.write("@EOF\n\n")
+                f.write(f"cmsRun run{self.runNumber}_ecalPedsALCAOUTPUT.py &\n")
+
     def ResetTheMachine(self):
         print("Machine reset!")
         self.runNumber = 0
         self.startTime = 0
         self.minimumLS = 3
+        self.maximumLS = 5
         self.requestMinimumLS = True
         self.waitingLS = False
         self.enoughLS = False
         self.pathWhereFilesAppear = "/tmp/tomei/input/"
         self.workingDir = "/dev/null"
         self.preparedFinalLS = False
-        
+
+        # Read some configurations
+        with open("/tmp/ngt/ngtParameters.jsn", "r") as f:
+            config = json.load(f)
+        self.scramArch = config["SCRAM_ARCH"]
+        self.cmsswVersion = config["CMSSW_VERSION"]
+        self.globalTag = config["GLOBAL_TAG"]
+
         self.setOfLSObserved = set()
         self.setOfLSToProcess = set()
         self.setOfExpressLS = set()
-        self.setOfLSProcessed = set()       
-        
+        self.setOfLSProcessed = set()
+        self.setOfExpectedOutputs = set()
+
     def __init__(self, name):
 
         # No anonymous FSMs in my watch!
         self.name = name
+
         self.ResetTheMachine()
-        
+
         # Initialize the state machine
         self.machine = Machine(
             model=self, states=NGTLoopStep2.states, queued=True, initial="NotRunning"
@@ -225,7 +284,7 @@ class NGTLoopStep2(object):
         self.machine.add_transition(
             trigger="TryStartRun", source="NotRunning", dest=None
         )
-        
+
         # During the loop, maybe we find out we are not running any more
         # In that case, we went through the "PreparingFinalLS" state
         # So we need to check if that happened
@@ -233,22 +292,18 @@ class NGTLoopStep2(object):
             trigger="ContinueAfterCleanup",
             source="CleanupState",
             dest="NotRunning",
-            conditions="WePreparedFinalLS"
+            conditions="WePreparedFinalLS",
         )
         # Otherwise, we go back to WaitingForLS
         self.machine.add_transition(
-            trigger="ContinueAfterCleanup",
-            source="CleanupState",
-            dest="WaitingForLS"
+            trigger="ContinueAfterCleanup", source="CleanupState", dest="WaitingForLS"
         )
 
         # This is the inner loop. We go from "WaitingForLS"
         # to the "CheckingLSForProcess", and from there we
         # will go to one of three states
         self.machine.add_transition(
-            trigger="TryProcessLS",
-            source="WaitingForLS",
-            dest="CheckingLSForProcess"
+            trigger="TryProcessLS", source="WaitingForLS", dest="CheckingLSForProcess"
         )
 
         # If we have enough LS, we go to PreparingLS
@@ -265,15 +320,15 @@ class NGTLoopStep2(object):
             trigger="ContinueAfterCheckLS",
             source="CheckingLSForProcess",
             dest="WaitingForLS",
-            conditions="DAQIsRunning"
+            conditions="DAQIsRunning",
         )
-        
+
         # If we don't have enough LS, and we are not still running,
         # no more LS will come. We go to PreparingFinalLS
         self.machine.add_transition(
             trigger="ContinueAfterCheckLS",
             source="CheckingLSForProcess",
-            dest="PreparingFinalLS"
+            dest="PreparingFinalLS",
         )
 
         # In any case, prepare the Express jobs
@@ -321,7 +376,8 @@ class NGTLoopStep2(object):
             source="WaitingForLS",
             dest="WaitingForLS",
         )
-        
+
+
 loop = NGTLoopStep2("Thiago")
 
 loop.state
@@ -344,4 +400,3 @@ while True:
         time.sleep(1)
         loop.ContinueAfterCleanup()
         time.sleep(1)
-
