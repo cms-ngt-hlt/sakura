@@ -56,18 +56,6 @@ class NGTLoopStep2(object):
 
 
     def GetRunNumber(self):
-        #targetPath = Path("root://eoscms.cern.ch/"+self.pathWhereFilesAppear)
-        #targetPath = "root://eoscms.cern.ch/"+self.pathWhereFilesAppear
-        #prefix = "root://"
-        #rest = targetPath[len(prefix):]
-        #host, path = rest.split("/", 1)
-        #if not path.startswith("/"):
-        #    path = "/" + path
-
-        #host = prefix + host + "/"
-        #cmd = f"xrdfs {host} ls {path}"
-        #result = subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout.strip().splitlines()
-        #result = self.GetFilesInP5Helper()
         result = self.GetListOfAvailableFiles()
         cmd = ["edmFileUtil", 'root://eoscms.cern.ch/'+result[0], "--eventsInLumi"]
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -106,9 +94,6 @@ class NGTLoopStep2(object):
     # This function only looks at a given path and lists all available
     # files of the form "run*_ls*.root". Could be made smarter if needed
     def GetListOfAvailableFiles(self):
-        return self.GetFilesInP5Helper()
-
-    def GetFilesInP5Helper(self):
         targetPath = "root://eoscms.cern.ch/"+self.pathWhereFilesAppear
         prefix = "root://"
         rest = targetPath[len(prefix):]
@@ -307,7 +292,6 @@ class NGTLoopStep2(object):
         self.pathWhereFilesAppear = "/eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/398/348/00000"
         self.workingDir = "/dev/null"
         self.preparedFinalLS = False
-
         # Read some configurations
         with open("/tmp/ngt_jp/ngtParameters.jsn", "r") as f:
             config = json.load(f)
