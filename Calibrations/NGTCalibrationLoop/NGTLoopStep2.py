@@ -81,7 +81,7 @@ class NGTLoopStep2(object):
         self.setOfLSObserved = self.setOfLSObserved.union(listOfLSFilesAvailable)
         self.setOfLSToProcess = listOfLSFilesAvailable - self.setOfLSProcessed
 
-        print("self.setOfLSToProcess",[str(p) for p in self.setOfLSToProcess])
+       # print("self.setOfLSToProcess",[str(p) for p in self.setOfLSToProcess])
         print(50*"*")
         
         self.waitingLS = len(self.setOfLSToProcess) > 0
@@ -161,6 +161,7 @@ class NGTLoopStep2(object):
         min_ls = min(ls_numbers, default=None)
         max_ls = max(ls_numbers, default=None)
         affix = f"LS{min_ls:04d}To{max_ls:04d}"
+        logFileName = f"run{self.runNumber}_{affix}_step2.log"
         outputFileName = f"run{self.runNumber}_{affix}_step2.root"
 
         # Here we should have some logic that prepares the Express jobs
@@ -192,7 +193,7 @@ class NGTLoopStep2(object):
             f.write(
                 f"--python_filename run{self.runNumber}_{affix}_ecalPedsStep2.py\n\n"
             )
-            f.write(f"cmsRun run{self.runNumber}_{affix}_ecalPedsStep2.py > logfile_2.log 2>&1\n")
+            f.write(f"cmsRun run{self.runNumber}_{affix}_ecalPedsStep2.py > {logFileName} 2>&1\n")
 
         self.setOfExpressLS = self.setOfLSToProcess
         self.setOfExpectedOutputs.add(self.workingDir + "/" + outputFileName)
