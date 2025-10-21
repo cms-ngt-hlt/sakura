@@ -186,13 +186,13 @@ class NGTLoopStep2(object):
             # and we pass the list of LS to process (self.setOfLSToProcess)
             f.write("--filein ")
             # some massaging to go from PosixPath to string
-            str_paths = {"file:" + str(p) for p in self.setOfLSToProcess}
+            str_paths = {"root://eoscms.cern.ch/" + str(p) for p in self.setOfLSToProcess}
             f.write(",".join(str_paths))
             f.write(f" --fileout file:{outputFileName} --no_exec ")
             f.write(
                 f"--python_filename run{self.runNumber}_{affix}_ecalPedsStep2.py\n\n"
             )
-            f.write(f"cmsRun run{self.runNumber}_{affix}_ecalPedsStep2.py &\n")
+            f.write(f"cmsRun run{self.runNumber}_{affix}_ecalPedsStep2.py > logfile_2.log 2>&1\n")
 
         self.setOfExpressLS = self.setOfLSToProcess
         self.setOfExpectedOutputs.add(self.workingDir + "/" + outputFileName)
