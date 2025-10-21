@@ -54,29 +54,30 @@ class NGTLoopStep2(object):
             print("We are not running...")
         return weAreRunning
 
+    def edmFileUtilCommand(self, filename):
+        #for now it only works with one file, rewrite to also give out for several files..!
+        cmd = ["edmFileUtil", 'root://eoscms.cern.ch/'+filename, "--eventsInLumi"]
+        output = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        return output
 
     def GetRunNumber(self):
-        result = self.GetListOfAvailableFiles()
-        cmd = ["edmFileUtil", 'root://eoscms.cern.ch/'+result[0], "--eventsInLumi"]
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
-        # Search for run number pattern in output (line starting with spaces + digits)
+        availableFiles = self.GetListOfAvailableFiles()
+        result = self.edmFileUtilCommand(availableFiles[0]) 
         match = re.search(r'^\s*(\d{6})\s+', result.stdout, re.MULTILINE)
         if not match:
             raise RuntimeError(f"Could not parse run number from edmFileUtil output:\n{result.stdout}")
         runNumber = int(match.group(1))
-
         return runNumber
 
     def CheckLSForProcessing(self):
         print("I am in CheckLSForProcessing...")
         ### This could be a Luigi task, for instance
         # Do something to check if there are LS to process
-        listOfLSFilesAvailable = self.GetListOfAvailableFiles()
+        listOfLSFilesAvailable = set(self.GetListOfAvailableFiles())
 
         print("listOfLSFilesAvailable", [str(p) for p in listOfLSFilesAvailable])
         print(50*"*")
-                
+        
         self.setOfLSObserved = self.setOfLSObserved.union(listOfLSFilesAvailable)
         self.setOfLSToProcess = listOfLSFilesAvailable - self.setOfLSProcessed
 
@@ -122,7 +123,6 @@ class NGTLoopStep2(object):
 
     def PrepareExpressJobs(self):
         print("I am in PrepareExpressjobs...")
-
         # We may arrive here without a self.setOfLSToProcess if
         # the run started and ended without producing LS.
         # In that case, nothing to do
@@ -130,14 +130,13 @@ class NGTLoopStep2(object):
             return
 
         # Extract all LS numbers (as integers)
-        str_paths = {"file:" + str(p) for p in self.setOfLSToProcess}
+        str_paths = {"root://eoscms.cern.ch/" + str(p) for p in self.setOfLSToProcess}
         
         ls_numbers = set()  # use a set to avoid duplicates
 
         for file_path in str_paths:
-            print(str_paths)
+            print(file_path)
             cmd = ["edmFileUtil", f"{file_path}", "--eventsInLumi"]
-            print(cmd)
             
             result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     
