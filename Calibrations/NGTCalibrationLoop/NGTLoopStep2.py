@@ -194,6 +194,7 @@ class NGTLoopStep2(object):
                 f"--python_filename run{self.runNumber}_{affix}_ecalPedsStep2.py\n\n"
             )
             f.write(f"cmsRun run{self.runNumber}_{affix}_ecalPedsStep2.py > {logFileName} 2>&1\n")
+            f.write(f"touch run{self.runNumber}_{affix}_ecalPedsStep2_job.txt \n")
 
         self.setOfExpressLS = self.setOfLSToProcess
         self.setOfExpectedOutputs.add(self.workingDir + "/" + outputFileName)
@@ -289,7 +290,7 @@ class NGTLoopStep2(object):
         self.requestMinimumLS = True
         self.waitingLS = False
         self.enoughLS = False
-        self.pathWhereFilesAppear = "/eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/398/348/00000"
+        self.pathWhereFilesAppear = "/eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/398/390/00000"
         self.workingDir = "/dev/null"
         self.preparedFinalLS = False
         # Read some configurations
