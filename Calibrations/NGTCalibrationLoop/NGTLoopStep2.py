@@ -9,6 +9,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from transitions import Machine, State
+from omsapi import OMSAPI
+
+CURRENT_RUN = ""
+LAST_LS = None
+
 
 class NGTLoopStep2(object):
 
@@ -45,14 +50,35 @@ class NGTLoopStep2(object):
     # Right now we have a dummy check!
     # Should also check if the run is good for runs (e.g. only pp run?)
     def DAQIsRunning(self):
-        print("Testing if DAQ is running...")
-        weAreRunning = Path("running.txt").exists()
-        if weAreRunning:
-            print("We are running!")
-            self.runNumber = self.GetRunNumber()
+        global CURRENT_RUN, LAST_LS
+        print("Checking DAQ status via OMS...")
+        omsapi = OMSAPI("https://cmsoms.cms/agg/api", "v1", cert_verify=False)
+        q = omsapi.query("runs")
+        q.paginate(page=1, per_page=1).sort("run_number", asc=False)
+        response = q.data().json()
+
+        if "data" not in response or not response["data"]:
+            print("No run information found in OMS.")
+            return False
+        
+        run_info = response["data"][0]["attributes"]
+        run_number = run_info.get("run_number")
+        LAST_LS = run_info.get("last_lumisection_number")
+        if isinstance(run_number, int):
+            run_str = str(run_number)
+            if len(run_str) == 6:
+                CURRENT_RUN = f"{run_str[:3]}/{run_str[3:]}"
+            else:
+                 CURRENT_RUN = run_str  # fallback if not 6 digits
+        print(f"Most recent run: {CURRENT_RUN}, last LS: {LAST_LS}")
+        self.pathWhereFilesAppear = "/eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/"+CURRENT_RUN+"/00000"
+        is_running = run_info.get("end_time") is None
+        if is_running:
+            print("DAQ appears to be running!")
         else:
-            print("We are not running...")
-        return weAreRunning
+            print("DAQ is not running (run has ended).")
+            return is_running
+
 
     def edmFileUtilCommand(self, filename):
         #for now it only works with one file, rewrite to also give out for several files..!
@@ -95,16 +121,15 @@ class NGTLoopStep2(object):
     # This function only looks at a given path and lists all available
     # files of the form "run*_ls*.root". Could be made smarter if needed
     def GetListOfAvailableFiles(self):
-        targetPath = "root://eoscms.cern.ch/"+self.pathWhereFilesAppear
-        prefix = "root://"
-        rest = targetPath[len(prefix):]
-        host, path = rest.split("/", 1)
-        if not path.startswith("/"):
-            path = "/" + path
-        host = prefix + host + "/"
-        cmd = f"xrdfs {host} ls {path}"
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout.strip().splitlines()
-        return result
+        prefix = "root://eoscms.cern.ch/"
+        cmd = f"xrdfs {prefix} ls {self.pathWhereFilesAppear}"
+        all_files = subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout.strip().splitlines()
+        # to ensure we are not getting temporary files 
+        final_list = [f for f in all_files if f.endswith(".root")]
+        temp_files = [f for f in all_files if not f.endswith(".root")]
+        if temp_files:
+            print(f"\n Current files still being written (skipping): {temp_files}") 
+        return final_list
 
     def ExecutePrepareLS(self):
         print("I am PreparingLS")
@@ -290,7 +315,8 @@ class NGTLoopStep2(object):
         self.requestMinimumLS = True
         self.waitingLS = False
         self.enoughLS = False
-        self.pathWhereFilesAppear = "/eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/398/390/00000"
+        self.pathWhereFilesAppear = "/eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/"+CURRENT_RUN+"/00000"
+        print("self.pathWhereFilesAppear",self.pathWhereFilesAppear)
         self.workingDir = "/dev/null"
         self.preparedFinalLS = False
         # Read some configurations
