@@ -46,9 +46,6 @@ class NGTLoopStep2(object):
     def AnnounceRunStop(self):
         print("The run stopped...")
 
-    # FIXME: to be substituted with some code to check if DAQ is running
-    # Right now we have a dummy check!
-    # Should also check if the run is good for runs (e.g. only pp run?)
     def DAQIsRunning(self):
         global CURRENT_RUN, LAST_LS
         print("Checking DAQ status via OMS...")
@@ -63,13 +60,42 @@ class NGTLoopStep2(object):
         
         run_info = response["data"][0]["attributes"]
         run_type = run_info.get("l1_hlt_mode_stripped")
+        run_number = run_info.get("run_number")
         
         if 'collisions' not in run_type:
             print("This run is not a collisions run.")
-            return False
+            # check if we are done processing the last run yet ? this checks CURRENT_RUN
+            # if no, continue w CURRENT_RUN
+            # if yes, return false (since no collisions :))
+       
+
+        #### implement a helper function somewhere that checks if stuff is done processing.. useful for both non and collisions scenario
+
+        #ok if we have passed this stage, we have two options:
+            # we are in collisions and our CURRENT_RUN matches the P5 collisions
+            # we are in collisions but our CURRENT_RUN does not match the P5 collisons
+                # check in place that sees whether we are done processing actually (see below)
+
         print(f"This is a collisions run with key: {run_type}")
         run_number = run_info.get("run_number")
         LAST_LS = run_info.get("last_lumisection_number")
+        
+
+
+        # here put in some check to see if the current collisions run matches the run that is being processed by our step2
+        # CURRENT_RUN should always correspond to the run that *we* are processing by step2, not what's going on at P5 actually..
+        
+        if str(run_number) == CURRENT_RUN:
+            continue
+        else:
+            
+            # omsquery that checks for the last LS of CURRENT_RUN 
+            # then this should check whether in the list of files available, we have the last LS available.. :) 
+            # the above step will need to use edmFileUtil for that !
+            # if it does not match, the loop remains
+            # if that remains, it will check whether this is processed, like, see if the py file is there that is to run? :)
+            # if the py file is there, we can finally continue :)
+        
         if isinstance(run_number, int):
             run_str = str(run_number)
             if len(run_str) == 6:
@@ -77,6 +103,7 @@ class NGTLoopStep2(object):
             else:
                  CURRENT_RUN = run_str  # fallback if not 6 digits
         print(f"Most recent run: {CURRENT_RUN}, last LS: {LAST_LS}")
+                
         self.pathWhereFilesAppear = "/eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/"+CURRENT_RUN+"/00000"
         is_running = run_info.get("end_time") is None
         if is_running:
