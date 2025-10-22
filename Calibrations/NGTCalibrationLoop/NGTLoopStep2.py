@@ -125,10 +125,26 @@ class NGTLoopStep2(object):
         cmd = f"xrdfs {prefix} ls {self.pathWhereFilesAppear}"
         all_files = subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout.strip().splitlines()
         # to ensure we are not getting temporary files 
-        final_list = [f for f in all_files if f.endswith(".root")]
-        temp_files = [f for f in all_files if not f.endswith(".root")]
-        if temp_files:
-            print(f"\n Current files still being written (skipping): {temp_files}") 
+        #intermediate_list = [f for f in all_files if f.endswith(".root")]
+        #temp_files = [f for f in all_files if not f.endswith(".root")]
+        #if temp_files:
+        #    print(f"\n Current files still being written (skipping): {temp_files}")
+        #final_list = []
+        #for file in all_files:
+        #    #if file.endswith(".root"):
+        #    otuput = self.edmFileUtilCommand(file)
+        #    if "ERR" in output.stdout:
+        #        print(f"\n Following file won't be processed(skipping): {file}")
+        #    else:
+        #        final_list.append(file)
+        
+        final_list = []
+        for file in all_files:
+            output = edmFileUtilCommand(dir+file)
+            if "ERR" in output.stdout:
+                print(f"\n Following file won't be processed(skipping): {file}")
+            else:
+                final_list.append(file)
         return final_list
 
     def ExecutePrepareLS(self):
