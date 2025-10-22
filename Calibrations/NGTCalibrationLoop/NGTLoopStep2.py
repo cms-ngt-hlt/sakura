@@ -62,6 +62,12 @@ class NGTLoopStep2(object):
             return False
         
         run_info = response["data"][0]["attributes"]
+        run_type = run_info.get("l1_hlt_mode_stripped")
+        
+        if 'collisions' not in run_type:
+            print("This run is not a collisions run.")
+            return False
+        print(f"This is a collisions run with key: {run_type}")
         run_number = run_info.get("run_number")
         LAST_LS = run_info.get("last_lumisection_number")
         if isinstance(run_number, int):
