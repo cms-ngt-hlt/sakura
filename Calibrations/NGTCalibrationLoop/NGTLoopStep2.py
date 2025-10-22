@@ -214,9 +214,14 @@ class NGTLoopStep2(object):
 
     def ExecutePrepareFinalLS(self):
         print("I am PreparingFinalLS")
+        print(f"Processing of run {self.runNumber} has ended. Creating empty runEnd.log...")
+        
+        end_path = Path(self.workingDir) / "runEnd.log"
+        end_log_path.touch()
+
         self.PrepareLSForProcessing()
-        # Since this is final LS, they have to be enough!
         self.preparedFinalLS = True
+       
 
     def PrepareLSForProcessing(self):
         print("I am in PrepareLSForProcessing...")
