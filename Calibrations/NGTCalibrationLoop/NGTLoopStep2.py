@@ -46,6 +46,31 @@ class NGTLoopStep2(object):
     def AnnounceRunStop(self):
         print("The run stopped...")
 
+    def LastLSRunNumber(self, runnum):
+        omsapi = OMSAPI("https://cmsoms.cms/agg/api", "v1", cert_verify=False)
+        q = omsapi.query("runs")
+        q.filter("run_number", runnum)
+        response = q.data().json()
+        run_info = response["data"][0]["attributes"]
+        last_ls = run_info.get("last_lumisection_number")
+        return last_ls
+
+    def LSavailable(self):
+        availableFiles = self.GetListOfAvailableFiles()
+        ls_numbers = set()
+        for file_path in availableFiles:
+            result = self.edmFileUtilCommand(file_path)
+            for match in re.finditer(r'^\s*\d+\s+(\d+)\s+', result.stdout, re.MULTILINE):
+                ls_numbers.add(int(match.group(1)))
+        max_ls = max(ls_numbers)
+        return max_ls
+
+    def CalFuProcessed(self, run_number):
+        LastLS_OMS = self.LastLSRunNumber(run_number)
+        LastLS_available = self.LSavailable()
+        return LastLS_OMS == LastLS_available 
+
+
     def DAQIsRunning(self):
         global CURRENT_RUN, LAST_LS
         print("Checking DAQ status via OMS...")
@@ -62,8 +87,8 @@ class NGTLoopStep2(object):
         run_type = run_info.get("l1_hlt_mode_stripped")
         run_number = run_info.get("run_number")
         
-        if 'collisions' not in run_type:
-            print("This run is not a collisions run.")
+        #if 'collisions' not in run_type:
+         #   print("This run is not a collisions run.")
             # check if we are done processing the last run yet ? this checks CURRENT_RUN
             # if no, continue w CURRENT_RUN
             # if yes, return false (since no collisions :))
@@ -77,17 +102,28 @@ class NGTLoopStep2(object):
                 # check in place that sees whether we are done processing actually (see below)
 
         print(f"This is a collisions run with key: {run_type}")
-        run_number = run_info.get("run_number")
-        LAST_LS = run_info.get("last_lumisection_number")
-        
+       
 
-
+       if str(run_number) == CURRENT_RUN:
+           continue
+       else:
+           # ok this means there is a new run and we are still at the old run. 
+           # can we proceed?
+            LastLS_match = self.CalFuProcessed(CURRENT_RUN)
+        if LastLS_match:
+            print("The last LS available to process matches with the last LS of the RUN.")
+            return True
+        else:
+            print("The last LS available to process does not match with the last LS of the RUN, calibration node still needs to wait for files to become available.")
+            return True 
+            
+            
         # here put in some check to see if the current collisions run matches the run that is being processed by our step2
         # CURRENT_RUN should always correspond to the run that *we* are processing by step2, not what's going on at P5 actually..
         
-        if str(run_number) == CURRENT_RUN:
-            continue
-        else:
+        #if str(run_number) == CURRENT_RUN:
+        #    continue
+       # else:
             
             # omsquery that checks for the last LS of CURRENT_RUN 
             # then this should check whether in the list of files available, we have the last LS available.. :) 
@@ -96,6 +132,7 @@ class NGTLoopStep2(object):
             # if that remains, it will check whether this is processed, like, see if the py file is there that is to run? :)
             # if the py file is there, we can finally continue :)
         
+        LAST_LS = run_info.get("last_lumisection_number")
         if isinstance(run_number, int):
             run_str = str(run_number)
             if len(run_str) == 6:
