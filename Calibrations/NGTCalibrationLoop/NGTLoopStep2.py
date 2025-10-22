@@ -75,62 +75,84 @@ class NGTLoopStep2(object):
         global CURRENT_RUN, LAST_LS
         print("Checking DAQ status via OMS...")
         omsapi = OMSAPI("https://cmsoms.cms/agg/api", "v1", cert_verify=False)
-        
-        if self.runNumber == 0: # this is the case where we start the script
-            print("Currently NotRunning. Looking for the most recent COLLISIONS run...")
+
+        if self.runNumber == 0:
+            # ---
+            # --- STATE 1: NOT LATCHED. Find the LATEST PROTONS run.
+            # ---
+            print("Currently NotRunning. Looking for the most recent PROTONS run...")
             q = omsapi.query("runs")
-            q.filter("l1_hlt_mode_stripped", "%collisions%", "LIKE") 
+
+            # --- THIS IS THE NEW, MORE ROBUST FILTER ---
+            q.filter("fill_type_runtime", "PROTONS")
+            # --- END NEW FILTER ---
+
+            # Sort by run number and get the top one
             q.sort("run_number", asc=False).paginate(page=1, per_page=1)
             response = q.data().json()
-            
-            if "data" not in response or not response["data"]:
-                print("No collisions runs found in OMS. Waiting.")
-                return False 
 
+            if "data" not in response or not response["data"]:
+                print("No PROTONS (collisions) runs found in OMS. Waiting.")
+                return False # Stay in NotRunning
+
+            # This is the latest *collisions* run
             run_info = response["data"][0]["attributes"]
             run_number = run_info.get("run_number")
-            run_type = run_info.get("l1_hlt_mode_stripped")
+            run_type = run_info.get("l1_hlt_mode_stripped") # We can just grab this for logging
 
-            print(f"Found latest collisions run: {run_number} (type: {run_type})")
+            print(f"Found latest PROTONS run: {run_number} (type: {run_type})")
+
+            # --- LATCH THE RUN ---
             self.runNumber = run_number
+
+            # Set the globals
             LAST_LS = run_info.get("last_lumisection_number")
             run_str = str(self.runNumber)
             if len(run_str) == 6:
                 CURRENT_RUN = f"{run_str[:3]}/{run_str[3:]}"
             else:
                 CURRENT_RUN = run_str
-            
-            print(f"Want to process run: {CURRENT_RUN}, last LS: {LAST_LS}")
-            
+
+            print(f"LATCHED run: {CURRENT_RUN}, last LS: {LAST_LS}")
+
+            # Set the path for GetListOfAvailableFiles
             self.pathWhereFilesAppear = "/eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/"+CURRENT_RUN+"/00000"
-            
+
             is_running = run_info.get("end_time") is None
             if is_running:
                 print("DAQ appears to be running!")
             else:
-                print("Latching onto a collisions run that has already ended...")
+                print("Latching onto a PROTONS run that has already ended.")
+
+            # This return value tells TryStartRun whether to transition
             return is_running
 
         else:
+            # ---
+            # --- STATE 2: LATCHED. Check status of *our* run.
+            # ---
+            # (This part was already working perfectly and remains unchanged)
+
             print(f"Checking status of *our* latched run: {self.runNumber} ({CURRENT_RUN})")
-            
+
+            # Query specifically for our run
             q_our_run = omsapi.query("runs")
-            q_our_run.filter("run_number", self.runNumber) 
+            q_our_run.filter("run_number", self.runNumber)
             response_our_run = q_our_run.data().json()
 
             if "data" not in response_our_run or not response_our_run["data"]:
                 print(f"Could not find info for *our* run {self.runNumber}. Assuming it ended.")
-                return False
+                return False # Treat our run as finished
 
             our_run_info = response_our_run["data"][0]["attributes"]
-            
-            LAST_LS = our_run_info.get("last_lumisection_number") 
+
+            # Update the global LAST_LS to our run's last LS
+            LAST_LS = our_run_info.get("last_lumisection_number")
             is_running = our_run_info.get("end_time") is None
-            
+
             print(f"Our run {self.runNumber}: Last LS is {LAST_LS}. Running: {is_running}")
+
             return is_running
-
-
 
 
     def edmFileUtilCommand(self, filename):
