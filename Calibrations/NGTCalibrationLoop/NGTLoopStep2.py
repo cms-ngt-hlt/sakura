@@ -75,79 +75,62 @@ class NGTLoopStep2(object):
         global CURRENT_RUN, LAST_LS
         print("Checking DAQ status via OMS...")
         omsapi = OMSAPI("https://cmsoms.cms/agg/api", "v1", cert_verify=False)
-        q = omsapi.query("runs")
-        q.paginate(page=1, per_page=1).sort("run_number", asc=False)
-        response = q.data().json()
-
-        if "data" not in response or not response["data"]:
-            print("No run information found in OMS.")
-            return False
         
-        run_info = response["data"][0]["attributes"]
-        run_type = run_info.get("l1_hlt_mode_stripped")
-        run_number = run_info.get("run_number")
-        
-        #if 'collisions' not in run_type:
-         #   print("This run is not a collisions run.")
-            # check if we are done processing the last run yet ? this checks CURRENT_RUN
-            # if no, continue w CURRENT_RUN
-            # if yes, return false (since no collisions :))
-       
-
-        #### implement a helper function somewhere that checks if stuff is done processing.. useful for both non and collisions scenario
-
-        #ok if we have passed this stage, we have two options:
-            # we are in collisions and our CURRENT_RUN matches the P5 collisions
-            # we are in collisions but our CURRENT_RUN does not match the P5 collisons
-                # check in place that sees whether we are done processing actually (see below)
-
-        print(f"This is a collisions run with key: {run_type}")
-       
-
-       if str(run_number) == CURRENT_RUN:
-           continue
-       else:
-           # ok this means there is a new run and we are still at the old run. 
-           # can we proceed?
-            LastLS_match = self.CalFuProcessed(CURRENT_RUN)
-        if LastLS_match:
-            print("The last LS available to process matches with the last LS of the RUN.")
-            return True
-        else:
-            print("The last LS available to process does not match with the last LS of the RUN, calibration node still needs to wait for files to become available.")
-            return True 
+        if self.runNumber == 0: # this is the case where we start the script
+            print("Currently NotRunning. Looking for the most recent COLLISIONS run...")
+            q = omsapi.query("runs")
+            q.filter("l1_hlt_mode_stripped", "%collisions%", "LIKE") 
+            q.sort("run_number", asc=False).paginate(page=1, per_page=1)
+            response = q.data().json()
             
-            
-        # here put in some check to see if the current collisions run matches the run that is being processed by our step2
-        # CURRENT_RUN should always correspond to the run that *we* are processing by step2, not what's going on at P5 actually..
-        
-        #if str(run_number) == CURRENT_RUN:
-        #    continue
-       # else:
-            
-            # omsquery that checks for the last LS of CURRENT_RUN 
-            # then this should check whether in the list of files available, we have the last LS available.. :) 
-            # the above step will need to use edmFileUtil for that !
-            # if it does not match, the loop remains
-            # if that remains, it will check whether this is processed, like, see if the py file is there that is to run? :)
-            # if the py file is there, we can finally continue :)
-        
-        LAST_LS = run_info.get("last_lumisection_number")
-        if isinstance(run_number, int):
-            run_str = str(run_number)
+            if "data" not in response or not response["data"]:
+                print("No collisions runs found in OMS. Waiting.")
+                return False 
+
+            run_info = response["data"][0]["attributes"]
+            run_number = run_info.get("run_number")
+            run_type = run_info.get("l1_hlt_mode_stripped")
+
+            print(f"Found latest collisions run: {run_number} (type: {run_type})")
+            self.runNumber = run_number
+            LAST_LS = run_info.get("last_lumisection_number")
+            run_str = str(self.runNumber)
             if len(run_str) == 6:
                 CURRENT_RUN = f"{run_str[:3]}/{run_str[3:]}"
             else:
-                 CURRENT_RUN = run_str  # fallback if not 6 digits
-        print(f"Most recent run: {CURRENT_RUN}, last LS: {LAST_LS}")
-                
-        self.pathWhereFilesAppear = "/eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/"+CURRENT_RUN+"/00000"
-        is_running = run_info.get("end_time") is None
-        if is_running:
-            print("DAQ appears to be running!")
-        else:
-            print("DAQ is not running (run has ended).")
+                CURRENT_RUN = run_str
+            
+            print(f"Want to process run: {CURRENT_RUN}, last LS: {LAST_LS}")
+            
+            self.pathWhereFilesAppear = "/eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/"+CURRENT_RUN+"/00000"
+            
+            is_running = run_info.get("end_time") is None
+            if is_running:
+                print("DAQ appears to be running!")
+            else:
+                print("Latching onto a collisions run that has already ended...")
             return is_running
+
+        else:
+            print(f"Checking status of *our* latched run: {self.runNumber} ({CURRENT_RUN})")
+            
+            q_our_run = omsapi.query("runs")
+            q_our_run.filter("run_number", self.runNumber) 
+            response_our_run = q_our_run.data().json()
+
+            if "data" not in response_our_run or not response_our_run["data"]:
+                print(f"Could not find info for *our* run {self.runNumber}. Assuming it ended.")
+                return False
+
+            our_run_info = response_our_run["data"][0]["attributes"]
+            
+            LAST_LS = our_run_info.get("last_lumisection_number") 
+            is_running = our_run_info.get("end_time") is None
+            
+            print(f"Our run {self.runNumber}: Last LS is {LAST_LS}. Running: {is_running}")
+            return is_running
+
+
 
 
     def edmFileUtilCommand(self, filename):
@@ -196,7 +179,7 @@ class NGTLoopStep2(object):
         all_files = subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout.strip().splitlines()
         final_list = []
         for file in all_files:
-            output = edmFileUtilCommand(dir+file)
+            output = edmFileUtilCommand(prefix+file)
             if "ERR" in output.stdout:
                 print(f"\n Following file won't be processed(skipping): {file}")
             else:
