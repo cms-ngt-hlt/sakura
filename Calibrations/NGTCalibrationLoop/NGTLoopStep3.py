@@ -15,7 +15,7 @@ class NGTLoopStep3(object):
 
     # Define some states.
     states = [
-        State(name="NotRunning", on_enter="ResetTheMachine", on_exit="NewRunAppeared"),
+        State(name="NotRunning", on_enter="ResetTheMachine", on_exit="SetupNewRun"),
         State(name="WaitingForStep2Files", on_enter="AnnounceWaitingForStep2Files"),
         State(name="CheckingFilesForProcess", on_enter="CheckFilesForProcessing"),
         State(name="PreparingFiles", on_enter="ExecutePrepareFiles"),
@@ -43,21 +43,55 @@ class NGTLoopStep3(object):
         else:
             print("No new runs...")
 
-        return found
+        return foundNewRuns
 
     # For now, we just take the earliest of the new runs
     def GetNextRun(self, newRuns):
-        return sorted(newRuns)[0]
+        return sorted(newRuns, reverse=True)[0]
+
+    def SetupNewRun(self):
+        # Prepare the new run
+        self.workingDir = "/tmp/ngt/run" + self.runNumber
+        startTimeFilePath = Path(self.workingDir + "/runStart.log")
+        if startTimeFilePath.exists():
+            with open(startTimeFilePath, "r") as f:
+                runStartLine = f.readline()
+                self.startTime = datetime.fromisoformat(runStartLine)
+        else:
+            # Weird, how come we don't have a runStart.log?
+            # Fine, we set the start time to now
+            print("We didn't find a runStart.log file... setting run start to NOW")
+            self.startTime = datetime.now(timezone.utc)
+
+        print(f"Run {self.runNumber} detected, started at {self.startTime.isoformat()}")
 
     def AnnounceWaitingForStep2Files(self):
         print("I am WaitingForStep2Files...")
 
+    def RunIsNotComplete(self):
+        print("Is the run complete?")
+        runEndedFile = Path(self.workingDir + "/runEnd.log")
+        if runEndedFile.exists():
+            print("The run is complete!")
+        else:
+            print("Not yet...")
+        return not runEndedFile.exists()
+
+    def StillHaveTime(self):
+        now_utc = datetime.now(timezone.utc)
+        diff = now_utc - self.startTime
+        if diff.total_seconds() > self.timeoutInSeconds:
+            print("Time ran out!")
+            return False
+        else:
+            return True
+
     def CheckFilesForProcessing(self):
         print("I am in CheckFilesForProcessing...")
         # Do something to check if there are Files to process
-        setOfAvailableFiles = self.GetSetOfAvailableFiles()
-        self.setOfFilesObserved = self.setOfFilesObserved.union(listOfFilesAvailable)
-        self.setOfFilesToProcess = listOfFilesAvailable - self.setOfFilesProcessed
+        setOfFilesAvailable = self.GetSetOfAvailableFiles()
+        self.setOfFilesObserved = self.setOfFilesObserved.union(setOfFilesAvailable)
+        self.setOfFilesToProcess = setOfFilesAvailable - self.setOfFilesProcessed
         self.waitingFiles = len(self.setOfFilesToProcess) > 0
         print("New files to process:")
         print(self.setOfFilesToProcess)
@@ -66,14 +100,32 @@ class NGTLoopStep3(object):
         else:
             self.enoughFiles = False
 
-    # This function only looks at a given path and lists all available
-    # files of the form "run*_ls*.root". Could be made smarter if needed
+    # This function only looks at a given path and lists
+    # all available files of the form "run*_step2.root".
+    # Notice, however, that "available" here means
+    # "the ROOT files are closed and ready to be used"!
+    # So, we list files of the form
+    # "run*_*ecalPedsStep2_job.txt". If we find those,
+    # we lop off that suffix and substitute it for "step2.root"
     def GetSetOfAvailableFiles(self):
         # For this version, self.pathWhereFilesAppear is the same as
         # self.workingDir
         targetPath = self.workingDir
+        suffixControlFiles = "ecalPedsStep2_job.txt"
         # We control the naming of these files, we know they're called like this
-        setOfAvailableFiles = set(list(Path(targetPath).glob("run*_step2.root")))
+        setOfControlFiles = set(
+            list(Path(targetPath).glob("run*_" + suffixControlFiles))
+        )
+        as_strings = {str(p) for p in setOfControlFiles}
+        changed = {
+            (
+                s[: -len(suffixControlFiles)] + "step2.root"
+                if s.endswith(suffixControlFiles)
+                else s
+            )
+            for s in as_strings
+        }
+        setOfAvailableFiles = {Path(s) for s in changed}
         return setOfAvailableFiles
 
     def ExecutePrepareFiles(self):
@@ -89,15 +141,24 @@ class NGTLoopStep3(object):
     def PrepareFilesForProcessing(self):
         print("I am in PrepareFilesForProcessing...")
         print("Will use the following Files:")
-        print(self.setOfFilesToProcess)
+        # We add here an additional check: do these files all really exist?
+        for fileToProcess in self.setOfFilesToProcess:
+            if fileToProcess.exists():
+                self.setOfExpressFiles.add(fileToProcess)
+
+        # So here there's a subtlety: here, all files are processed,
+        # but not are them are sutiable for Express
+        # (e.g., because they don't exist)
+        # So we keep track of the two different sets now
+        print(self.setOfExpressFiles)
 
     def PrepareExpressJobs(self):
         print("I am in PrepareExpressjobs...")
 
-        # We may arrive here without a self.setOfFilesToProcess if
+        # We may arrive here without a self.setOfExpressFiles if
         # the run started and ended without producing Files.
         # In that case, nothing to do
-        if not self.setOfFilesToProcess:
+        if not self.setOfExpressFiles:
             return
 
         # Here we should have some logic that prepares the Express jobs
@@ -123,7 +184,7 @@ class NGTLoopStep3(object):
             # and we pass the list of files to process (self.setOfFilesToProcess)
             f.write("--filein ")
             # some massaging to go from PosixPath to string
-            str_paths = {"file:" + str(p) for p in self.setOfFilesToProcess}
+            str_paths = {"file:" + str(p) for p in self.setOfExpressFiles}
             f.write(",".join(str_paths))
             # No need for fileout here
             # f.write(f" --fileout {outputFileName} --no_exec ")
@@ -137,9 +198,6 @@ class NGTLoopStep3(object):
             f.write("@EOF\n\n")
             f.write(f"cmsRun run{self.runNumber}_ecalPedsALCAOUTPUT.py")
 
-        self.setOfExpressFiles = self.setOfFilesToProcess
-        self.setOfFilesToProcess = set()
-
     def LaunchExpressJobs(self):
         print("I am in LaunchExpressJobs...")
 
@@ -148,21 +206,23 @@ class NGTLoopStep3(object):
         # to finish running. Some other loop will look at their output
         # FIXME: add monitoring...
         subprocess.Popen(
-            ["bash", "cmsDriver.sh"],
+            ["bash", "ALCAOUTPUT.sh"],
             cwd=self.workingDir,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
 
-        # Now we have to move the files to self.setOfFilesProcessed
+        # Now we have to move the files we just processed
+        # to self.setOfFilesProcessed
         # and clear self.setOfFilesToProcess
-
+        # and setOfExpressFiles
         print("Launched jobs with:")
         print(self.setOfExpressFiles)
         self.setOfFilesProcessed = self.setOfFilesProcessed.union(
-            self.setOfExpressFiles
+            self.setOfFilesToProcess
         )
         self.setOfFilesToProcess = set()
+        self.setOfExpressFiles = set()
 
     def ThereAreFilesWaiting(self):
         if self.waitingFiles:
@@ -188,17 +248,19 @@ class NGTLoopStep3(object):
             # We actually have to reset the machine only when we go to NotRunning!
 
             # Make a log of everything that we did
-            with open(self.workingDir + "/allFilesProcessed.log", "w") as f:
+            with open(self.workingDir + "/allStep2FilesProcessed.log", "w") as f:
                 for Files in sorted(self.setOfFilesProcessed):
                     f.write(str(Files) + "\n")
-            with open(self.workingDir + "/expectedOutputs.log", "w") as f:
-                for output in self.setOfExpectedOutputs:
-                    f.write(output + "\n")
+            # Add the run we have just seen to our memory
+            # If is easier to just add the "run" prefix here
+            self.setOfRunsProcessed.add("run" + self.runNumber)
+            print(self.setOfRunsProcessed)
 
     def ResetTheMachine(self):
         print("Machine reset!")
         self.runNumber = 0
         self.startTime = 0
+        self.timeoutInSeconds = 8 * 60 * 60  # 8 hours
         self.minimumFiles = 1
         self.maximumFiles = 5
         self.requestMinimumFiles = True
@@ -217,6 +279,7 @@ class NGTLoopStep3(object):
 
         self.setOfFilesObserved = set()
         self.setOfFilesToProcess = set()
+        self.setOfExpressFiles = set()
         self.setOfFilesProcessed = set()
         self.setOfExpectedOutputs = set()
 
@@ -283,12 +346,13 @@ class NGTLoopStep3(object):
         )
 
         # If we don't have enough Files, but we are still running,
-        # more Files will come. We go to WaitingForStep2Files
+        # more Files will come. We go to WaitingForStep2Files,
+        # but only if we still have time!
         self.machine.add_transition(
             trigger="ContinueAfterCheckFiles",
             source="CheckingFilesForProcess",
             dest="WaitingForStep2Files",
-            conditions="DAQIsRunning",
+            conditions=["RunIsNotComplete", "StillHaveTime"],
         )
 
         # If we don't have enough Files, and we are not still running,
@@ -313,7 +377,7 @@ class NGTLoopStep3(object):
 
         # And launch them!
         self.machine.add_transition(
-            trigger="TryLaunchExpressJobs",
+            trigger="TryLaunchALCAPROMPTJobs",
             source="PreparingExpressJobs",
             dest="LaunchingExpressJobs",
         )
