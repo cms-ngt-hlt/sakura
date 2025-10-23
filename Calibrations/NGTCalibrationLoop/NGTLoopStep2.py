@@ -99,6 +99,7 @@ class NGTLoopStep2(object):
 
             # --- THIS IS THE NEW, MORE ROBUST FILTER ---
             q.filter("fill_type_runtime", "PROTONS")
+            q.filter("l1_hlt_mode", "collisions2025")
             # --- END NEW FILTER ---
 
             # Sort by run number and get the top one
@@ -106,13 +107,13 @@ class NGTLoopStep2(object):
             response = q.data().json()
 
             if "data" not in response or not response["data"]:
-                print("No PROTONS (collisions) runs found in OMS. Waiting.")
+                print("No PROTONS *collisions* runs found in OMS. Waiting.")
                 return False # Stay in NotRunning
 
             # This is the latest *collisions* run
             run_info = response["data"][0]["attributes"]
             run_number = run_info.get("run_number")
-            run_type = run_info.get("l1_hlt_mode_stripped") # We can just grab this for logging
+            run_type = run_info.get("l1_hlt_mode") # We can just grab this for logging
 
             print(f"Found latest PROTONS run: {run_number} (type: {run_type})")
 
