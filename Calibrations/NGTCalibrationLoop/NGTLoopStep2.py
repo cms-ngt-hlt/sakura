@@ -114,14 +114,20 @@ class NGTLoopStep2(object):
             run_info = response["data"][0]["attributes"]
             run_number = run_info.get("run_number")
             run_type = run_info.get("l1_hlt_mode") # We can just grab this for logging
+            is_running = run_info.get("end_time") is None
+            last_ls = run_info.get("last_lumisection_number")
+            
+            if not is_running and last_ls < self.minLSToProcess:
+                print(f"Found ended run {run_number}, but it's too short ({last_ls} LS). Skipping and waiting.")
+                return False
 
             print(f"Found latest PROTONS run: {run_number} (type: {run_type})")
 
             # --- LATCH THE RUN ---
             self.runNumber = run_number
-
             # Set the globals
-            LAST_LS = run_info.get("last_lumisection_number")
+            LAST_LS = last_ls #run_info.get("last_lumisection_number")
+            
             run_str = str(self.runNumber)
             if len(run_str) == 6:
                 CURRENT_RUN = f"{run_str[:3]}/{run_str[3:]}"
@@ -415,7 +421,8 @@ class NGTLoopStep2(object):
         print("Machine reset!")
         self.runNumber = 0
         self.startTime = 0
-        self.minimumLS = 3 # these variable names are a bit misleading as they are not minimumLS but minimum files availabe (same for the other ones ok)
+        self.minimumLS = 1 # these variable names are a bit misleading as they are not minimumLS but minimum files availabe (same for the other ones ok)
+        self.minLSToProcess = 50 # to avoid the continued processing of runs that do not have enough data
         self.maximumLS = 5
         self.requestMinimumLS = True
         self.waitingLS = False
