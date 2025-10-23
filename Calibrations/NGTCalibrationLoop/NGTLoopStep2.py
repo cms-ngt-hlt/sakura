@@ -33,7 +33,7 @@ class NGTLoopStep2(object):
         runNumber = self.runNumber
         print(f"Run {runNumber} has started!")
         # We live in directory /tmp/ngt.
-        p = Path(f"/tmp/ngt_jp/run{runNumber}")
+        p = Path(f"/tmp/ngt/run{runNumber}")
         p.mkdir(parents=True, exist_ok=True)
         self.workingDir = str(p)
         # We assert the run start time for us as "now" in UTC
@@ -421,7 +421,7 @@ class NGTLoopStep2(object):
         print("Machine reset!")
         self.runNumber = 0
         self.startTime = 0
-        self.minimumLS = 1 # these variable names are a bit misleading as they are not minimumLS but minimum files availabe (same for the other ones ok)
+        self.minimumLS = 3 # these variable names are a bit misleading as they are not minimumLS but minimum files availabe (same for the other ones ok)
         self.minLSToProcess = 50 # to avoid the continued processing of runs that do not have enough data
         self.maximumLS = 5
         self.requestMinimumLS = True
@@ -432,7 +432,7 @@ class NGTLoopStep2(object):
         self.workingDir = "/dev/null"
         self.preparedFinalLS = False
         # Read some configurations
-        with open("/tmp/ngt_jp/ngtParameters.jsn", "r") as f:
+        with open("/tmp/ngt/ngtParameters.jsn", "r") as f:
             config = json.load(f)
         self.scramArch = config["SCRAM_ARCH"]
         self.cmsswVersion = config["CMSSW_VERSION"]
