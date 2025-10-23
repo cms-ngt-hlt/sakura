@@ -62,7 +62,7 @@ class NGTLoopStep2(object):
             result = self.edmFileUtilCommand(file_path)
             for match in re.finditer(r'^\s*\d+\s+(\d+)\s+', result.stdout, re.MULTILINE):
                 ls_numbers.add(int(match.group(1)))
-        max_ls = max(ls_numbers)
+        max_ls = max(ls_numbers, default=0) # default to 0 bc if there are none it will crash this function
         return max_ls
 
     def CalFuProcessed(self, run_number):
@@ -73,10 +73,10 @@ class NGTLoopStep2(object):
     def RunHasEndedAndFilesAreReady(self):
         if self.DAQIsRunning():
             return False
-        if self.runNuber == 0:
+        if self.runNumber == 0:
             return False
 
-        print(f"Run {self.runNumber} has ended. Checking if all files are available before going to next run..."
+        print(f"Run {self.runNumber} has ended. Checking if all files are available before going to next run...")
         all_files_ready = self.CalFuProcessed(self.runNumber)
 
         if all_files_ready:
@@ -211,11 +211,16 @@ class NGTLoopStep2(object):
     # files of the form "run*_ls*.root". Could be made smarter if needed
     def GetListOfAvailableFiles(self):
         prefix = "root://eoscms.cern.ch/"
+        
+        if not self.pathWhereFilesAppear:
+            print("Warning: pathWhereFilesAppear is not set. Cannot list files.")
+            return []
+        
         cmd = f"xrdfs {prefix} ls {self.pathWhereFilesAppear}"
         all_files = subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout.strip().splitlines()
         final_list = []
         for file in all_files:
-            output = edmFileUtilCommand(prefix+file)
+            output = self.edmFileUtilCommand(prefix+file)
             if "ERR" in output.stdout:
                 print(f"\n Following file won't be processed(skipping): {file}")
             else:
@@ -477,7 +482,7 @@ class NGTLoopStep2(object):
             trigger="TryProcessLS", source="WaitingForLS", dest="CheckingLSForProcess"
         )
 
-        # If we have enough LS, we go to PreparingLS
+        # If we have enough LS, process them immediately, we go to PreparingLS
         self.machine.add_transition(
             trigger="ContinueAfterCheckLS",
             source="CheckingLSForProcess",
@@ -485,19 +490,9 @@ class NGTLoopStep2(object):
             conditions=["ThereAreLSWaiting", "ThereAreEnoughLS"],
         )
 
-        # If we don't have enough LS, but we are still running,
-        # We go to WaitingForLS
-        self.machine.add_transition(
-            trigger="ContinueAfterCheckLS",
-            source="CheckingLSForProcess",
-            dest="WaitingForLS",
-         #   conditions="DAQIsRunning",
-            unless = "RunHasEndedAndFilesAreReady"
-        )
 
         ## If we don't have enough LS, and we are not still running,
         ## no more LS will come. We go to PreparingFinalLS
-        
         # if run is over and we have the files to be processed, we go to PreparingFinalLS (so we can process whatever is left!)
         self.machine.add_transition(
             trigger="ContinueAfterCheckLS",
@@ -505,8 +500,18 @@ class NGTLoopStep2(object):
             dest="PreparingFinalLS",
             # so only if run has ended *and* files are ready, and there is something to process
             conditions=[conditions=["RunHasEndedAndFilesAreReady", "ThereAreLSWaiting"]
-id: "ContinueAfterCheckLS",
         )
+
+
+        # If we don't have enough LS, but we are still running,
+        # We go to WaitingForLS
+        self.machine.add_transition(
+            trigger="ContinueAfterCheckLS",
+            source="CheckingLSForProcess",
+            dest="WaitingForLS",
+        )
+
+
 
         # In any case, prepare the Express jobs
         self.machine.add_transition(
