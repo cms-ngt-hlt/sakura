@@ -70,6 +70,20 @@ class NGTLoopStep2(object):
         LastLS_available = self.LSavailable()
         return LastLS_OMS == LastLS_available 
 
+    def RunHasEndedAndFilesAreReady(self):
+        if self.DAQIsRunning():
+            return False
+        if self.runNuber == 0:
+            return False
+
+        print(f"Run {self.runNumber} has ended. Checking if all files are available before going to next run..."
+        all_files_ready = self.CalFuProcessed(self.runNumber)
+
+        if all_files_ready:
+            print("All files available!")
+        else:
+            print("Run ended, but we are still waiting for all the files to be processed")
+        return all_files_ready
 
     def DAQIsRunning(self):
         global CURRENT_RUN, LAST_LS
@@ -216,7 +230,7 @@ class NGTLoopStep2(object):
         print("I am PreparingFinalLS")
         print(f"Processing of run {self.runNumber} has ended. Creating empty runEnd.log...")
         
-        end_path = Path(self.workingDir) / "runEnd.log"
+        end_log_path = Path(self.workingDir) / "runEnd.log"
         end_log_path.touch()
 
         self.PrepareLSForProcessing()
@@ -472,20 +486,26 @@ class NGTLoopStep2(object):
         )
 
         # If we don't have enough LS, but we are still running,
-        # more LS will come. We go to WaitingForLS
+        # We go to WaitingForLS
         self.machine.add_transition(
             trigger="ContinueAfterCheckLS",
             source="CheckingLSForProcess",
             dest="WaitingForLS",
-            conditions="DAQIsRunning",
+         #   conditions="DAQIsRunning",
+            unless = "RunHasEndedAndFilesAreReady"
         )
 
-        # If we don't have enough LS, and we are not still running,
-        # no more LS will come. We go to PreparingFinalLS
+        ## If we don't have enough LS, and we are not still running,
+        ## no more LS will come. We go to PreparingFinalLS
+        
+        # if run is over and we have the files to be processed, we go to PreparingFinalLS (so we can process whatever is left!)
         self.machine.add_transition(
             trigger="ContinueAfterCheckLS",
             source="CheckingLSForProcess",
             dest="PreparingFinalLS",
+            # so only if run has ended *and* files are ready, and there is something to process
+            conditions=[conditions=["RunHasEndedAndFilesAreReady", "ThereAreLSWaiting"]
+id: "ContinueAfterCheckLS",
         )
 
         # In any case, prepare the Express jobs
