@@ -135,12 +135,15 @@ class NGTLoopStep2(object):
 
             is_running = run_info.get("end_time") is None
             if is_running:
-                print("DAQ appears to be running!")
+                #print("DAQ appears to be running!")
+                print("Latching onto an ongoing collisions run.")
             else:
-                print("Latching onto a PROTONS run that has already ended.")
-
-            # This return value tells TryStartRun whether to transition
-            return is_running
+                #print("Latching onto a PROTONS run that has already ended.")
+                print("Latching onto a collisions run that has already ended.")
+            ## This return value tells TryStartRun whether to transition
+            
+            # we return true always bc either cases 
+            return True
 
         else:
             # ---
@@ -412,7 +415,7 @@ class NGTLoopStep2(object):
         print("Machine reset!")
         self.runNumber = 0
         self.startTime = 0
-        self.minimumLS = 3
+        self.minimumLS = 3 # these variable names are a bit misleading as they are not minimumLS but minimum files availabe (same for the other ones ok)
         self.maximumLS = 5
         self.requestMinimumLS = True
         self.waitingLS = False
