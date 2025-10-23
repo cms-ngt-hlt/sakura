@@ -70,7 +70,7 @@ class NGTLoopStep2(object):
     def CalFuProcessed(self, run_number):
         LastLS_OMS = self.LastLSRunNumber(run_number)
         LastLS_available = self.LSavailable()
-        return LastLS_OMS == LastLS_available 
+        return  abs(int(LastLS_OMS) - int(LastLS_available)) <= 2 
 
     def RunHasEndedAndFilesAreReady(self):
         if self.DAQIsRunning():
@@ -423,7 +423,7 @@ class NGTLoopStep2(object):
         print("Machine reset!")
         self.runNumber = 0
         self.startTime = 0
-        self.minimumLS = 3 # these variable names are a bit misleading as they are not minimumLS but minimum files availabe (same for the other ones ok)
+        self.minimumLS = 1 # these variable names are a bit misleading as they are not minimumLS but minimum files availabe (same for the other ones ok)
         self.minLSToProcess = 50 # to avoid the continued processing of runs that do not have enough data
         self.maximumLS = 5
         self.requestMinimumLS = True
