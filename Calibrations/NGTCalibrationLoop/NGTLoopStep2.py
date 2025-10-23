@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import json
+import os
 import re
 import subprocess
 import time
@@ -35,6 +36,7 @@ class NGTLoopStep2(object):
         # We live in directory /tmp/ngt.
         p = Path(f"/tmp/ngt/run{runNumber}")
         p.mkdir(parents=True, exist_ok=True)
+        os.chmod(p, 0o777)
         self.workingDir = str(p)
         # We assert the run start time for us as "now" in UTC
         with open(self.workingDir + "/runStart.log", "w") as f:
