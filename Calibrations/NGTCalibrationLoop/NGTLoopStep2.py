@@ -220,7 +220,7 @@ class NGTLoopStep2(object):
         all_files = subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout.strip().splitlines()
         final_list = []
         for file in all_files:
-            output = self.edmFileUtilCommand(prefix+file)
+            output = self.edmFileUtilCommand(file)
             if "ERR" in output.stdout:
                 print(f"\n Following file won't be processed(skipping): {file}")
             else:
@@ -499,7 +499,7 @@ class NGTLoopStep2(object):
             source="CheckingLSForProcess",
             dest="PreparingFinalLS",
             # so only if run has ended *and* files are ready, and there is something to process
-            conditions=[conditions=["RunHasEndedAndFilesAreReady", "ThereAreLSWaiting"]
+            conditions=["RunHasEndedAndFilesAreReady", "ThereAreLSWaiting"]
         )
 
 
