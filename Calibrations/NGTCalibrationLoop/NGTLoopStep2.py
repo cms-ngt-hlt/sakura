@@ -571,7 +571,7 @@ class NGTLoopStep2(object):
         )
 
 
-loop = NGTLoopStep2("Thiago")
+loop = NGTLoopStep2("Step2")
 
 loop.state
 
