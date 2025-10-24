@@ -436,6 +436,7 @@ class NGTLoopStep2(object):
         self.minLSToProcess = 50 # to avoid the continued processing of runs that do not have enough data
         self.maximumLS = 5
         self.maxLatchTime = 8 # due to 8 hours of buffering
+        self.runStartTime = None
         self.requestMinimumLS = True
         self.waitingLS = False
         self.enoughLS = False
