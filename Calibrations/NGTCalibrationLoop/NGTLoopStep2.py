@@ -6,7 +6,7 @@ import os
 import re
 import subprocess
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 from transitions import Machine, State
@@ -70,7 +70,7 @@ class NGTLoopStep2(object):
     def CalFuProcessed(self, run_number):
         LastLS_OMS = self.LastLSRunNumber(run_number)
         LastLS_available = self.LSavailable()
-        return  abs(int(LastLS_OMS) - int(LastLS_available)) <= 2 
+        return  abs(int(LastLS_OMS) - int(LastLS_available)) <= int(LastLS_OMS*0.04)  
 
     def RunHasEndedAndFilesAreReady(self):
         if self.DAQIsRunning():
