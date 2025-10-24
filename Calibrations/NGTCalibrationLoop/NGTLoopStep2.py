@@ -68,6 +68,21 @@ class NGTLoopStep2(object):
         return max_ls
 
     def CalFuProcessed(self, run_number):
+        # this whole omsapi block does not need to be repeated so often lol
+        omsapi = OMSAPI("https://cmsoms.cms/agg/api", "v1", cert_verify=False)
+        q = omsapi.query("runs")
+        q.filter("run_number", run_number)
+        response = q.data().json()
+        start_time_str = response["data"][0]["attributes"].get("start_time")
+        start_time = datetime.fromisoformat(start_time_str.replace("Z", "+00:00"))
+        now_utc = datetime.now(timezone.utc)
+        delta = now_utc - start_time
+        hours_elapsed = delta.total_seconds() / 3600
+        
+        if hours_elapsed >= self.maxLatchTime:
+            print(f"It has been {hours_elapsed} h since the run started, this exceeds the maximum latch time of {self.maxLatchTime} h.")
+            return True
+        print(f"We will spend {self.maxLatchTime-hours_elapsed} more hours in this run before proceeding to the next one.")
         LastLS_OMS = self.LastLSRunNumber(run_number)
         LastLS_available = self.LSavailable()
         return  abs(int(LastLS_OMS) - int(LastLS_available)) <= int(LastLS_OMS*0.04)  
@@ -426,6 +441,7 @@ class NGTLoopStep2(object):
         self.minimumLS = 1 # these variable names are a bit misleading as they are not minimumLS but minimum files availabe (same for the other ones ok)
         self.minLSToProcess = 50 # to avoid the continued processing of runs that do not have enough data
         self.maximumLS = 5
+        self.maxLatchTime = 8 # due to 8 hours of buffering
         self.requestMinimumLS = True
         self.waitingLS = False
         self.enoughLS = False
