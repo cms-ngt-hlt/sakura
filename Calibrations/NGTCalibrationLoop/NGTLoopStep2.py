@@ -69,20 +69,14 @@ class NGTLoopStep2(object):
 
     def CalFuProcessed(self, run_number):
         # this whole omsapi block does not need to be repeated so often lol
-        omsapi = OMSAPI("https://cmsoms.cms/agg/api", "v1", cert_verify=False)
-        q = omsapi.query("runs")
-        q.filter("run_number", run_number)
-        response = q.data().json()
-        start_time_str = response["data"][0]["attributes"].get("start_time")
-        start_time = datetime.fromisoformat(start_time_str.replace("Z", "+00:00"))
         now_utc = datetime.now(timezone.utc)
-        delta = now_utc - start_time
+        delta = now_utc - self.runStartTime
         hours_elapsed = delta.total_seconds() / 3600
         
         if hours_elapsed >= self.maxLatchTime:
             print(f"It has been {hours_elapsed} h since the run started, this exceeds the maximum latch time of {self.maxLatchTime} h.")
             return True
-        print(f"We will spend {self.maxLatchTime-hours_elapsed} more hours in this run before proceeding to the next one.")
+        print(f"We will spend {self.maxLatchTime-hours_elapsed:.1f} more hours in this run before proceeding to the next one.")
         LastLS_OMS = self.LastLSRunNumber(run_number)
         LastLS_available = self.LSavailable()
         return  abs(int(LastLS_OMS) - int(LastLS_available)) <= int(LastLS_OMS*0.04)  
@@ -133,7 +127,7 @@ class NGTLoopStep2(object):
             run_type = run_info.get("l1_hlt_mode") # We can just grab this for logging
             is_running = run_info.get("end_time") is None
             last_ls = run_info.get("last_lumisection_number")
-            
+            self.runStartTime = datetime.fromisoformat(run_info.get("start_time").replace("Z", "+00:00"))            
             if not is_running and last_ls < self.minLSToProcess:
                 print(f"Found ended run {run_number}, but it's too short ({last_ls} LS). Skipping and waiting.")
                 return False
