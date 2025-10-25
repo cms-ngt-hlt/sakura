@@ -56,7 +56,7 @@ class NGTLoopStep2(object):
             response = q.data().json()
         except Exception as e:
             print(f"Warning: OMS query for run {runnum} failed. Returning LS 0.")
-            return 0
+            return 0
         run_info = response["data"][0]["attributes"]
         last_ls = run_info.get("last_lumisection_number")
         return int(last_ls)
@@ -536,12 +536,12 @@ class NGTLoopStep2(object):
 
         # i hope this fixes our issue of it needing to go onto another run once 8 hours have passed..
         self.machine.add_transition(
-            trigger="ContinueAfterCheckLS",
-            source="CheckingLSForProcess",
-            dest="CleanupState",
-            conditions="RunHasEndedAndFilesAreReady",
-            unless="ThereAreLSWaiting" # Only fires if ThereAreLSWaiting is False
-        )
+                trigger="ContinueAfterCheckLS",
+                source="CheckingLSForProcess",
+                dest="CleanupState",
+                conditions="RunHasEndedAndFilesAreReady",
+                unless="ThereAreLSWaiting" # Only fires if ThereAreLSWaiting is False
+                )
 
         # If we don't have enough LS, but we are still running,
         # We go to WaitingForLS
