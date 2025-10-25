@@ -52,10 +52,14 @@ class NGTLoopStep2(object):
         omsapi = OMSAPI("https://cmsoms.cms/agg/api", "v1", cert_verify=False)
         q = omsapi.query("runs")
         q.filter("run_number", runnum)
-        response = q.data().json()
+        try:
+            response = q.data().json()
+        except Exception as e:
+            print(f"Warning: OMS query for run {runnum} failed. Returning LS 0.")
+            return 0
         run_info = response["data"][0]["attributes"]
         last_ls = run_info.get("last_lumisection_number")
-        return last_ls
+        return int(last_ls)
 
     def LSavailable(self):
         availableFiles = self.GetListOfAvailableFiles()
@@ -171,9 +175,13 @@ class NGTLoopStep2(object):
             print(f"Checking status of *our* latched run: {self.runNumber} ({CURRENT_RUN})")
 
             # Query specifically for our run
-            q_our_run = omsapi.query("runs")
-            q_our_run.filter("run_number", self.runNumber)
-            response_our_run = q_our_run.data().json()
+            try: #due to oms specific error recently
+                q_our_run = omsapi.query("runs")
+                q_our_run.filter("run_number", self.runNumber)
+                response_our_run = q_our_run.data().json()
+            except Exception as e:
+                print(f"Error querying OMS API: {e}")
+                return False
 
             if "data" not in response_our_run or not response_our_run["data"]:
                 print(f"Could not find info for *our* run {self.runNumber}. Assuming it ended.")
@@ -526,6 +534,14 @@ class NGTLoopStep2(object):
             conditions=["RunHasEndedAndFilesAreReady", "ThereAreLSWaiting"]
         )
 
+        # i hope this fixes our issue of it needing to go onto another run once 8 hours have passed..
+        self.machine.add_transition(
+            trigger="ContinueAfterCheckLS",
+            source="CheckingLSForProcess",
+            dest="CleanupState",
+            conditions="RunHasEndedAndFilesAreReady",
+            unless="ThereAreLSWaiting" # Only fires if ThereAreLSWaiting is False
+        )
 
         # If we don't have enough LS, but we are still running,
         # We go to WaitingForLS
