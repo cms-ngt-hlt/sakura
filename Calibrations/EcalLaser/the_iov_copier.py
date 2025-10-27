@@ -5,7 +5,7 @@ import sqlite3
 from datetime import datetime, timedelta
 
 TAG_MAIN = "EcalLaserAPDPNRatios_prompt_v3"
-TAG_REF = "EcalLaserAPDPNRatios_prompt_v3_inRunIoVs"
+TAG_REF = "EcalLaserAPDPNRatios_prompt_v3_inRunLSIoVs"
 LS_DURATION = 23.3  # seconds
 
 def pack(high, low):
@@ -62,6 +62,21 @@ def parse_conddb_list_inrun(output):
             entries.append((int(run_str), payload_hash))
     return entries
 
+def parse_conddb_list_inrunls(output):
+    """Parse 'conddb list' output for run-lumi based IOVs (with packed since values)."""
+    entries = []
+    for line in output.splitlines():
+        # Example line:
+        # 398515 :   1326 (1711608891966766)  2025-10-27 16:39:52  26b2f052da7fbe7c4884d4ed875e027f9885e799  EcalLaserAPDPNRatios
+        m = re.match(
+            r"\s*(\d+)\s*:\s*(\d+)\s*\((\d+)\)\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s+([0-9a-f]{40})\s+EcalLaserAPDPNRatios",
+            line,
+        )
+        if m:
+            run_str, lumi_str, raw_since, payload_hash = m.groups()
+            entries.append((int(run_str), int(lumi_str), int(raw_since), payload_hash))
+    return entries
+
 def parse_runs(output):
     """Parse conddb listRuns output into [(run_number, start_time, end_time, start_iov, end_iov)]"""
     runs = []
@@ -72,31 +87,41 @@ def parse_runs(output):
             runs.append((int(run), datetime.strptime(start, "%Y-%m-%d %H:%M:%S"), datetime.strptime(end, "%Y-%m-%d %H:%M:%S")))
     return runs
 
+
 def find_run_and_ls(timestamp, runs):
-    """Find the run and approximate LS corresponding to a timestamp."""
+    """Find the run and approximate LS corresponding to a timestamp.
+    If the run has no end time, assume it's still open and include any later timestamps.
+    """
     for run, start, end in runs:
-        if start <= timestamp <= end:
-            dt = (timestamp - start).total_seconds()
-            ls = int(round(dt / LS_DURATION))
-            return run, max(1, ls)
+        # handle open-ended run (end may be None)
+        if end is None:
+            if timestamp >= start:
+                dt = (timestamp - start).total_seconds()
+                ls = int(round(dt / LS_DURATION))
+                return run, max(1, ls)
+        else:
+            if start <= timestamp <= end:
+                dt = (timestamp - start).total_seconds()
+                ls = int(round(dt / LS_DURATION))
+                return run, max(1, ls)
     return None, None
 
 # Step 3: identify new payloads newer than last reference IOV
 
 # Parse both outputs with their respective parsers
 iov_main = parse_conddb_list_main(run_cmd(f"conddb --noLimit list {TAG_MAIN}"))
-iov_ref = parse_conddb_list_inrun(run_cmd(f"conddb --noLimit list {TAG_REF}"))
+iov_ref = parse_conddb_list_inrunls(run_cmd(f"conddb --noLimit list {TAG_REF}"))
 
 # Step 3: identify new payloads appearing after the last matched hash in the reference tag
-
-known_hashes = [h for _, h in iov_ref]
+known_hashes = [payload_hash for _, _, _, payload_hash in iov_ref]
 main_hashes = [h for _, _, h in iov_main]
-#main_hashes = [h for _, h in iov_main]
 
-known_hashes_set = set(h for _, h in iov_ref)
+# Build a set of known payload hashes from the reference tag (4-tuple entries)
+known_hashes_set = {payload_hash for _, _, _, payload_hash in iov_ref}
+
 last_common_index = None
 
-# scan from oldest to newest (reverse the list)
+# Scan from oldest to newest (reversed list)
 for rev_idx, h in enumerate(reversed(main_hashes)):
     if h in known_hashes_set:
         # compute the index in the original main_hashes list
@@ -105,22 +130,21 @@ for rev_idx, h in enumerate(reversed(main_hashes)):
 
 if last_common_index is None:
     # no common hash found
-    new_iovs = iov_main        # take all
+    new_iovs = iov_main  # take all
+    print("No last common hash found: taking all payloads.")
 else:
-    # everything after that index (newer entries) is at indices 0..last_common_index-1
+    # everything *after* that index (newer entries)
     print(f"Last common hash: {main_hashes[last_common_index]} at index {last_common_index}")
-    # Take all payloads *after* that one (older entries)
     new_iovs = iov_main[last_common_index + 1:]
-    
+
 print(f"Found {len(new_iovs)} new payload(s) after the last matched hash.")
 
 # # Step 4: get recent runs
-runs_output = run_cmd("conddb listRuns --limit 200")
+runs_output = run_cmd("conddb listRuns --limit 500")
 runs = parse_runs(runs_output)
 
-
-# Step 5: Import payload into local SQLite
-sqlite_file = "EcalLaserAPDPNRatios_prompt_v3_inRunIoVs.db"
+#Step 5: Import payload into local SQLite
+sqlite_file = TAG_REF+".db"
 
 for ts_str, since_iov, payload_hash in new_iovs:
     print(f"\nProcessing payload {payload_hash} (since {since_iov})")
@@ -169,7 +193,7 @@ for ts_str, since_iov, payload_hash in new_iovs:
         continue
 
     packed_iov = pack(run, ls)
-    print(f"  Updating {payload_hash}: Run {run}, LS {ls} → packed {packed_iov}")
+    print(f"  Updating {payload_hash}: Run {run}, LS {ls} -> packed {packed_iov}")
 
     cur.execute(
         "UPDATE IOV SET SINCE=? WHERE PAYLOAD_HASH=?;",
