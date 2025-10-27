@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-import subprocess
+from datetime import datetime, timedelta
+import os
 import re
 import sqlite3
-from datetime import datetime, timedelta
+import subprocess
+import sys
 
 TAG_MAIN = "EcalLaserAPDPNRatios_prompt_v3"
 TAG_REF = "EcalLaserAPDPNRatios_prompt_v3_inRunLSIoVs"
@@ -87,7 +89,6 @@ def parse_runs(output):
             runs.append((int(run), datetime.strptime(start, "%Y-%m-%d %H:%M:%S"), datetime.strptime(end, "%Y-%m-%d %H:%M:%S")))
     return runs
 
-
 def find_run_and_ls(timestamp, runs):
     """Find the run and approximate LS corresponding to a timestamp.
     If the run has no end time, assume it's still open and include any later timestamps.
@@ -106,7 +107,25 @@ def find_run_and_ls(timestamp, runs):
                 return run, max(1, ls)
     return None, None
 
-# Step 3: identify new payloads newer than last reference IOV
+
+########################################################################
+# --- Check that CMSSW environment is set up ---
+if "CMSSW_BASE" not in os.environ:
+    print("CMSSW environment not detected. Please run 'cmsenv' before executing this script.")
+    sys.exit(1)
+else:
+    print(f"CMSSW environment detected: {os.environ['CMSSW_BASE']}")
+
+sqlite_file = TAG_REF+".db"
+
+# --- Step 1: remove old DB if it exists ---
+if os.path.exists(sqlite_file):
+    print(f"Found existing {sqlite_file}, deleting it before starting...")
+    os.remove(sqlite_file)
+else:
+    print(f"No existing {sqlite_file} found. Proceeding.")
+
+# Step 2: identify new payloads newer than last reference IOV
 
 # Parse both outputs with their respective parsers
 iov_main = parse_conddb_list_main(run_cmd(f"conddb --noLimit list {TAG_MAIN}"))
@@ -139,12 +158,11 @@ else:
 
 print(f"Found {len(new_iovs)} new payload(s) after the last matched hash.")
 
-# # Step 4: get recent runs
+# Step 4: get recent runs
 runs_output = run_cmd("conddb listRuns --limit 500")
 runs = parse_runs(runs_output)
 
-#Step 5: Import payload into local SQLite
-sqlite_file = TAG_REF+".db"
+# Step 5: Import payload into local SQLite
 
 for ts_str, since_iov, payload_hash in new_iovs:
     print(f"\nProcessing payload {payload_hash} (since {since_iov})")
@@ -159,17 +177,17 @@ for ts_str, since_iov, payload_hash in new_iovs:
 
     print(f"  Closest run: {run}, LS ~ {ls}")
 
-    # Import the payload directly into local SQLite
     cmd = (
-        f"conddb_import "
-        f"-c sqlite_file:{sqlite_file} "
-        f"-f frontier://FrontierProd/CMS_CONDITIONS "
-        f"-i {TAG_MAIN} "
-        f"-t {TAG_REF} "
-        f"-b {since_iov} -e {since_iov}"
+        f"conddb --yes copy "
+        f"--destdb {sqlite_file} "
+        f"--from {since_iov} "
+        f"--to {since_iov} "
+        f"--type tag "
+        f"{TAG_MAIN} {TAG_REF}"
     )
 
     print(f"  Importing payload from PromptProd into {sqlite_file} ...")
+    print(f"{cmd}")
     result = run_cmd(cmd)
 
     print(f"  Imported {payload_hash} (IOV={since_iov}) corresponding to Run {run}, LS {ls}")
@@ -177,6 +195,15 @@ for ts_str, since_iov, payload_hash in new_iovs:
 #### final touch re-derive the iovs
 
 print(f"\nOpening {sqlite_file} for IOV conversion...")
+
+# --- Protection: check that the file exists and is not empty ---
+if not os.path.exists(sqlite_file):
+    print(f"SQLite file '{sqlite_file}' not found in current directory. Exiting gracefully.")
+    sys.exit(1)
+
+if os.path.getsize(sqlite_file) == 0:
+    print(f"SQLite file '{sqlite_file}' exists but is empty (0 bytes). Exiting gracefully.")
+    sys.exit(1)
 
 conn = sqlite3.connect(sqlite_file)
 cur = conn.cursor()
@@ -193,14 +220,56 @@ for ts_str, since_iov, payload_hash in new_iovs:
         continue
 
     packed_iov = pack(run, ls)
-    print(f"  Updating {payload_hash}: Run {run}, LS {ls} -> packed {packed_iov}")
+    print(f"  Updating IOV {since_iov} -> Run {run}, LS {ls} -> packed {packed_iov}")
 
-    cur.execute(
-        "UPDATE IOV SET SINCE=? WHERE PAYLOAD_HASH=?;",
-        (packed_iov, payload_hash),
-    )
+    query = "UPDATE IOV SET SINCE=? WHERE SINCE=?;"
+    params = (packed_iov, since_iov)
+
+    print("Executing SQL:", query, "with parameters:", params)
+    cur.execute(query, params)
+    if cur.rowcount == 0:
+        print(f" No rows updated for IOV {since_iov}")
+    else:
+        print(f" Updated {cur.rowcount} row(s)")
 
 conn.commit()
 conn.close()
 
-print("\n All IOVs updated to Run–LS format and TIME_TYPE changed to 'Lumi'.")
+print("\n All IOVs updated to Run,LS format and TIME_TYPE changed to 'Lumi'.")
+
+# --- Final step : show the resulting IOVs using conddb ---
+print("\n Listing the resulting IOVs using conddb:")
+cmd = [
+    "conddb",
+    "--db",
+    sqlite_file,
+    "list",
+    "EcalLaserAPDPNRatios_prompt_v3_inRunLSIoVs",
+]
+subprocess.run(cmd, check=True)
+
+# and now upload it!
+
+metadata_file = f"{TAG_REF}.txt"
+
+metadata = {
+    "destinationDatabase": "oracle://cms_orcon_prod/CMS_CONDITIONS",
+    "destinationTags": {TAG_REF: {}},
+    "inputTag": TAG_REF,
+    "since": None,
+    "userText": "Periodical fill-up upload for NGT test demonstrator",
+}
+
+with open(metadata_file, "w") as f:
+    json.dump(metadata, f, indent=4)
+
+print(f"Created metadata file: {metadata_file}")
+
+# --- Step 3: Upload the conditions ---
+print("\n Uploading conditions with uploadConditions.py...")
+subprocess.run(
+    ["uploadConditions.py", sqlite_file],
+    check=True
+)
+
+print("All steps completed successfully.")
