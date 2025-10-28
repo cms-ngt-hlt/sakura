@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import json
+import os
 import re
 import subprocess
 import time
@@ -31,7 +32,9 @@ class NGTLoopStep3(object):
         path = Path(self.pathWhereFilesAppear)
         currentDirs = {p.name for p in path.iterdir() if p.is_dir()}
         newDirs = currentDirs - self.setOfRunsProcessed
-        newRuns = {p for p in newDirs if p.startswith("run")}
+        # Thiago: rig to run on 398600
+        # newRuns = {p for p in newDirs if p.startswith("run")}
+        newRuns = {p for p in newDirs if p.startswith("run398600")}
         foundNewRuns = not (not newRuns)  # Is this pythonic?
         if foundNewRuns:
             print("New runs found!")
@@ -165,12 +168,23 @@ class NGTLoopStep3(object):
         # Probably should have a call to cmsDriver
         # There are better ways to do this, but right now I just do it with a file
 
-        with open(self.workingDir + "/ALCAOUTPUT.sh", "w") as f:
-            # Do we actually need to set the environment like this every time?
+        # First make a particular subdir for us to run in
+        alcaJobDir = Path(self.workingDir + "/apJob" + f"{self.alcaJobNumber:03}")
+        alcaJobDir.mkdir(parents=True, exist_ok=True)
+        os.chmod(alcaJobDir, 0o777)
+        # Save it so that we can use it later
+        self.jobDir = str(alcaJobDir)
+        alcaJobFile = alcaJobDir / Path("ALCAOUTPUT.sh")
+
+        # At this point, we already increase the self.alcaJobNumber
+        self.alcaJobNumber += 1
+
+        # Write the job file
+        with alcaJobFile.open("w") as f:
             f.write("#!/bin/bash -ex\n\n")
+            # First we go to the workingDir to setup CMSSW
             f.write(f"export $SCRAM_ARCH={self.scramArch}\n")
-            f.write(f"cmsrel {self.cmsswVersion}\n")
-            f.write(f"cd {self.cmsswVersion}/src\n")
+            f.write(f"cd {self.workingDir}/{self.cmsswVersion}/src\n")
             f.write("cmsenv\n")
             f.write("cd -\n\n")
             # Now we do the cmsDriver.py proper
@@ -207,7 +221,7 @@ class NGTLoopStep3(object):
         # FIXME: add monitoring...
         subprocess.Popen(
             ["bash", "ALCAOUTPUT.sh"],
-            cwd=self.workingDir,
+            cwd=self.jobDir,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -260,7 +274,7 @@ class NGTLoopStep3(object):
         print("Machine reset!")
         self.runNumber = 0
         self.startTime = 0
-        self.timeoutInSeconds = 8 * 60 * 60  # 8 hours
+        self.timeoutInSeconds = 99 * 60 * 60  # 8 hours
         self.minimumFiles = 1
         self.maximumFiles = 5
         self.requestMinimumFiles = True
@@ -268,6 +282,8 @@ class NGTLoopStep3(object):
         self.enoughFiles = False
         self.pathWhereFilesAppear = "/tmp/ngt/"
         self.workingDir = "/dev/null"
+        self.jobDir = "/dev/null"
+        self.alcaJobNumber = 0
         self.preparedFinalFiles = False
 
         # Read some configurations
