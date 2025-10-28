@@ -32,7 +32,7 @@ class NGTLoopStep2(object):
 
     def ExecuteRunStart(self):
         runNumber = self.runNumber
-        print(f"Run {runNumber} has started!")
+        print(f"Started processing run {runNumber}!")
         # We live in directory /tmp/ngt.
         p = Path(f"/tmp/ngt/run{runNumber}")
         p.mkdir(parents=True, exist_ok=True)
@@ -66,24 +66,48 @@ class NGTLoopStep2(object):
         ls_numbers = set()
         for file_path in availableFiles:
             result = self.edmFileUtilCommand(file_path)
-            for match in re.finditer(r'^\s*\d+\s+(\d+)\s+', result.stdout, re.MULTILINE):
+            for match in re.finditer(
+                r"^\s*\d+\s+(\d+)\s+", result.stdout, re.MULTILINE
+            ):
                 ls_numbers.add(int(match.group(1)))
-        max_ls = max(ls_numbers, default=0) # default to 0 bc if there are none it will crash this function
+        max_ls = max(
+            ls_numbers, default=0
+        )  # default to 0 bc if there are none it will crash this function
         return max_ls
 
+    def WeStillHaveTime(self):
+        now_utc = datetime.now(timezone.utc)
+        delta = now_utc - self.runStartTime
+        if int(delta.total_seconds()) < int(self.maxLatchTime * 60 * 60):
+            print(
+                f"We still have time: {int(self.maxLatchTime * 60 * 60) - int(delta.total_seconds())} seconds"
+            )
+            print(delta.total_seconds())
+        else:
+            print("Time is up!")
+        return delta.total_seconds() < (self.maxLatchTime * 60 * 60)
+
     def CalFuProcessed(self, run_number):
+
         # this whole omsapi block does not need to be repeated so often lol
         now_utc = datetime.now(timezone.utc)
         delta = now_utc - self.runStartTime
         hours_elapsed = delta.total_seconds() / 3600
-        
-        if hours_elapsed >= self.maxLatchTime:
-            print(f"It has been {hours_elapsed} h since the run started, this exceeds the maximum latch time of {self.maxLatchTime} h.")
+
+        if not self.WeStillHaveTime():
+            print(
+                f"It has been {hours_elapsed} h since the run started, this exceeds the maximum latch time of {self.maxLatchTime} h."
+            )
             return True
-        print(f"We will spend {self.maxLatchTime-hours_elapsed:.1f} more hours in this run before proceeding to the next one.")
+        else:
+            print(
+                f"We will spend {self.maxLatchTime-hours_elapsed:.1f} more hours in this run before proceeding to the next one."
+            )
+
+        ### Thiago: what does this do?
         LastLS_OMS = self.LastLSRunNumber(run_number)
         LastLS_available = self.LSavailable()
-        return  abs(int(LastLS_OMS) - int(LastLS_available)) <= int(LastLS_OMS*0.04)  
+        return abs(int(LastLS_OMS) - int(LastLS_available)) <= int(LastLS_OMS * 0.04)
 
     def RunHasEndedAndFilesAreReady(self):
         if self.DAQIsRunning():
@@ -91,13 +115,17 @@ class NGTLoopStep2(object):
         if self.runNumber == 0:
             return False
 
-        print(f"Run {self.runNumber} has ended. Checking if all files are available before going to next run...")
+        print(
+            f"Run {self.runNumber} has ended. Checking if all files are available before going to next run..."
+        )
         all_files_ready = self.CalFuProcessed(self.runNumber)
 
         if all_files_ready:
             print("All files available!")
         else:
-            print("Run ended, but we are still waiting for all the files to be processed")
+            print(
+                "Run ended, but we are still waiting for all the files to be processed"
+            )
         return all_files_ready
 
     def DAQIsRunning(self):
@@ -123,26 +151,35 @@ class NGTLoopStep2(object):
 
             if "data" not in response or not response["data"]:
                 print("No PROTONS *collisions* runs found in OMS. Waiting.")
-                return False # Stay in NotRunning
+                return False  # Stay in NotRunning
 
             # This is the latest *collisions* run
             run_info = response["data"][0]["attributes"]
             run_number = run_info.get("run_number")
-            run_type = run_info.get("l1_hlt_mode") # We can just grab this for logging
+            run_type = run_info.get("l1_hlt_mode")  # We can just grab this for logging
             is_running = run_info.get("end_time") is None
             last_ls = run_info.get("last_lumisection_number")
-            self.runStartTime = datetime.fromisoformat(run_info.get("start_time").replace("Z", "+00:00"))            
+            self.runStartTime = datetime.fromisoformat(
+                run_info.get("start_time").replace("Z", "+00:00")
+            )
             if not is_running and last_ls < self.minLSToProcess:
-                print(f"Found ended run {run_number}, but it's too short ({last_ls} LS). Skipping and waiting.")
+                print(
+                    f"Found ended run {run_number}, but it's too short ({last_ls} LS). Skipping and waiting."
+                )
                 return False
+
+            ### Thiago: Rig it to run over 398593
+            # if(self.rigMe == True):
+            #    run_number = "398593"
+            #    run_type = "collisions2025"
 
             print(f"Found latest PROTONS run: {run_number} (type: {run_type})")
 
             # --- LATCH THE RUN ---
             self.runNumber = run_number
             # Set the globals
-            LAST_LS = last_ls #run_info.get("last_lumisection_number")
-            
+            LAST_LS = last_ls  # run_info.get("last_lumisection_number")
+
             run_str = str(self.runNumber)
             if len(run_str) == 6:
                 CURRENT_RUN = f"{run_str[:3]}/{run_str[3:]}"
@@ -152,18 +189,22 @@ class NGTLoopStep2(object):
             print(f"LATCHED run: {CURRENT_RUN}, last LS: {LAST_LS}")
 
             # Set the path for GetListOfAvailableFiles
-            self.pathWhereFilesAppear = "/eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/"+CURRENT_RUN+"/00000"
+            self.pathWhereFilesAppear = (
+                "/eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/"
+                + CURRENT_RUN
+                + "/00000"
+            )
 
             is_running = run_info.get("end_time") is None
             if is_running:
-                #print("DAQ appears to be running!")
+                # print("DAQ appears to be running!")
                 print("Latching onto an ongoing collisions run.")
             else:
-                #print("Latching onto a PROTONS run that has already ended.")
+                # print("Latching onto a PROTONS run that has already ended.")
                 print("Latching onto a collisions run that has already ended.")
             ## This return value tells TryStartRun whether to transition
-            
-            # we return true always bc either cases 
+
+            # we return true always bc either cases
             return True
 
         else:
@@ -172,10 +213,12 @@ class NGTLoopStep2(object):
             # ---
             # (This part was already working perfectly and remains unchanged)
 
-            print(f"Checking status of *our* latched run: {self.runNumber} ({CURRENT_RUN})")
+            print(
+                f"Checking status of *our* latched run: {self.runNumber} ({CURRENT_RUN})"
+            )
 
             # Query specifically for our run
-            try: #due to oms specific error recently
+            try:  # due to oms specific error recently
                 q_our_run = omsapi.query("runs")
                 q_our_run.filter("run_number", self.runNumber)
                 response_our_run = q_our_run.data().json()
@@ -184,8 +227,10 @@ class NGTLoopStep2(object):
                 return False
 
             if "data" not in response_our_run or not response_our_run["data"]:
-                print(f"Could not find info for *our* run {self.runNumber}. Assuming it ended.")
-                return False # Treat our run as finished
+                print(
+                    f"Could not find info for *our* run {self.runNumber}. Assuming it ended."
+                )
+                return False  # Treat our run as finished
 
             our_run_info = response_our_run["data"][0]["attributes"]
 
@@ -193,23 +238,42 @@ class NGTLoopStep2(object):
             LAST_LS = our_run_info.get("last_lumisection_number")
             is_running = our_run_info.get("end_time") is None
 
-            print(f"Our run {self.runNumber}: Last LS is {LAST_LS}. Running: {is_running}")
+            print(
+                f"Our run {self.runNumber}: Last LS is {LAST_LS}. Running: {is_running}"
+            )
 
             return is_running
 
+    def NewRunAvailable(self):
+        # We don't want to keep restarting the same run forever
+        if self.runNumber != 0:
+            end_log_path = Path(f"/tmp/ngt/run{self.runNumber}/runEnd.log")
+            if end_log_path.exists():
+                print("This is a run we have already treated. No point in restarting")
+                return False
+            else:  # If we don't find the file, IN PRINCIPLE, a new run exists
+                print("Okay, in principle this is a new run!")
+                return True
+        else:
+            # Again, IN PRINCIPLE, a new run exists
+            return True
 
     def edmFileUtilCommand(self, filename):
-        #for now it only works with one file, rewrite to also give out for several files..!
-        cmd = ["edmFileUtil", 'root://eoscms.cern.ch/'+filename, "--eventsInLumi"]
-        output = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        # for now it only works with one file, rewrite to also give out for several files..!
+        cmd = ["edmFileUtil", "root://eoscms.cern.ch/" + filename, "--eventsInLumi"]
+        output = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
         return output
 
     def GetRunNumber(self):
         availableFiles = self.GetListOfAvailableFiles()
-        result = self.edmFileUtilCommand(availableFiles[0]) 
-        match = re.search(r'^\s*(\d{6})\s+', result.stdout, re.MULTILINE)
+        result = self.edmFileUtilCommand(availableFiles[0])
+        match = re.search(r"^\s*(\d{6})\s+", result.stdout, re.MULTILINE)
         if not match:
-            raise RuntimeError(f"Could not parse run number from edmFileUtil output:\n{result.stdout}")
+            raise RuntimeError(
+                f"Could not parse run number from edmFileUtil output:\n{result.stdout}"
+            )
         runNumber = int(match.group(1))
         return runNumber
 
@@ -220,14 +284,14 @@ class NGTLoopStep2(object):
         listOfLSFilesAvailable = set(self.GetListOfAvailableFiles())
 
         print("listOfLSFilesAvailable", [str(p) for p in listOfLSFilesAvailable])
-        print(50*"*")
-        
+        print(50 * "*")
+
         self.setOfLSObserved = self.setOfLSObserved.union(listOfLSFilesAvailable)
         self.setOfLSToProcess = listOfLSFilesAvailable - self.setOfLSProcessed
 
-       # print("self.setOfLSToProcess",[str(p) for p in self.setOfLSToProcess])
-        print(50*"*")
-        
+        # print("self.setOfLSToProcess",[str(p) for p in self.setOfLSToProcess])
+        print(50 * "*")
+
         self.waitingLS = len(self.setOfLSToProcess) > 0
         print("New LSs to process:")
         print(self.setOfLSToProcess)
@@ -240,13 +304,21 @@ class NGTLoopStep2(object):
     # files of the form "run*_ls*.root". Could be made smarter if needed
     def GetListOfAvailableFiles(self):
         prefix = "root://eoscms.cern.ch/"
-        
+
         if not self.pathWhereFilesAppear:
             print("Warning: pathWhereFilesAppear is not set. Cannot list files.")
             return []
-        
+
         cmd = f"xrdfs {prefix} ls {self.pathWhereFilesAppear}"
-        all_files = subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout.strip().splitlines()
+        ## Thiago: rig to get only one file
+        # if(self.rigMe == True):
+        # cmd = "xrdfs root://eoscms.cern.ch/ ls /eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/398/600/00000/e03573bc-978e-4655-909a-15e45ab59a98.root"
+        # cmd = "xrdfs root://eoscms.cern.ch ls /eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/398/593/00000/ef4a8d3d-100f-48bc-873e-8e73b0853ef6.root"
+        all_files = (
+            subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            .stdout.strip()
+            .splitlines()
+        )
         final_list = []
         for file in all_files:
             output = self.edmFileUtilCommand(file)
@@ -262,14 +334,8 @@ class NGTLoopStep2(object):
 
     def ExecutePrepareFinalLS(self):
         print("I am PreparingFinalLS")
-        print(f"Processing of run {self.runNumber} has ended. Creating empty runEnd.log...")
-        
-        end_log_path = Path(self.workingDir) / "runEnd.log"
-        end_log_path.touch()
-
         self.PrepareLSForProcessing()
         self.preparedFinalLS = True
-       
 
     def PrepareLSForProcessing(self):
         print("I am in PrepareLSForProcessing...")
@@ -284,24 +350,37 @@ class NGTLoopStep2(object):
         if not self.setOfLSToProcess:
             return
 
+        # Thiago: new logic to avoid gigantic cmsRun jobs
+        # if(len(self.setOfLSToProcess) > self.maximumFilesPerJob):
+        #    as_a_list = sorted(self.setOfLSToProcess)
+        #    topTargets = as_a_list[0:self.maximumFilesPerJob]
+        #    self.setOfExpressLS = set(topTargets)
+        # else:
+        #    self.setOfExpressLS = self.setOfLSToProcess
+
+        self.setOfExpressLS = self.setOfLSToProcess
         # Extract all LS numbers (as integers)
-        str_paths = {"root://eoscms.cern.ch/" + str(p) for p in self.setOfLSToProcess}
-        
+        str_paths = {"root://eoscms.cern.ch/" + str(p) for p in self.setOfExpressLS}
+
         ls_numbers = set()  # use a set to avoid duplicates
 
         for file_path in str_paths:
             print(file_path)
             cmd = ["edmFileUtil", f"{file_path}", "--eventsInLumi"]
-            
-            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    
+
+            result = subprocess.run(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
+
             if result.returncode != 0:
-                print(f"edmFileUtil failed for") # {file_path}:\n{result.stderr}")
+                print(f"edmFileUtil failed for")  # {file_path}:\n{result.stderr}")
                 continue
 
             # Find lumisection numbers -- second column in output table
             # Example line: "         398348            187           2268"
-            for match in re.finditer(r'^\s*\d+\s+(\d+)\s+', result.stdout, re.MULTILINE):
+            for match in re.finditer(
+                r"^\s*\d+\s+(\d+)\s+", result.stdout, re.MULTILINE
+            ):
                 ls_numbers.add(int(match.group(1)))
 
         # Convert to sorted list if you want
@@ -309,9 +388,9 @@ class NGTLoopStep2(object):
 
         print(f"Found {len(ls_numbers)} unique lumisections:")
         print(ls_numbers)
-        
-        #ls_numbers = [int(re.search(r"ls(\d{4})", path).group(1)) for path in str_paths]
-        
+
+        # ls_numbers = [int(re.search(r"ls(\d{4})", path).group(1)) for path in str_paths]
+
         # Compute min and max, then format back
         min_ls = min(ls_numbers, default=None)
         max_ls = max(ls_numbers, default=None)
@@ -322,7 +401,6 @@ class NGTLoopStep2(object):
         # Here we should have some logic that prepares the Express jobs
         # Probably should have a call to cmsDriver
         # There are better ways to do this, but right now I just do it with a file
-
         with open(self.workingDir + "/cmsDriver.sh", "w") as f:
             # Do we actually need to set the environment like this every time?
             f.write("#!/bin/bash -ex\n\n")
@@ -342,16 +420,17 @@ class NGTLoopStep2(object):
             # and we pass the list of LS to process (self.setOfLSToProcess)
             f.write("--filein ")
             # some massaging to go from PosixPath to string
-            str_paths = {"root://eoscms.cern.ch/" + str(p) for p in self.setOfLSToProcess}
+            str_paths = {"root://eoscms.cern.ch/" + str(p) for p in self.setOfExpressLS}
             f.write(",".join(str_paths))
             f.write(f" --fileout file:{outputFileName} --no_exec ")
             f.write(
                 f"--python_filename run{self.runNumber}_{affix}_ecalPedsStep2.py\n\n"
             )
-            f.write(f"cmsRun run{self.runNumber}_{affix}_ecalPedsStep2.py > {logFileName} 2>&1\n")
+            f.write(
+                f"cmsRun run{self.runNumber}_{affix}_ecalPedsStep2.py > {logFileName} 2>&1\n"
+            )
             f.write(f"touch run{self.runNumber}_{affix}_ecalPedsStep2_job.txt \n")
 
-        self.setOfExpressLS = self.setOfLSToProcess
         self.setOfExpectedOutputs.add(self.workingDir + "/" + outputFileName)
         self.setOfLSToProcess = set()
 
@@ -361,18 +440,28 @@ class NGTLoopStep2(object):
         # Here we should launch the Express jobs
         # We use subprocess.Popen, since we don't want to hang waiting for this
         # to finish running. Some other loop will look at their output
-        subprocess.Popen(
-            ["bash", "cmsDriver.sh"],
-            cwd=self.workingDir,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        # Notice: we only ACTUALLY launch the jobs if we are still treating this run!
+        # If we find the magic file runEnd.log, we just do nothing!
+        # We have to check this here because we don't want to continuously go through
+        # launching jobs if we are forced to go through the PreparingFinalLS path
+        end_log_path = Path(self.workingDir) / "runEnd.log"
 
-        # Now we have to move the LSs to self.setOfLSProcessed
-        # and clear self.setOfLSToProcess
+        if not end_log_path.exists():
+            subprocess.Popen(
+                ["bash", "cmsDriver.sh"],
+                cwd=self.workingDir,
+                preexec_fn=os.setsid,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                close_fds=True,
+            )
 
-        print("Launched jobs with:")
-        print(self.setOfExpressLS)
+            # Now we have to move the LSs to self.setOfLSProcessed
+            # and clear self.setOfLSToProcess
+            print("Launched jobs with:")
+            print(self.setOfExpressLS)
+
+        # In any case we remove them from the list
         self.setOfLSProcessed = self.setOfLSProcessed.union(self.setOfExpressLS)
         self.setOfLSToProcess = set()
 
@@ -395,10 +484,17 @@ class NGTLoopStep2(object):
 
     def ExecuteCleanup(self):
         print("I am in ExecuteCleanup")
+        self.rigMe = False
         if self.preparedFinalLS:
             print("We prepared Final LS, will reset the machine...")
             # We actually have to reset the machine only when we go to NotRunning!
 
+            # Announce that the run ended and setup the witness file
+            print(
+                f"Processing of run {self.runNumber} has ended. Creating empty runEnd.log..."
+            )
+            end_log_path = Path(self.workingDir) / "runEnd.log"
+            end_log_path.touch()
             # Make a log of everything that we did
             with open(self.workingDir + "/allLSProcessed.log", "w") as f:
                 for LS in sorted(self.setOfLSProcessed):
@@ -406,7 +502,7 @@ class NGTLoopStep2(object):
             with open(self.workingDir + "/expectedOutputs.log", "w") as f:
                 for output in self.setOfExpectedOutputs:
                     f.write("file:" + output + "\n")
-            # And launch step3
+            # And launch step3 (note: we do not actually launch it here, we just prepare this file)
             with open(self.workingDir + "/ALCAOUTPUT.sh", "w") as f:
                 f.write("#!/bin/bash -ex\n\n")
                 f.write(f"cd {self.cmsswVersion}/src\n")
@@ -439,17 +535,23 @@ class NGTLoopStep2(object):
     def ResetTheMachine(self):
         print("Machine reset!")
         self.runNumber = 0
+        self.rigMe = False
         self.startTime = 0
-        self.minimumLS = 1 # these variable names are a bit misleading as they are not minimumLS but minimum files availabe (same for the other ones ok)
-        self.minLSToProcess = 50 # to avoid the continued processing of runs that do not have enough data
-        self.maximumLS = 5
-        self.maxLatchTime = 8 # due to 8 hours of buffering
+        self.minimumLS = 1  # these variable names are a bit misleading as they are not minimumLS but minimum files availabe (same for the other ones ok)
+        self.minLSToProcess = (
+            50  # to avoid the continued processing of runs that do not have enough data
+        )
+        self.maximumFilesPerJob = 5
+        self.maxLatchTime = 8  # due to 8 hours of buffering
         self.runStartTime = None
-        self.requestMinimumLS = True
         self.waitingLS = False
         self.enoughLS = False
-        self.pathWhereFilesAppear = "/eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/"+CURRENT_RUN+"/00000"
-        print("self.pathWhereFilesAppear",self.pathWhereFilesAppear)
+        self.pathWhereFilesAppear = (
+            "/eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/"
+            + CURRENT_RUN
+            + "/00000"
+        )
+        print("self.pathWhereFilesAppear", self.pathWhereFilesAppear)
         self.workingDir = "/dev/null"
         self.preparedFinalLS = False
         # Read some configurations
@@ -486,7 +588,7 @@ class NGTLoopStep2(object):
             trigger="TryStartRun",
             source="NotRunning",
             dest="WaitingForLS",
-            conditions="DAQIsRunning",
+            conditions=["DAQIsRunning", "NewRunAvailable"],
         )
         # Otherwise, do nothing
         self.machine.add_transition(
@@ -514,6 +616,18 @@ class NGTLoopStep2(object):
             trigger="TryProcessLS", source="WaitingForLS", dest="CheckingLSForProcess"
         )
 
+        # If time is up, that's it!
+        # Go immediately to PreparingFinalLS to signal to Step3 that we are ready.
+        # Notice: we will probably keep running over that run, and that is inneficient.
+        # But we do the optimisation later.
+        self.machine.add_transition(
+            trigger="ContinueAfterCheckLS",
+            source="CheckingLSForProcess",
+            dest="PreparingFinalLS",
+            unless=["WeStillHaveTime"],
+        )
+
+        # If we arrived here, we still have time... let's work leisurely.
         # If we have enough LS, process them immediately, we go to PreparingLS
         self.machine.add_transition(
             trigger="ContinueAfterCheckLS",
@@ -522,26 +636,27 @@ class NGTLoopStep2(object):
             conditions=["ThereAreLSWaiting", "ThereAreEnoughLS"],
         )
 
-
-        ## If we don't have enough LS, and we are not still running,
-        ## no more LS will come. We go to PreparingFinalLS
-        # if run is over and we have the files to be processed, we go to PreparingFinalLS (so we can process whatever is left!)
+        # If we don't have enough LS, and we are not still running,
+        # no more LS will come. We go to PreparingFinalLS
+        # if run is over and we have the files to be processed,
+        # we go to PreparingFinalLS (so we can process whatever is left!)
         self.machine.add_transition(
             trigger="ContinueAfterCheckLS",
             source="CheckingLSForProcess",
             dest="PreparingFinalLS",
             # so only if run has ended *and* files are ready, and there is something to process
-            conditions=["RunHasEndedAndFilesAreReady", "ThereAreLSWaiting"]
+            conditions=["RunHasEndedAndFilesAreReady", "ThereAreLSWaiting"],
         )
 
         # i hope this fixes our issue of it needing to go onto another run once 8 hours have passed..
-        self.machine.add_transition(
-                trigger="ContinueAfterCheckLS",
-                source="CheckingLSForProcess",
-                dest="CleanupState",
-                conditions="RunHasEndedAndFilesAreReady",
-                unless="ThereAreLSWaiting" # Only fires if ThereAreLSWaiting is False
-                )
+        ### Thiago: I think it didn't :(
+        # self.machine.add_transition(
+        #        trigger="ContinueAfterCheckLS",
+        #        source="CheckingLSForProcess",
+        #        dest="CleanupState",
+        #        conditions="RunHasEndedAndFilesAreReady",
+        #        unless="ThereAreLSWaiting" # Only fires if ThereAreLSWaiting is False
+        #        )
 
         # If we don't have enough LS, but we are still running,
         # We go to WaitingForLS
@@ -550,8 +665,6 @@ class NGTLoopStep2(object):
             source="CheckingLSForProcess",
             dest="WaitingForLS",
         )
-
-
 
         # In any case, prepare the Express jobs
         self.machine.add_transition(
@@ -601,7 +714,8 @@ class NGTLoopStep2(object):
 
 
 loop = NGTLoopStep2("Step2")
-
+# loop.rigMe = True
+# loop.maxLatchTime = 5.8
 loop.state
 
 while True:
