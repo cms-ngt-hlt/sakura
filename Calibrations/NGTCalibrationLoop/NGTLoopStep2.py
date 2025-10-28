@@ -6,6 +6,8 @@ import os
 import re
 import subprocess
 import time
+import logging  # <-- Added
+import sys      # <-- Added
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -32,7 +34,7 @@ class NGTLoopStep2(object):
 
     def ExecuteRunStart(self):
         runNumber = self.runNumber
-        print(f"Started processing run {runNumber}!")
+        logging.info(f"Started processing run {runNumber}!") # <-- Changed
         # We live in directory /tmp/ngt.
         p = Path(f"/tmp/ngt/run{runNumber}")
         p.mkdir(parents=True, exist_ok=True)
@@ -43,10 +45,10 @@ class NGTLoopStep2(object):
             f.write(datetime.now(timezone.utc).isoformat())
 
     def AnnounceWaitingForLS(self):
-        print("I am WaitingForLS...")
+        logging.info("I am WaitingForLS...") # <-- Changed
 
     def AnnounceRunStop(self):
-        print("The run stopped...")
+        logging.info("The run stopped...") # <-- Changed
 
     def LastLSRunNumber(self, runnum):
         omsapi = OMSAPI("https://cmsoms.cms/agg/api", "v1", cert_verify=False)
@@ -55,7 +57,7 @@ class NGTLoopStep2(object):
         try:
             response = q.data().json()
         except Exception as e:
-            print(f"Warning: OMS query for run {runnum} failed. Returning LS 0.")
+            logging.warning(f"OMS query for run {runnum} failed. Returning LS 0.") # <-- Changed
             return 0
         run_info = response["data"][0]["attributes"]
         last_ls = run_info.get("last_lumisection_number")
@@ -79,12 +81,12 @@ class NGTLoopStep2(object):
         now_utc = datetime.now(timezone.utc)
         delta = now_utc - self.runStartTime
         if int(delta.total_seconds()) < int(self.maxLatchTime * 60 * 60):
-            print(
+            logging.info( # <-- Changed
                 f"We still have time: {int(self.maxLatchTime * 60 * 60) - int(delta.total_seconds())} seconds"
             )
-            print(delta.total_seconds())
+            logging.info(delta.total_seconds()) # <-- Changed
         else:
-            print("Time is up!")
+            logging.info("Time is up!") # <-- Changed
         return delta.total_seconds() < (self.maxLatchTime * 60 * 60)
 
     def CalFuProcessed(self, run_number):
@@ -95,12 +97,12 @@ class NGTLoopStep2(object):
         hours_elapsed = delta.total_seconds() / 3600
 
         if not self.WeStillHaveTime():
-            print(
+            logging.info( # <-- Changed
                 f"It has been {hours_elapsed} h since the run started, this exceeds the maximum latch time of {self.maxLatchTime} h."
             )
             return True
         else:
-            print(
+            logging.info( # <-- Changed
                 f"We will spend {self.maxLatchTime-hours_elapsed:.1f} more hours in this run before proceeding to the next one."
             )
 
@@ -115,29 +117,29 @@ class NGTLoopStep2(object):
         if self.runNumber == 0:
             return False
 
-        print(
+        logging.info( # <-- Changed
             f"Run {self.runNumber} has ended. Checking if all files are available before going to next run..."
         )
         all_files_ready = self.CalFuProcessed(self.runNumber)
 
         if all_files_ready:
-            print("All files available!")
+            logging.info("All files available!") # <-- Changed
         else:
-            print(
+            logging.info( # <-- Changed
                 "Run ended, but we are still waiting for all the files to be processed"
             )
         return all_files_ready
 
     def DAQIsRunning(self):
         global CURRENT_RUN, LAST_LS
-        print("Checking DAQ status via OMS...")
+        logging.info("Checking DAQ status via OMS...") # <-- Changed
         omsapi = OMSAPI("https://cmsoms.cms/agg/api", "v1", cert_verify=False)
 
         if self.runNumber == 0:
             # ---
             # --- STATE 1: NOT LATCHED. Find the LATEST PROTONS run.
             # ---
-            print("Currently NotRunning. Looking for the most recent PROTONS run...")
+            logging.info("Currently NotRunning. Looking for the most recent PROTONS run...") # <-- Changed
             q = omsapi.query("runs")
 
             # --- THIS IS THE NEW, MORE ROBUST FILTER ---
@@ -150,7 +152,7 @@ class NGTLoopStep2(object):
             response = q.data().json()
 
             if "data" not in response or not response["data"]:
-                print("No PROTONS *collisions* runs found in OMS. Waiting.")
+                logging.info("No PROTONS *collisions* runs found in OMS. Waiting.") # <-- Changed
                 return False  # Stay in NotRunning
 
             # This is the latest *collisions* run
@@ -163,17 +165,17 @@ class NGTLoopStep2(object):
                 run_info.get("start_time").replace("Z", "+00:00")
             )
             if not is_running and last_ls < self.minLSToProcess:
-                print(
+                logging.warning( # <-- Changed
                     f"Found ended run {run_number}, but it's too short ({last_ls} LS). Skipping and waiting."
                 )
                 return False
 
             ### Thiago: Rig it to run over 398593
             # if(self.rigMe == True):
-            #    run_number = "398593"
-            #    run_type = "collisions2025"
+            #   run_number = "398593"
+            #   run_type = "collisions2025"
 
-            print(f"Found latest PROTONS run: {run_number} (type: {run_type})")
+            logging.info(f"Found latest PROTONS run: {run_number} (type: {run_type})") # <-- Changed
 
             # --- LATCH THE RUN ---
             self.runNumber = run_number
@@ -186,7 +188,7 @@ class NGTLoopStep2(object):
             else:
                 CURRENT_RUN = run_str
 
-            print(f"LATCHED run: {CURRENT_RUN}, last LS: {LAST_LS}")
+            logging.info(f"LATCHED run: {CURRENT_RUN}, last LS: {LAST_LS}") # <-- Changed
 
             # Set the path for GetListOfAvailableFiles
             self.pathWhereFilesAppear = (
@@ -197,11 +199,11 @@ class NGTLoopStep2(object):
 
             is_running = run_info.get("end_time") is None
             if is_running:
-                # print("DAQ appears to be running!")
-                print("Latching onto an ongoing collisions run.")
+                # logging.info("DAQ appears to be running!") # <-- Changed
+                logging.info("Latching onto an ongoing collisions run.") # <-- Changed
             else:
-                # print("Latching onto a PROTONS run that has already ended.")
-                print("Latching onto a collisions run that has already ended.")
+                # logging.info("Latching onto a PROTONS run that has already ended.") # <-- Changed
+                logging.info("Latching onto a collisions run that has already ended.") # <-- Changed
             ## This return value tells TryStartRun whether to transition
 
             # we return true always bc either cases
@@ -213,7 +215,7 @@ class NGTLoopStep2(object):
             # ---
             # (This part was already working perfectly and remains unchanged)
 
-            print(
+            logging.info( # <-- Changed
                 f"Checking status of *our* latched run: {self.runNumber} ({CURRENT_RUN})"
             )
 
@@ -223,11 +225,11 @@ class NGTLoopStep2(object):
                 q_our_run.filter("run_number", self.runNumber)
                 response_our_run = q_our_run.data().json()
             except Exception as e:
-                print(f"Error querying OMS API: {e}")
+                logging.error(f"Error querying OMS API: {e}") # <-- Changed
                 return False
 
             if "data" not in response_our_run or not response_our_run["data"]:
-                print(
+                logging.warning( # <-- Changed
                     f"Could not find info for *our* run {self.runNumber}. Assuming it ended."
                 )
                 return False  # Treat our run as finished
@@ -238,7 +240,7 @@ class NGTLoopStep2(object):
             LAST_LS = our_run_info.get("last_lumisection_number")
             is_running = our_run_info.get("end_time") is None
 
-            print(
+            logging.info( # <-- Changed
                 f"Our run {self.runNumber}: Last LS is {LAST_LS}. Running: {is_running}"
             )
 
@@ -249,10 +251,10 @@ class NGTLoopStep2(object):
         if self.runNumber != 0:
             end_log_path = Path(f"/tmp/ngt/run{self.runNumber}/runEnd.log")
             if end_log_path.exists():
-                print("This is a run we have already treated. No point in restarting")
+                logging.info("This is a run we have already treated. No point in restarting") # <-- Changed
                 return False
             else:  # If we don't find the file, IN PRINCIPLE, a new run exists
-                print("Okay, in principle this is a new run!")
+                logging.info("Okay, in principle this is a new run!") # <-- Changed
                 return True
         else:
             # Again, IN PRINCIPLE, a new run exists
@@ -271,6 +273,8 @@ class NGTLoopStep2(object):
         result = self.edmFileUtilCommand(availableFiles[0])
         match = re.search(r"^\s*(\d{6})\s+", result.stdout, re.MULTILINE)
         if not match:
+            # You might want to log this before raising
+            logging.critical(f"Could not parse run number from edmFileUtil output:\n{result.stdout}") # <-- Added
             raise RuntimeError(
                 f"Could not parse run number from edmFileUtil output:\n{result.stdout}"
             )
@@ -278,23 +282,23 @@ class NGTLoopStep2(object):
         return runNumber
 
     def CheckLSForProcessing(self):
-        print("I am in CheckLSForProcessing...")
+        logging.info("I am in CheckLSForProcessing...") # <-- Changed
         ### This could be a Luigi task, for instance
         # Do something to check if there are LS to process
         listOfLSFilesAvailable = set(self.GetListOfAvailableFiles())
 
-        print("listOfLSFilesAvailable", [str(p) for p in listOfLSFilesAvailable])
-        print(50 * "*")
+        logging.info(f"listOfLSFilesAvailable {[str(p) for p in listOfLSFilesAvailable]}") # <-- Changed
+        logging.info(50 * "*") # <-- Changed
 
         self.setOfLSObserved = self.setOfLSObserved.union(listOfLSFilesAvailable)
         self.setOfLSToProcess = listOfLSFilesAvailable - self.setOfLSProcessed
 
-        # print("self.setOfLSToProcess",[str(p) for p in self.setOfLSToProcess])
-        print(50 * "*")
+        # logging.info("self.setOfLSToProcess",[str(p) for p in self.setOfLSToProcess]) # <-- Changed
+        logging.info(50 * "*") # <-- Changed
 
         self.waitingLS = len(self.setOfLSToProcess) > 0
-        print("New LSs to process:")
-        print(self.setOfLSToProcess)
+        logging.info("New LSs to process:") # <-- Changed
+        logging.info(self.setOfLSToProcess) # <-- Changed
         if len(self.setOfLSToProcess) >= self.minimumLS:
             self.enoughLS = True
         else:
@@ -306,7 +310,7 @@ class NGTLoopStep2(object):
         prefix = "root://eoscms.cern.ch/"
 
         if not self.pathWhereFilesAppear:
-            print("Warning: pathWhereFilesAppear is not set. Cannot list files.")
+            logging.warning("pathWhereFilesAppear is not set. Cannot list files.") # <-- Changed
             return []
 
         cmd = f"xrdfs {prefix} ls {self.pathWhereFilesAppear}"
@@ -323,27 +327,27 @@ class NGTLoopStep2(object):
         for file in all_files:
             output = self.edmFileUtilCommand(file)
             if "ERR" in output.stdout:
-                print(f"\n Following file won't be processed(skipping): {file}")
+                logging.warning(f"\n Following file won't be processed(skipping): {file}") # <-- Changed
             else:
                 final_list.append(file)
         return final_list
 
     def ExecutePrepareLS(self):
-        print("I am PreparingLS")
+        logging.info("I am PreparingLS") # <-- Changed
         self.PrepareLSForProcessing()
 
     def ExecutePrepareFinalLS(self):
-        print("I am PreparingFinalLS")
+        logging.info("I am PreparingFinalLS") # <-- Changed
         self.PrepareLSForProcessing()
         self.preparedFinalLS = True
 
     def PrepareLSForProcessing(self):
-        print("I am in PrepareLSForProcessing...")
-        print("Will use the following LS:")
-        print(self.setOfLSToProcess)
+        logging.info("I am in PrepareLSForProcessing...") # <-- Changed
+        logging.info("Will use the following LS:") # <-- Changed
+        logging.info(self.setOfLSToProcess) # <-- Changed
 
     def PrepareExpressJobs(self):
-        print("I am in PrepareExpressjobs...")
+        logging.info("I am in PrepareExpressjobs...") # <-- Changed
         # We may arrive here without a self.setOfLSToProcess if
         # the run started and ended without producing LS.
         # In that case, nothing to do
@@ -352,11 +356,11 @@ class NGTLoopStep2(object):
 
         # Thiago: new logic to avoid gigantic cmsRun jobs
         # if(len(self.setOfLSToProcess) > self.maximumFilesPerJob):
-        #    as_a_list = sorted(self.setOfLSToProcess)
-        #    topTargets = as_a_list[0:self.maximumFilesPerJob]
-        #    self.setOfExpressLS = set(topTargets)
+        #   as_a_list = sorted(self.setOfLSToProcess)
+        #   topTargets = as_a_list[0:self.maximumFilesPerJob]
+        #   self.setOfExpressLS = set(topTargets)
         # else:
-        #    self.setOfExpressLS = self.setOfLSToProcess
+        #   self.setOfExpressLS = self.setOfLSToProcess
 
         self.setOfExpressLS = self.setOfLSToProcess
         # Extract all LS numbers (as integers)
@@ -365,7 +369,7 @@ class NGTLoopStep2(object):
         ls_numbers = set()  # use a set to avoid duplicates
 
         for file_path in str_paths:
-            print(file_path)
+            logging.info(file_path) # <-- Changed
             cmd = ["edmFileUtil", f"{file_path}", "--eventsInLumi"]
 
             result = subprocess.run(
@@ -373,11 +377,11 @@ class NGTLoopStep2(object):
             )
 
             if result.returncode != 0:
-                print(f"edmFileUtil failed for")  # {file_path}:\n{result.stderr}")
+                logging.warning(f"edmFileUtil failed for {file_path}:\n{result.stderr}") # <-- Changed
                 continue
 
             # Find lumisection numbers -- second column in output table
-            # Example line: "         398348            187           2268"
+            # Example line: "        398348          187          2268"
             for match in re.finditer(
                 r"^\s*\d+\s+(\d+)\s+", result.stdout, re.MULTILINE
             ):
@@ -386,8 +390,8 @@ class NGTLoopStep2(object):
         # Convert to sorted list if you want
         ls_numbers = sorted(ls_numbers)
 
-        print(f"Found {len(ls_numbers)} unique lumisections:")
-        print(ls_numbers)
+        logging.info(f"Found {len(ls_numbers)} unique lumisections:") # <-- Changed
+        logging.info(ls_numbers) # <-- Changed
 
         # ls_numbers = [int(re.search(r"ls(\d{4})", path).group(1)) for path in str_paths]
 
@@ -435,7 +439,7 @@ class NGTLoopStep2(object):
         self.setOfLSToProcess = set()
 
     def LaunchExpressJobs(self):
-        print("I am in LaunchExpressJobs...")
+        logging.info("I am in LaunchExpressJobs...") # <-- Changed
 
         # Here we should launch the Express jobs
         # We use subprocess.Popen, since we don't want to hang waiting for this
@@ -458,8 +462,8 @@ class NGTLoopStep2(object):
 
             # Now we have to move the LSs to self.setOfLSProcessed
             # and clear self.setOfLSToProcess
-            print("Launched jobs with:")
-            print(self.setOfExpressLS)
+            logging.info("Launched jobs with:") # <-- Changed
+            logging.info(self.setOfExpressLS) # <-- Changed
 
         # In any case we remove them from the list
         self.setOfLSProcessed = self.setOfLSProcessed.union(self.setOfExpressLS)
@@ -467,30 +471,30 @@ class NGTLoopStep2(object):
 
     def ThereAreLSWaiting(self):
         if self.waitingLS:
-            print("++ There are LS waiting!")
+            logging.info("++ There are LS waiting!") # <-- Changed
         else:
-            print("++ No LS waiting...")
+            logging.info("++ No LS waiting...") # <-- Changed
         return self.waitingLS
 
     def ThereAreEnoughLS(self):
         if self.enoughLS:
-            print("++ Enough LS found!")
+            logging.info("++ Enough LS found!") # <-- Changed
         else:
-            print("++ Not enough LS...")
+            logging.info("++ Not enough LS...") # <-- Changed
         return self.enoughLS
 
     def WePreparedFinalLS(self):
         return self.preparedFinalLS
 
     def ExecuteCleanup(self):
-        print("I am in ExecuteCleanup")
+        logging.info("I am in ExecuteCleanup") # <-- Changed
         self.rigMe = False
         if self.preparedFinalLS:
-            print("We prepared Final LS, will reset the machine...")
+            logging.info("We prepared Final LS, will reset the machine...") # <-- Changed
             # We actually have to reset the machine only when we go to NotRunning!
 
             # Announce that the run ended and setup the witness file
-            print(
+            logging.info( # <-- Changed
                 f"Processing of run {self.runNumber} has ended. Creating empty runEnd.log..."
             )
             end_log_path = Path(self.workingDir) / "runEnd.log"
@@ -533,7 +537,7 @@ class NGTLoopStep2(object):
                 f.write(f"cmsRun run{self.runNumber}_ecalPedsALCAOUTPUT.py &\n")
 
     def ResetTheMachine(self):
-        print("Machine reset!")
+        logging.info("Machine reset!") # <-- Changed
         self.runNumber = 0
         self.rigMe = False
         self.startTime = 0
@@ -551,7 +555,7 @@ class NGTLoopStep2(object):
             + CURRENT_RUN
             + "/00000"
         )
-        print("self.pathWhereFilesAppear", self.pathWhereFilesAppear)
+        logging.info(f"self.pathWhereFilesAppear {self.pathWhereFilesAppear}") # <-- Changed
         self.workingDir = "/dev/null"
         self.preparedFinalLS = False
         # Read some configurations
@@ -651,12 +655,12 @@ class NGTLoopStep2(object):
         # i hope this fixes our issue of it needing to go onto another run once 8 hours have passed..
         ### Thiago: I think it didn't :(
         # self.machine.add_transition(
-        #        trigger="ContinueAfterCheckLS",
-        #        source="CheckingLSForProcess",
-        #        dest="CleanupState",
-        #        conditions="RunHasEndedAndFilesAreReady",
-        #        unless="ThereAreLSWaiting" # Only fires if ThereAreLSWaiting is False
-        #        )
+        #       trigger="ContinueAfterCheckLS",
+        #       source="CheckingLSForProcess",
+        #       dest="CleanupState",
+        #       conditions="RunHasEndedAndFilesAreReady",
+        #       unless="ThereAreLSWaiting" # Only fires if ThereAreLSWaiting is False
+        #       )
 
         # If we don't have enough LS, but we are still running,
         # We go to WaitingForLS
@@ -711,6 +715,34 @@ class NGTLoopStep2(object):
             source="WaitingForLS",
             dest="WaitingForLS",
         )
+
+# --- NEW LOGGING SETUP ---
+# Create /tmp/ngt if it doesn't exist, so we can write the log file
+Path("/tmp/ngt").mkdir(parents=True, exist_ok=True)
+
+# Get the main logger
+logger = logging.getLogger()
+logger.setLevel(logging.INFO) # Set the lowest level to log
+
+# Create formatter
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', 
+                              datefmt='%Y-%m-%d %H:%M:%S')
+
+# 1. Handler for the log file (writes ALL messages: INFO, WARNING, etc.)
+file_handler = logging.FileHandler("/tmp/ngt/NGTLoopStep2.log")
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(formatter)
+
+# 2. Handler for the screen (writes ONLY warnings and errors)
+# We send this to sys.stderr, as your supervisor suggested
+stream_handler = logging.StreamHandler(sys.stderr)
+stream_handler.setLevel(logging.WARNING)
+stream_handler.setFormatter(formatter)
+
+# Add both handlers to the logger
+logger.addHandler(file_handler)
+logger.addHandler(stream_handler)
+# --- END OF LOGGING SETUP ---
 
 
 loop = NGTLoopStep2("Step2")
