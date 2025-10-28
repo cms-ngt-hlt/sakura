@@ -722,28 +722,56 @@ Path("/tmp/ngt").mkdir(parents=True, exist_ok=True)
 
 # Get the main logger
 logger = logging.getLogger()
-logger.setLevel(logging.INFO) # Set the lowest level to log
+logger.setLevel(logging.DEBUG)  # Capture everything at logger level
 
 # Create formatter
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', 
                               datefmt='%Y-%m-%d %H:%M:%S')
 
-# 1. Handler for the log file (writes ALL messages: INFO, WARNING, etc.)
-file_handler = logging.FileHandler("/tmp/ngt/NGTLoopStep2.log")
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(formatter)
+# 1. ALL MESSAGES - Complete history
+all_handler = logging.FileHandler("/tmp/ngt/NGTLoopStep2_ALL.log")
+all_handler.setLevel(logging.DEBUG)
+all_handler.setFormatter(formatter)
+logger.addHandler(all_handler)
 
-# 2. Handler for the screen (writes ONLY warnings and errors)
-# We send this to sys.stderr, as your supervisor suggested
+# 2. INFO ONLY
+info_handler = logging.FileHandler("/tmp/ngt/NGTLoopStep2_INFO.log")
+info_handler.setLevel(logging.INFO)
+info_handler.addFilter(lambda record: record.levelno == logging.INFO)  # ONLY info
+info_handler.setFormatter(formatter)
+logger.addHandler(info_handler)
+
+# 3. WARNING ONLY
+warning_handler = logging.FileHandler("/tmp/ngt/NGTLoopStep2_WARNING.log")
+warning_handler.setLevel(logging.WARNING)
+warning_handler.addFilter(lambda record: record.levelno == logging.WARNING)  # ONLY warnings
+warning_handler.setFormatter(formatter)
+logger.addHandler(warning_handler)
+
+# 4. ERROR ONLY
+error_handler = logging.FileHandler("/tmp/ngt/NGTLoopStep2_ERROR.log")
+error_handler.setLevel(logging.ERROR)
+error_handler.addFilter(lambda record: record.levelno == logging.ERROR)  # ONLY errors
+error_handler.setFormatter(formatter)
+logger.addHandler(error_handler)
+
+# 5. CRITICAL ONLY
+critical_handler = logging.FileHandler("/tmp/ngt/NGTLoopStep2_CRITICAL.log")
+critical_handler.setLevel(logging.CRITICAL)
+critical_handler.addFilter(lambda record: record.levelno == logging.CRITICAL)  # ONLY critical
+critical_handler.setFormatter(formatter)
+logger.addHandler(critical_handler)
+
+# 6. Screen output (stderr) - warnings and above
 stream_handler = logging.StreamHandler(sys.stderr)
 stream_handler.setLevel(logging.WARNING)
 stream_handler.setFormatter(formatter)
-
-# Add both handlers to the logger
-logger.addHandler(file_handler)
 logger.addHandler(stream_handler)
-# --- END OF LOGGING SETUP ---
 
+# Optional: Add a simple startup message to verify logging is working
+logging.info("Logging initialized - writing to split log files")
+logging.warning("Warning-level logging active")
+# --- END OF ENHANCED LOGGING SETUP ---
 
 loop = NGTLoopStep2("Step2")
 # loop.rigMe = True
