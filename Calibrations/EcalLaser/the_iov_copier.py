@@ -5,6 +5,7 @@ import re
 import sqlite3
 import subprocess
 import sys
+import json
 
 TAG_MAIN = "EcalLaserAPDPNRatios_prompt_v3"
 TAG_REF = "EcalLaserAPDPNRatios_prompt_v3_inRunLSIoVs"
@@ -79,7 +80,7 @@ def parse_conddb_list_inrunls(output):
             entries.append((int(run_str), int(lumi_str), int(raw_since), payload_hash))
     return entries
 
-def parse_runs(output):
+def parse_runs_old(output):
     """Parse conddb listRuns output into [(run_number, start_time, end_time, start_iov, end_iov)]"""
     runs = []
     for line in output.splitlines():
@@ -89,6 +90,40 @@ def parse_runs(output):
             runs.append((int(run), datetime.strptime(start, "%Y-%m-%d %H:%M:%S"), datetime.strptime(end, "%Y-%m-%d %H:%M:%S")))
     return runs
 
+from typing import List, Tuple, Optional
+
+def parse_runs(output):
+    """
+    Parse `conddb listRuns` output into [(run_number, start_time, end_time)],
+    where end_time is None for ongoing runs.
+    """
+    runs = []
+    for line in output.splitlines():
+        # Example lines:
+        # 398599  2025-10-27 19:15:17.756000  2025-10-27 19:59:12.412000  7565982249393324032  7565993566632148992
+        # 398600  2025-10-27 20:04:21.316000  on going...                 7565994893777043456  -
+        m = re.match(
+            r"\s*(\d+)\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})(?:\.\d+)?\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}|on going\.\.\.)",
+            line,
+            flags=re.IGNORECASE,
+        )
+        if not m:
+            continue
+
+        run_str, start_str, end_str = m.groups()
+        run = int(run_str)
+
+        start_time = datetime.strptime(start_str, "%Y-%m-%d %H:%M:%S")
+
+        if end_str.lower().startswith("on"):
+            end_time = None
+        else:
+            end_time = datetime.strptime(end_str, "%Y-%m-%d %H:%M:%S")
+
+        runs.append((run, start_time, end_time))
+
+    return runs
+
 def find_run_and_ls(timestamp, runs):
     """Find the run and approximate LS corresponding to a timestamp.
     If the run has no end time, assume it's still open and include any later timestamps.
@@ -96,11 +131,14 @@ def find_run_and_ls(timestamp, runs):
     for run, start, end in runs:
         # handle open-ended run (end may be None)
         if end is None:
+            #print("end is NONE")
+            #print("start: ",start,"- end:",end,"  | timestamp",timestamp)
             if timestamp >= start:
                 dt = (timestamp - start).total_seconds()
                 ls = int(round(dt / LS_DURATION))
                 return run, max(1, ls)
         else:
+            #print("start: ",start,"- end:",end,"  | timestamp",timestamp)
             if start <= timestamp <= end:
                 dt = (timestamp - start).total_seconds()
                 ls = int(round(dt / LS_DURATION))
@@ -235,7 +273,7 @@ for ts_str, since_iov, payload_hash in new_iovs:
 conn.commit()
 conn.close()
 
-print("\n All IOVs updated to Run,LS format and TIME_TYPE changed to 'Lumi'.")
+print("\n All IOVs updated to Run-LS format and TIME_TYPE changed to 'Lumi'.")
 
 # --- Final step : show the resulting IOVs using conddb ---
 print("\n Listing the resulting IOVs using conddb:")
@@ -272,4 +310,4 @@ subprocess.run(
     check=True
 )
 
-print("All steps completed successfully.")
+print("\n All steps completed successfully.")
