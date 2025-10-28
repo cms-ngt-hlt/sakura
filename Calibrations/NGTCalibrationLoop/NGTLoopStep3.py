@@ -54,7 +54,7 @@ class NGTLoopStep3(object):
 
     def SetupNewRun(self):
         # Prepare the new run
-        self.workingDir = "/tmp/ngt/run" + self.runNumber
+        self.workingDir = self.pathWhereFilesAppear + "/run" + self.runNumber
         startTimeFilePath = Path(self.workingDir + "/runStart.log")
         if startTimeFilePath.exists():
             with open(startTimeFilePath, "r") as f:
@@ -219,12 +219,15 @@ class NGTLoopStep3(object):
         # We use subprocess.Popen, since we don't want to hang waiting for this
         # to finish running. Some other loop will look at their output
         # FIXME: add monitoring...
-        subprocess.Popen(
-            ["bash", "ALCAOUTPUT.sh"],
-            cwd=self.jobDir,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        if (self.jobDir != "/dev/null" and len(self.setOfExpressFiles) != 0):
+            subprocess.Popen(
+                ["bash", "ALCAOUTPUT.sh"],
+                cwd=self.jobDir,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        else:
+            print("WARNING: not launching Express jobs!")
 
         # Now we have to move the files we just processed
         # to self.setOfFilesProcessed
@@ -287,7 +290,7 @@ class NGTLoopStep3(object):
         self.preparedFinalFiles = False
 
         # Read some configurations
-        with open("/tmp/ngt/ngtParameters.jsn", "r") as f:
+        with open(f"{self.pathWhereFilesAppear}/ngtParameters.jsn", "r") as f:
             config = json.load(f)
         self.scramArch = config["SCRAM_ARCH"]
         self.cmsswVersion = config["CMSSW_VERSION"]
