@@ -218,14 +218,16 @@ class NGTLoopStep3(object):
         # Here we should launch the Express jobs
         # We use subprocess.Popen, since we don't want to hang waiting for this
         # to finish running. Some other loop will look at their output
-        # FIXME: add monitoring...
         if (self.jobDir != "/dev/null" and len(self.setOfExpressFiles) != 0):
-            subprocess.Popen(
-                ["bash", "ALCAOUTPUT.sh"],
-                cwd=self.jobDir,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+            with open(self.jobDir+"/stdout.log", "w") as out, open(self.jobDir+"/stderr.log", "w") as err:
+                subprocess.Popen(
+                    ["bash", "ALCAOUTPUT.sh"],
+                    cwd=self.jobDir,
+                    stdout=out,
+                    stderr=err,
+                    preexec_fn=os.setsid,  # Unix-only; detaches session
+                    close_fds=True
+                )
         else:
             print("WARNING: not launching Express jobs!")
 
