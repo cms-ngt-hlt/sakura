@@ -32,9 +32,11 @@ class NGTLoopStep3(object):
         path = Path(self.pathWhereFilesAppear)
         currentDirs = {p.name for p in path.iterdir() if p.is_dir()}
         newDirs = currentDirs - self.setOfRunsProcessed
+        
         newRuns = {p for p in newDirs if p.startswith("run")}
         # Thiago: rig to run on 398600
         # newRuns = {p for p in newDirs if p.startswith("run398600")}
+        
         foundNewRuns = not (not newRuns)  # Is this pythonic?
         if foundNewRuns:
             print("New runs found!")
