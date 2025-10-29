@@ -187,9 +187,9 @@ class NGTLoopStep4(object):
             "destinationTags": {"EcalPedestals_NGTDemonstrator": {}},
             "inputTag": "EcalPedestals_NGTDemonstrator",
             "since": self.runNumber,
-            "userText": "Periodical fill-up upload for NGT test demonstrator",
+            "userText": "Periodical fill-up EcalPedestals upload for NGT Demonstrator",
         }
-        metadataFile = alcaJobDir / Path("promptCalibConditions.txt")
+        metadataFile = alcaJobDir / Path("NGTCalibEcalPedestals.txt")
         with open(metadataFile, "w") as f:
             json.dump(metadata, f, indent=4)
 
@@ -224,11 +224,12 @@ class NGTLoopStep4(object):
             f.write(
                 'if [ -f "promptCalibConditions.db" ]; then echo "DB file exists!"; else echo "DB file missing"; fi\n'
             )
+            f.write("mv promptCalibConditions.db NGTCalibEcalPedestals.db\n")
             f.write(
                 'if [ -f "promptCalibConditions.txt" ]; then echo "Metatada file exists!"; else echo "Metada file missing"; fi\n'
             )
             # We should upload...
-            f.write("uploadConditions.py promptCalibConditions.db")
+            f.write("uploadConditions.py NGTCalibEcalPedestals.db")
 
     def LaunchExpressJobs(self):
         print("I am in LaunchExpressJobs...")
