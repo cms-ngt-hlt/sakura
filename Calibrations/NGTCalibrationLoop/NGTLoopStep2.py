@@ -415,7 +415,7 @@ class NGTLoopStep2(object):
         min_ls = min(ls_numbers, default=None)
         max_ls = max(ls_numbers, default=None)
         tempAffix = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
-        tempScriptName = "cmsDriver_" + tempAffix + ".sh"
+        self.tempScriptName = "cmsDriver_" + tempAffix + ".sh"
         affix = f"LS{min_ls:04d}To{max_ls:04d}"
         logFileName = f"run{self.runNumber}_{affix}_step2.log"
         tempOutputFileName = "output_" + tempAffix + ".root"
@@ -475,7 +475,7 @@ class NGTLoopStep2(object):
 
         if not end_log_path.exists():
             subprocess.Popen(
-                ["bash", "cmsDriver.sh"],
+                ["bash", self.tempScriptName],
                 cwd=self.workingDir,
                 preexec_fn=os.setsid,
                 stdout=subprocess.DEVNULL,
@@ -534,6 +534,7 @@ class NGTLoopStep2(object):
         logging.info("Machine reset!") # <-- Changed
         self.runNumber = 0
         self.rigMe = False
+        self.tempScriptName = ''
         self.startTime = 0
         self.minimumLS = 1  # these variable names are a bit misleading as they are not minimumLS but minimum files availabe (same for the other ones ok)
         self.minLSToProcess = (
