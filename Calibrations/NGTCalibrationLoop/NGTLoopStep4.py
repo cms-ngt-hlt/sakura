@@ -11,6 +11,8 @@ from pathlib import Path
 
 from transitions import Machine, State
 
+os.environ["COND_AUTH_PATH"] = os.path.expanduser("/nfshome0/sakura")
+print("COND_AUTH_PATH set to:", os.environ["COND_AUTH_PATH"])
 
 class NGTLoopStep4(object):
 
