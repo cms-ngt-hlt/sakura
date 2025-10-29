@@ -4,6 +4,8 @@
 import json
 import os
 import re
+import random
+import string
 import subprocess
 import time
 import logging  # <-- Added
@@ -398,14 +400,17 @@ class NGTLoopStep2(object):
         # Compute min and max, then format back
         min_ls = min(ls_numbers, default=None)
         max_ls = max(ls_numbers, default=None)
+        tempAffix = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+        tempScriptName = "cmsDriver_" + tempAffix + ".sh"
         affix = f"LS{min_ls:04d}To{max_ls:04d}"
         logFileName = f"run{self.runNumber}_{affix}_step2.log"
+        tempOutputFileName = "output_" + tempAffix + ".root"
         outputFileName = f"run{self.runNumber}_{affix}_step2.root"
 
         # Here we should have some logic that prepares the Express jobs
         # Probably should have a call to cmsDriver
         # There are better ways to do this, but right now I just do it with a file
-        with open(self.workingDir + "/cmsDriver.sh", "w") as f:
+        with open(self.workingDir + "/" + tempScriptName, "w") as f:
             # Do we actually need to set the environment like this every time?
             f.write("#!/bin/bash -ex\n\n")
             f.write(f"export $SCRAM_ARCH={self.scramArch}\n")
@@ -426,14 +431,18 @@ class NGTLoopStep2(object):
             # some massaging to go from PosixPath to string
             str_paths = {"root://eoscms.cern.ch/" + str(p) for p in self.setOfExpressLS}
             f.write(",".join(str_paths))
-            f.write(f" --fileout file:{outputFileName} --no_exec ")
+            f.write(f" --fileout file:{tempOutputFileName} --no_exec ")
             f.write(
                 f"--python_filename run{self.runNumber}_{affix}_ecalPedsStep2.py\n\n"
             )
             f.write(
                 f"cmsRun run{self.runNumber}_{affix}_ecalPedsStep2.py > {logFileName} 2>&1\n"
             )
+            # we now move the file to its final location
+            f.write(f"mv {tempOutputFileName} {outputFileName}\n")
+            # touch the witness file
             f.write(f"touch run{self.runNumber}_{affix}_ecalPedsStep2_job.txt \n")
+            # should delete the script for good measure (FIXME: implement later)
 
         self.setOfExpectedOutputs.add(self.workingDir + "/" + outputFileName)
         self.setOfLSToProcess = set()
