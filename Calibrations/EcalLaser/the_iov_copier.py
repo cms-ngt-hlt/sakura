@@ -304,6 +304,12 @@ with open(metadata_file, "w") as f:
 print(f"Created metadata file: {metadata_file}")
 
 # --- Step 3: Upload the conditions ---
+# Set COND_AUTH_PATH to your home directory
+os.environ["COND_AUTH_PATH"] = os.path.expanduser("~")
+
+# (Optional) verify
+print("COND_AUTH_PATH set to:", os.environ["COND_AUTH_PATH"])
+
 print("\n Uploading conditions with uploadConditions.py...")
 subprocess.run(
     ["uploadConditions.py", sqlite_file],
