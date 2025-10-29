@@ -196,9 +196,9 @@ class NGTLoopStep4(object):
         # Write the job file
         with alcaJobFile.open("w") as f:
             f.write("#!/bin/bash -ex\n\n")
-            # First we go to the workingDir to setup CMSSW
+            # First we go to the CMSSWPath to setup CMSSW
             f.write(f"export $SCRAM_ARCH={self.scramArch}\n")
-            f.write(f"cd {self.workingDir}/{self.cmsswVersion}/src\n")
+            f.write(f"cd {self.CMSSWPath}/{self.cmsswVersion}/src\n")
             f.write("cmsenv\n")
             f.write("cd -\n\n")
             # Now we do the cmsDriver.py proper
@@ -301,8 +301,6 @@ class NGTLoopStep4(object):
         self.startTime = 0
         self.timeoutInSeconds = 8 * 60 * 60  # 8 hours
         self.minimumFiles = 1
-        self.maximumFiles = 5
-        self.requestMinimumFiles = True
         self.waitingFiles = False
         self.enoughFiles = False
         self.pathWhereFilesAppear = "/tmp/ngt/"
@@ -310,7 +308,8 @@ class NGTLoopStep4(object):
         self.jobDir = "/dev/null"
         self.alcaJobNumber = 0
         self.preparedFinalFiles = False
-
+        self.CMSSWPath = "/nfshome0/sakura/"
+        
         # Read some configurations
         with open(f"{self.pathWhereFilesAppear}/ngtParameters.jsn", "r") as f:
             config = json.load(f)
