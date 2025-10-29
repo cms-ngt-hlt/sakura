@@ -149,23 +149,37 @@ class NGTLoopStep2(object):
             q.filter("l1_hlt_mode", "collisions2025")
             # --- END NEW FILTER ---
 
-            # Sort by run number and get the top one
-            q.sort("run_number", asc=False).paginate(page=1, per_page=1)
-            response = q.data().json()
+            # Sort by run number and get the top 50
+            q.sort("run_number", asc=False).paginate(page=1, per_page=50)
+            response = q.data().json() # Interestingly, this is a dict... should not be sorted!
 
             if "data" not in response or not response["data"]:
                 logging.info("No PROTONS *collisions* runs found in OMS. Waiting.") # <-- Changed
                 return False  # Stay in NotRunning
 
-            # This is the latest *collisions* run
-            run_info = response["data"][0]["attributes"]
-            run_number = run_info.get("run_number")
-            run_type = run_info.get("l1_hlt_mode")  # We can just grab this for logging
-            is_running = run_info.get("end_time") is None
-            last_ls = run_info.get("last_lumisection_number")
-            self.runStartTime = datetime.fromisoformat(
-                run_info.get("start_time").replace("Z", "+00:00")
-            )
+            # We loop over the runs, starting from the EARLIEST!
+            now_utc = datetime.now(timezone.utc)
+            for candidateRun in reversed(response["data"]):
+                run_info = candidateRun["attributes"]
+                run_number = run_info.get("run_number")
+                run_type = run_info.get("l1_hlt_mode")
+                is_running = run_info.get("end_time") is None
+                last_ls = run_info.get("last_lumisection_number")
+                run_start_time = datetime.fromisoformat(run_info.get("start_time").replace("Z", "+00:00"))
+                delta = now_utc - run_start_time
+                isRecentRun = (int(delta.total_seconds()) < int(self.maxLatchTime * 60 * 60))
+                # We want a run that
+                # 1. (is not running AND is long enough AND has started less than 8 hours ago)
+                # OR (2. is still running)
+                if (is_running): # Found a live run!
+                    break
+                if (not is_running and last_ls >= self.minLSToProcess and isRecent):
+                    # Found a recent run
+                    break
+
+            # Great, now we have run_info, run_number, etc. from inside the loop
+            # Let's save this information
+            self.runStartTime = run_start_time
             if not is_running and last_ls < self.minLSToProcess:
                 logging.warning( # <-- Changed
                     f"Found ended run {run_number}, but it's too short ({last_ls} LS). Skipping and waiting."
