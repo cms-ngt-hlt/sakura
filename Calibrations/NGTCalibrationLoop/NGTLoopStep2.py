@@ -515,35 +515,6 @@ class NGTLoopStep2(object):
             with open(self.workingDir + "/expectedOutputs.log", "w") as f:
                 for output in self.setOfExpectedOutputs:
                     f.write("file:" + output + "\n")
-            # And launch step3 (note: we do not actually launch it here, we just prepare this file)
-            with open(self.workingDir + "/ALCAOUTPUT.sh", "w") as f:
-                f.write("#!/bin/bash -ex\n\n")
-                f.write(f"cd {self.cmsswVersion}/src\n")
-                f.write("cmsenv\n")
-                f.write("cd -\n\n")
-                f.write(f"cmsDriver.py expressStep3 --conditions {self.globalTag} ")
-                f.write(
-                    " -s ALCAOUTPUT:EcalTestPulsesRaw,ALCA:PromptCalibProdEcalPedestals "
-                    + "--datatier ALCARECO --eventcontent ALCARECO "
-                    + "--triggerResultsProcess RERECO "
-                    + "--nThreads 8 --nStreams 8 -n -1 "
-                )
-                # and we pass the list of files that we expected
-                # FIXME: what if any of those cmsRuns failed?
-                f.write("--filein ")
-                str_paths = {p for p in sorted(self.setOfExpectedOutputs)}
-                f.write(",".join(str_paths))
-                f.write(" --no_exec ")
-                f.write(
-                    f"--python_filename run{self.runNumber}_ecalPedsALCAOUTPUT.py\n\n"
-                )
-                # Some massaging to fix the source
-                f.write(f"cat <<@EOF>> run{self.runNumber}_ecalPedsALCAOUTPUT.py\n")
-                f.write(
-                    'process.ALCARECOEcalTestPulsesRaw.TriggerResultsTag = cms.InputTag("TriggerResults", "", "RERECO")\n'
-                )
-                f.write("@EOF\n\n")
-                f.write(f"cmsRun run{self.runNumber}_ecalPedsALCAOUTPUT.py &\n")
 
     def ResetTheMachine(self):
         logging.info("Machine reset!") # <-- Changed
