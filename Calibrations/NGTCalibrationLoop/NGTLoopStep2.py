@@ -173,6 +173,9 @@ class NGTLoopStep2(object):
                 # OR (2. is still running)
                 if (is_running): # Found a live run!
                     break
+                # Protection
+                if (last_ls is None):
+                    continue
                 if (not is_running and last_ls >= self.minLSToProcess and isRecent):
                     # Found a recent run
                     break
@@ -424,7 +427,7 @@ class NGTLoopStep2(object):
         # Here we should have some logic that prepares the Express jobs
         # Probably should have a call to cmsDriver
         # There are better ways to do this, but right now I just do it with a file
-        with open(self.workingDir + "/" + tempScriptName, "w") as f:
+        with open(self.workingDir + "/" + self.tempScriptName, "w") as f:
             # Do we actually need to set the environment like this every time?
             f.write("#!/bin/bash -ex\n\n")
             f.write(f"export $SCRAM_ARCH={self.scramArch}\n")
