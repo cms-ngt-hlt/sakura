@@ -184,7 +184,7 @@ class NGTLoopStep4(object):
             "destinationDatabase": "oracle://cms_orcon_prod/CMS_CONDITIONS",
             "destinationTags": {"EcalPedestals_NGTDemonstrator": {}},
             "inputTag": "EcalPedestals_NGTDemonstrator",
-            "since": None,
+            "since": self.runNumber,
             "userText": "Periodical fill-up upload for NGT test demonstrator",
         }
         metadataFile = alcaJobDir / Path("promptCalibConditions.txt")
@@ -226,7 +226,7 @@ class NGTLoopStep4(object):
                 'if [ -f "promptCalibConditions.txt" ]; then echo "Metatada file exists!"; else echo "Metada file missing"; fi\n'
             )
             # We should upload...
-            f.write("# uploadConditions.py promptCalibConditions.db")
+            f.write("uploadConditions.py promptCalibConditions.db")
 
     def LaunchExpressJobs(self):
         print("I am in LaunchExpressJobs...")
