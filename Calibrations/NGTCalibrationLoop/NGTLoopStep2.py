@@ -202,6 +202,7 @@ class NGTLoopStep2(object):
 
         # We loop over the runs, starting from the EARLIEST!
         now_utc = datetime.now(timezone.utc)
+        newRunAvailable = False
         for candidateRun in reversed(response["data"]):
             run_info = candidateRun["attributes"]
             run_number = run_info.get("run_number")
@@ -216,13 +217,25 @@ class NGTLoopStep2(object):
             # 1. (is not running AND is long enough AND has started less than 8 hours ago)
             # OR (2. is still running AND has started less than 8 hours ago)
             if (is_running and isRecentRun and runDirMissing): # Found a live run!
+                logging.info( # <-- Changed
+		    f"Found running run {run_number}, and no runDir for it /tmp/ngt/run{run_number}"
+                )
+                newRunAvailable = True
                 break
             # Protection
             if (last_ls is None):
                 continue
             if (not is_running and last_ls >= self.minLSToProcess and isRecentRun and runDirMissing):
+                logging.info( # <-- Changed
+		    f"Found ended run {run_number}, and no runDir for it /tmp/ngt/run{run_number}"
+                )
                 # Found a recent run that is long enough!
+                newRunAvailable = True
                 break
+
+        # If we didn't find a good run, nothing to do
+        if (not newRunAvailable):
+            return False
 
         # Great, now we have run_info, run_number, etc. from inside the loop
         # Let's save this information
@@ -361,8 +374,9 @@ class NGTLoopStep2(object):
         logging.info("I am in PrepareExpressjobs...") # <-- Changed
         # We may arrive here without a self.setOfLSToProcess if
         # the run started and ended without producing LS.
-        # In that case, nothing to do
+        # In that case, nothing to do - just copy it to setOfExpressLS
         if not self.setOfLSToProcess:
+            self.setOfExpressLS = self.setOfLSToProcess
             return
 
         # Thiago: new logic to avoid gigantic cmsRun jobs
@@ -453,6 +467,7 @@ class NGTLoopStep2(object):
             f.write(f"touch run{self.runNumber}_{affix}_ecalPedsStep2_job.txt \n")
             # should delete the script for good measure (FIXME: implement later)
 
+        logging.info(f"Prepared file {self.tempScriptName}")
         self.setOfExpectedOutputs.add(self.workingDir + "/" + outputFileName)
         self.setOfLSToProcess = set()
 
@@ -468,7 +483,9 @@ class NGTLoopStep2(object):
         # launching jobs if we are forced to go through the PreparingFinalLS path
         end_log_path = Path(self.workingDir) / "runEnd.log"
 
-        if not end_log_path.exists():
+        # We also don't want to launch anything if there is nothing to launch
+        if ((not end_log_path.exists()) and self.setOfExpressLS):
+            logging.info(f"Launching file {self.tempScriptName}")
             subprocess.Popen(
                 ["bash", self.tempScriptName],
                 cwd=self.workingDir,
@@ -477,12 +494,11 @@ class NGTLoopStep2(object):
                 stderr=subprocess.DEVNULL,
                 close_fds=True,
             )
-
-            # Now we have to move the LSs to self.setOfLSProcessed
-            # and clear self.setOfLSToProcess
             logging.info("Launched jobs with:") # <-- Changed
             logging.info(self.setOfExpressLS) # <-- Changed
 
+        # Now we have to move the LSs to self.setOfLSProcessed
+        # and clear self.setOfLSToProcess
         # In any case we remove them from the list
         self.setOfLSProcessed = self.setOfLSProcessed.union(self.setOfExpressLS)
         self.setOfLSToProcess = set()
@@ -536,7 +552,7 @@ class NGTLoopStep2(object):
             50  # to avoid the continued processing of runs that do not have enough data
         )
         self.maximumFilesPerJob = 5
-        self.maxLatchTime = 8  # due to 8 hours of buffering
+        self.maxLatchTime = 8 # due to 8 hours of buffering
         self.runStartTime = None
         self.waitingLS = False
         self.enoughLS = False
@@ -753,7 +769,6 @@ logging.warning("Warning-level logging active")
 
 loop = NGTLoopStep2("Step2")
 # loop.rigMe = True
-# loop.maxLatchTime = 5.8
 loop.state
 
 while True:
