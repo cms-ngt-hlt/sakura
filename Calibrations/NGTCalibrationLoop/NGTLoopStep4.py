@@ -14,6 +14,7 @@ from transitions import Machine, State
 os.environ["COND_AUTH_PATH"] = os.path.expanduser("/nfshome0/sakura")
 print("COND_AUTH_PATH set to:", os.environ["COND_AUTH_PATH"])
 
+
 class NGTLoopStep4(object):
 
     # Define some states.
@@ -310,7 +311,7 @@ class NGTLoopStep4(object):
         self.alcaJobNumber = 0
         self.preparedFinalFiles = False
         self.CMSSWPath = "/nfshome0/sakura/"
-        
+
         # Read some configurations
         with open(f"{self.pathWhereFilesAppear}/ngtParameters.jsn", "r") as f:
             config = json.load(f)
