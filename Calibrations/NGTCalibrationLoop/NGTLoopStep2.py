@@ -631,16 +631,13 @@ class NGTLoopStep2(object):
             conditions=["ThereAreLSWaiting", "ThereAreEnoughLS"],
         )
 
-        # If we don't have enough LS, and we are not still running,
-        # no more LS will come. We go to PreparingFinalLS
-        # if run is over and we have the files to be processed,
+        # If the run is over and we have the files to be processed,
         # we go to PreparingFinalLS (so we can process whatever is left!)
         self.machine.add_transition(
             trigger="ContinueAfterCheckLS",
             source="CheckingLSForProcess",
             dest="PreparingFinalLS",
-            # so only if run has ended *and* files are ready, and there is something to process
-            conditions=["RunHasEndedAndFilesAreReady", "ThereAreLSWaiting"],
+            conditions=["RunHasEndedAndFilesAreReady"],
         )
 
         # If we don't have enough LS, but we are still running,
