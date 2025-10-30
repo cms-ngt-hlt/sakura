@@ -42,9 +42,9 @@ class NGTLoopStep2(object):
         p.mkdir(parents=True, exist_ok=True)
         os.chmod(p, 0o777)
         self.workingDir = str(p)
-        # We assert the run start time for us as "now" in UTC
+        # We take the real run start time to write it in the runStart.log
         with open(self.workingDir + "/runStart.log", "w") as f:
-            f.write(datetime.now(timezone.utc).isoformat())
+            f.write(self.runStartTime.isoformat())
 
     def AnnounceWaitingForLS(self):
         logging.info("I am WaitingForLS...") # <-- Changed
