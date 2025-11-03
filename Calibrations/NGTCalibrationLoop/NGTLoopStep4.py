@@ -7,6 +7,7 @@ import re
 import subprocess
 import time
 from datetime import datetime, timezone
+import yaml
 from pathlib import Path
 
 from transitions import Machine, State
@@ -121,8 +122,9 @@ class NGTLoopStep4(object):
         # For this version, self.pathWhereFilesAppear is the same as
         # self.workingDir
         targetPath = Path(self.workingDir)
-        controlName = "ecalPedsStep3_job.txt"
-        targetName = "PromptCalibProdEcalPedestals.root"
+        conf = self.calib_config["step_4_config"]
+        controlName = conf["step_3_witness_suffix"]
+        targetName = conf["step_3_root_filename"]
         setOfControlFiles = {p for p in targetPath.rglob(controlName)}
         setOfAvailableFiles = set()
         as_strings = {str(p) for p in setOfControlFiles}
@@ -182,15 +184,20 @@ class NGTLoopStep4(object):
         # At this point, we already increase the self.alcaJobNumber
         self.alcaJobNumber += 1
 
+        conf_step4 = self.calib_config["step_4_config"]
+        conf_driver = conf_step4["cms_driver"]
+        conf_upload = conf_step4["upload_metadata"]
+
+        
         # Write the metadata for the upload
         metadata = {
-            "destinationDatabase": "oracle://cms_orcon_prod/CMS_CONDITIONS",
-            "destinationTags": {"EcalPedestals_NGTDemonstrator": {}},
-            "inputTag": "EcalPedestals_NGTDemonstrator",
+            "destinationDatabase": conf_upload["destinationDatabase"],
+            "destinationTags": conf_upload["destinationTags"],
+            "inputTag": conf_upload["inputTag"],
             "since": self.runNumber,
-            "userText": "Periodical fill-up EcalPedestals upload for NGT Demonstrator",
+            "userText": conf_upload["userText"],
         }
-        metadataFile = alcaJobDir / Path("NGTCalibEcalPedestals.txt")
+        metadataFile = alcaJobDir / Path(conf_step4["metadata_filename"])
         with open(metadataFile, "w") as f:
             json.dump(metadata, f, indent=4)
 
@@ -203,8 +210,9 @@ class NGTLoopStep4(object):
             f.write("cmsenv\n")
             f.write("cd -\n\n")
             # Now we do the cmsDriver.py proper
+            python_filename = f"run{self.runNumber}{conf_driver['python_filename_affix']}.py"
             f.write(f"cmsDriver.py expressStep4 --conditions {self.globalTag} ")
-            f.write(" -s ALCAHARVEST:EcalPedestals " + " --scenario pp --data ")
+            f.write(f" -s {conf_driver['step']} --scenario {conf_driver['scenario']} --data ")
             # and we pass the list of files to process (self.setOfFilesToProcess)
             f.write(" --filein ")
             # some massaging to go from PosixPath to string
@@ -212,25 +220,25 @@ class NGTLoopStep4(object):
             f.write(",".join(str_paths))
             # set a known python_filename
             f.write(" -n -1 --no_exec ")
-            f.write(f"--python_filename run{self.runNumber}_ecalPedsHARVESTING.py\n\n")
+            f.write(f"--python_filename {python_filename}\n\n")
             # Some massaging to fix the output tag
-            f.write(f"cat <<@EOF>> run{self.runNumber}_ecalPedsHARVESTING.py\n")
-            f.write(
-                'process.PoolDBOutputService.toPut[0].tag = cms.string("EcalPedestals_NGTDemonstrator")\n'
-            )
+            f.write(f"cat <<@EOF>> {python_filename}\n")
+            for mod_line in conf_driver['python_config_mods']:
+                f.write(f"{mod_line}\n")
             f.write("@EOF\n\n")
             # Now we run it!
-            f.write(f"cmsRun run{self.runNumber}_ecalPedsHARVESTING.py\n\n")
+            f.write(f"cmsRun {python_filename}\n\n")
             # If everything went alright, we should have the file promptCalibConditions.db around
             f.write(
                 'if [ -f "promptCalibConditions.db" ]; then echo "DB file exists!"; else echo "DB file missing"; fi\n'
             )
-            f.write("mv promptCalibConditions.db NGTCalibEcalPedestals.db\n")
-            f.write(
-                'if [ -f "promptCalibConditions.txt" ]; then echo "Metatada file exists!"; else echo "Metada file missing"; fi\n'
-            )
+            
+            final_db_name = conf_step4["final_db_name"]
+            f.write(f"mv promptCalibConditions.db {final_db_name}\n")
+            metadata_file = conf_step4["metadata_filename"]
+            f.write(f'if [ -f "{metadata_file}" ]; then echo "Metadata file exists!"; else echo "Metadata file missing"; fi\n')
             # We should upload...
-            f.write("uploadConditions.py NGTCalibEcalPedestals.db")
+            f.write(f"uploadConditions.py {final_db_name}")
 
     def LaunchExpressJobs(self):
         print("I am in LaunchExpressJobs...")
@@ -310,7 +318,10 @@ class NGTLoopStep4(object):
         self.jobDir = "/dev/null"
         self.alcaJobNumber = 0
         self.preparedFinalFiles = False
-        self.CMSSWPath = "/nfshome0/sakura/"
+        calibration_config_path = f"/tmp/ngt/calibrationYAML/{self.calibration_name}.yaml"
+        with open(calibration_config_path, "r") as f:
+            self.calib_config = yaml.safe_load(f)
+        self.CMSSWPath = self.calib_config["step_4_config"]["cmssw_base_path"]
 
         # Read some configurations
         with open(f"{self.pathWhereFilesAppear}/ngtParameters.jsn", "r") as f:
@@ -329,7 +340,7 @@ class NGTLoopStep4(object):
 
         # No anonymous FSMs in my watch!
         self.name = name
-
+        self.calibration_name = 'SiStripBad'
         self.setOfRunsProcessed = set()
         self.ResetTheMachine()
 
