@@ -11,13 +11,16 @@ from pathlib import Path
 
 from transitions import Machine, State
 
+os.environ["COND_AUTH_PATH"] = os.path.expanduser("/nfshome0/sakura")
+print("COND_AUTH_PATH set to:", os.environ["COND_AUTH_PATH"])
 
-class NGTLoopStep3(object):
+
+class NGTLoopStep4(object):
 
     # Define some states.
     states = [
         State(name="NotRunning", on_enter="ResetTheMachine", on_exit="SetupNewRun"),
-        State(name="WaitingForStep2Files", on_enter="AnnounceWaitingForStep2Files"),
+        State(name="WaitingForFiles", on_enter="AnnounceWaitingForFiles"),
         State(name="CheckingFilesForProcess", on_enter="CheckFilesForProcessing"),
         State(name="PreparingFiles", on_enter="ExecutePrepareFiles"),
         State(name="PreparingFinalFiles", on_enter="ExecutePrepareFinalFiles"),
@@ -68,8 +71,8 @@ class NGTLoopStep3(object):
 
         print(f"Run {self.runNumber} detected, started at {self.startTime.isoformat()}")
 
-    def AnnounceWaitingForStep2Files(self):
-        print("I am WaitingForStep2Files...")
+    def AnnounceWaitingForFiles(self):
+        print("I am WaitingForFiles...")
 
     def RunIsNotComplete(self):
         print("Is the run complete?")
@@ -96,6 +99,10 @@ class NGTLoopStep3(object):
         self.setOfFilesObserved = self.setOfFilesObserved.union(setOfFilesAvailable)
         self.setOfFilesToProcess = setOfFilesAvailable - self.setOfFilesProcessed
         self.waitingFiles = len(self.setOfFilesToProcess) > 0
+        # Unlike in step2 or step3, here we want to process ALL files together again
+        # every time a new appears. So we want self.setOfFilesToProcess to be
+        # equal to setOfFilesAvailable.
+        self.setOfFilesToProcess = setOfFilesAvailable
         print("New files to process:")
         print(self.setOfFilesToProcess)
         if len(self.setOfFilesToProcess) >= self.minimumFiles:
@@ -104,31 +111,27 @@ class NGTLoopStep3(object):
             self.enoughFiles = False
 
     # This function only looks at a given path and lists
-    # all available files of the form "run*_step2.root".
+    # all available files of the form "PromptCalibProdEcalPedestals.root".
     # Notice, however, that "available" here means
     # "the ROOT files are closed and ready to be used"!
     # So, we list files of the form
-    # "run*_*ecalPedsStep2_job.txt". If we find those,
-    # we lop off that suffix and substitute it for "step2.root"
+    # "ecalPedsStep3_job.txt". If we find those,
+    # we lop off that suffix and substitute it for "PromptCalibProdEcalPedestals.root"
     def GetSetOfAvailableFiles(self):
         # For this version, self.pathWhereFilesAppear is the same as
         # self.workingDir
-        targetPath = self.workingDir
-        suffixControlFiles = "ecalPedsStep2_job.txt"
-        # We control the naming of these files, we know they're called like this
-        setOfControlFiles = set(
-            list(Path(targetPath).glob("run*_" + suffixControlFiles))
-        )
+        targetPath = Path(self.workingDir)
+        controlName = "ecalPedsStep3_job.txt"
+        targetName = "PromptCalibProdEcalPedestals.root"
+        setOfControlFiles = {p for p in targetPath.rglob(controlName)}
+        setOfAvailableFiles = set()
         as_strings = {str(p) for p in setOfControlFiles}
         changed = {
-            (
-                s[: -len(suffixControlFiles)] + "step2.root"
-                if s.endswith(suffixControlFiles)
-                else s
-            )
+            s[: -len(controlName)] + targetName if s.endswith(controlName) else s
             for s in as_strings
         }
         setOfAvailableFiles = {Path(s) for s in changed}
+
         return setOfAvailableFiles
 
     def ExecutePrepareFiles(self):
@@ -148,11 +151,9 @@ class NGTLoopStep3(object):
         for fileToProcess in self.setOfFilesToProcess:
             if fileToProcess.exists():
                 self.setOfExpressFiles.add(fileToProcess)
-            else:
-                print(f"File {fileToProcess} is MIA")
 
         # So here there's a subtlety: here, all files are processed,
-        # but not are them are sutiable for Express
+        # but not are them are suitable for Express
         # (e.g., because they don't exist)
         # So we keep track of the two different sets now
         print(self.setOfExpressFiles)
@@ -171,54 +172,65 @@ class NGTLoopStep3(object):
         # There are better ways to do this, but right now I just do it with a file
 
         # First make a particular subdir for us to run in
-        alcaJobDir = Path(self.workingDir + "/apJob" + f"{self.alcaJobNumber:03}")
+        alcaJobDir = Path(self.workingDir + "/harvestJob" + f"{self.alcaJobNumber:03}")
         alcaJobDir.mkdir(parents=True, exist_ok=True)
         os.chmod(alcaJobDir, 0o777)
         # Save it so that we can use it later
         self.jobDir = str(alcaJobDir)
-        alcaJobFile = alcaJobDir / Path("ALCAOUTPUT.sh")
+        alcaJobFile = alcaJobDir / Path("HARVESTING.sh")
 
         # At this point, we already increase the self.alcaJobNumber
         self.alcaJobNumber += 1
 
+        # Write the metadata for the upload
+        metadata = {
+            "destinationDatabase": "oracle://cms_orcon_prod/CMS_CONDITIONS",
+            "destinationTags": {"EcalPedestals_NGTDemonstrator": {}},
+            "inputTag": "EcalPedestals_NGTDemonstrator",
+            "since": self.runNumber,
+            "userText": "Periodical fill-up EcalPedestals upload for NGT Demonstrator",
+        }
+        metadataFile = alcaJobDir / Path("NGTCalibEcalPedestals.txt")
+        with open(metadataFile, "w") as f:
+            json.dump(metadata, f, indent=4)
+
         # Write the job file
         with alcaJobFile.open("w") as f:
             f.write("#!/bin/bash -ex\n\n")
-            # First we go to the workingDir to setup CMSSW
+            # First we go to the CMSSWPath to setup CMSSW
             f.write(f"export $SCRAM_ARCH={self.scramArch}\n")
-            f.write(f"cd {self.workingDir}/{self.cmsswVersion}/src\n")
+            f.write(f"cd {self.CMSSWPath}/{self.cmsswVersion}/src\n")
             f.write("cmsenv\n")
             f.write("cd -\n\n")
             # Now we do the cmsDriver.py proper
-            f.write(f"cmsDriver.py expressStep3 --conditions {self.globalTag} ")
-            f.write(
-                " -s ALCAOUTPUT:EcalTestPulsesRaw,ALCA:PromptCalibProdEcalPedestals "
-                + "--datatier ALCARECO --eventcontent ALCARECO "
-                + "--triggerResultsProcess RERECO "
-                + "--nThreads 8 --nStreams 8 -n -1 "
-            )
+            f.write(f"cmsDriver.py expressStep4 --conditions {self.globalTag} ")
+            f.write(" -s ALCAHARVEST:EcalPedestals " + " --scenario pp --data ")
             # and we pass the list of files to process (self.setOfFilesToProcess)
-            f.write("--filein ")
+            f.write(" --filein ")
             # some massaging to go from PosixPath to string
             str_paths = {"file:" + str(p) for p in self.setOfExpressFiles}
             f.write(",".join(str_paths))
-            # No need for fileout here
-            # f.write(f" --fileout {outputFileName} --no_exec ")
-            f.write(" --no_exec ")
-            f.write(f"--python_filename run{self.runNumber}_ecalPedsALCAOUTPUT.py\n\n")
-            # Some massaging to fix the source
-            f.write(f"cat <<@EOF>> run{self.runNumber}_ecalPedsALCAOUTPUT.py\n")
+            # set a known python_filename
+            f.write(" -n -1 --no_exec ")
+            f.write(f"--python_filename run{self.runNumber}_ecalPedsHARVESTING.py\n\n")
+            # Some massaging to fix the output tag
+            f.write(f"cat <<@EOF>> run{self.runNumber}_ecalPedsHARVESTING.py\n")
             f.write(
-                'process.ALCARECOEcalTestPulsesRaw.TriggerResultsTag = cms.InputTag("TriggerResults", "", "RERECO")\n'
+                'process.PoolDBOutputService.toPut[0].tag = cms.string("EcalPedestals_NGTDemonstrator")\n'
             )
             f.write("@EOF\n\n")
-            f.write(f"cmsRun run{self.runNumber}_ecalPedsALCAOUTPUT.py\n")
-            # Write the witness file for good measure
-            f.write("touch ecalPedsStep3_job.txt\n")
-            # And remove the big file, we don't need it!
+            # Now we run it!
+            f.write(f"cmsRun run{self.runNumber}_ecalPedsHARVESTING.py\n\n")
+            # If everything went alright, we should have the file promptCalibConditions.db around
             f.write(
-                "if [ -f EcalTestPulsesRaw.root ]; then rm EcalTestPulsesRaw.root; fi\n"
+                'if [ -f "promptCalibConditions.db" ]; then echo "DB file exists!"; else echo "DB file missing"; fi\n'
             )
+            f.write("mv promptCalibConditions.db NGTCalibEcalPedestals.db\n")
+            f.write(
+                'if [ -f "promptCalibConditions.txt" ]; then echo "Metatada file exists!"; else echo "Metada file missing"; fi\n'
+            )
+            # We should upload...
+            f.write("uploadConditions.py NGTCalibEcalPedestals.db")
 
     def LaunchExpressJobs(self):
         print("I am in LaunchExpressJobs...")
@@ -231,7 +243,7 @@ class NGTLoopStep3(object):
                 self.jobDir + "/stderr.log", "w"
             ) as err:
                 subprocess.Popen(
-                    ["bash", "ALCAOUTPUT.sh"],
+                    ["bash", "HARVESTING.sh"],
                     cwd=self.jobDir,
                     stdout=out,
                     stderr=err,
@@ -240,7 +252,6 @@ class NGTLoopStep3(object):
                 )
         else:
             print("WARNING: not launching Express jobs!")
-            print(f"DEBUG: {self.jobDir} and {len(self.setOfExpressFiles)}")
 
         # Now we have to move the files we just processed
         # to self.setOfFilesProcessed
@@ -263,9 +274,9 @@ class NGTLoopStep3(object):
 
     def ThereAreEnoughFiles(self):
         if self.enoughFiles:
-            print("++ Enough step2 files found!")
+            print("++ Enough input files found!")
         else:
-            print("++ Not enough step2 files...")
+            print("++ Not enough input files...")
         return self.enoughFiles
 
     def WePreparedFinalFiles(self):
@@ -278,7 +289,7 @@ class NGTLoopStep3(object):
             # We actually have to reset the machine only when we go to NotRunning!
 
             # Make a log of everything that we did
-            with open(self.workingDir + "/allStep2FilesProcessed.log", "w") as f:
+            with open(self.workingDir + "/allStep3FilesProcessed.log", "w") as f:
                 for Files in sorted(self.setOfFilesProcessed):
                     f.write(str(Files) + "\n")
             # Add the run we have just seen to our memory
@@ -290,10 +301,8 @@ class NGTLoopStep3(object):
         print("Machine reset!")
         self.runNumber = 0
         self.startTime = 0
-        self.timeoutInSeconds = 9 * 60 * 60  # 8 hours
+        self.timeoutInSeconds = 8 * 60 * 60  # 8 hours
         self.minimumFiles = 1
-        self.maximumFiles = 5
-        self.requestMinimumFiles = True
         self.waitingFiles = False
         self.enoughFiles = False
         self.pathWhereFilesAppear = "/tmp/ngt/"
@@ -301,6 +310,7 @@ class NGTLoopStep3(object):
         self.jobDir = "/dev/null"
         self.alcaJobNumber = 0
         self.preparedFinalFiles = False
+        self.CMSSWPath = "/nfshome0/sakura/"
 
         # Read some configurations
         with open(f"{self.pathWhereFilesAppear}/ngtParameters.jsn", "r") as f:
@@ -325,7 +335,7 @@ class NGTLoopStep3(object):
 
         # Initialize the state machine
         self.machine = Machine(
-            model=self, states=NGTLoopStep3.states, queued=True, initial="NotRunning"
+            model=self, states=NGTLoopStep4.states, queued=True, initial="NotRunning"
         )
 
         # Add some transitions. We could also define these using a static list of
@@ -336,7 +346,7 @@ class NGTLoopStep3(object):
         self.machine.add_transition(
             trigger="TryLookForRun",
             source="NotRunning",
-            dest="WaitingForStep2Files",
+            dest="WaitingForFiles",
             conditions="NewRunAppeared",
         )
         # Otherwise, do nothing
@@ -353,19 +363,19 @@ class NGTLoopStep3(object):
             dest="NotRunning",
             conditions="WePreparedFinalFiles",
         )
-        # Otherwise, we go back to WaitingForStep2Files
+        # Otherwise, we go back to WaitingForFiles
         self.machine.add_transition(
             trigger="ContinueAfterCleanup",
             source="CleanupState",
-            dest="WaitingForStep2Files",
+            dest="WaitingForFiles",
         )
 
-        # This is the inner loop. We go from "WaitingForStep2Files"
+        # This is the inner loop. We go from "WaitingForFiles"
         # to the "CheckingFilesForProcess", and from there we
         # will go to one of three states
         self.machine.add_transition(
             trigger="TryProcessFiles",
-            source="WaitingForStep2Files",
+            source="WaitingForFiles",
             dest="CheckingFilesForProcess",
         )
 
@@ -378,12 +388,12 @@ class NGTLoopStep3(object):
         )
 
         # If we don't have enough Files, but we are still running,
-        # more Files will come. We go to WaitingForStep2Files,
+        # more Files will come. We go to WaitingForFiles,
         # but only if we still have time!
         self.machine.add_transition(
             trigger="ContinueAfterCheckFiles",
             source="CheckingFilesForProcess",
-            dest="WaitingForStep2Files",
+            dest="WaitingForFiles",
             conditions=["RunIsNotComplete", "StillHaveTime"],
         )
 
@@ -397,19 +407,19 @@ class NGTLoopStep3(object):
 
         # In any case, prepare the Express jobs
         self.machine.add_transition(
-            trigger="TryPrepareALCAPROMPTJobs",
+            trigger="TryPrepareHarvestingJobs",
             source="PreparingFiles",
             dest="PreparingExpressJobs",
         )
         self.machine.add_transition(
-            trigger="TryPrepareALCAPROMPTJobs",
+            trigger="TryPrepareHarvestingJobs",
             source="PreparingFinalFiles",
             dest="PreparingExpressJobs",
         )
 
         # And launch them!
         self.machine.add_transition(
-            trigger="TryLaunchALCAPROMPTJobs",
+            trigger="TryLaunchHarvestingJobs",
             source="PreparingExpressJobs",
             dest="LaunchingExpressJobs",
         )
@@ -419,30 +429,30 @@ class NGTLoopStep3(object):
             dest="CleanupState",
         )
 
-        # All other triggers take you from WaitingForStep2Files to WaitingForStep2Files if need be
+        # All other triggers take you from WaitingForFiles to WaitingForFiles if need be
         self.machine.add_transition(
-            trigger="TryPrepareALCAPROMPTJobs",
-            source="WaitingForStep2Files",
-            dest="WaitingForStep2Files",
+            trigger="TryPrepareHarvestingJobs",
+            source="WaitingForFiles",
+            dest="WaitingForFiles",
         )
         self.machine.add_transition(
-            trigger="TryLaunchALCAPROMPTJobs",
-            source="WaitingForStep2Files",
-            dest="WaitingForStep2Files",
+            trigger="TryLaunchHarvestingJobs",
+            source="WaitingForFiles",
+            dest="WaitingForFiles",
         )
         self.machine.add_transition(
             trigger="ContinueToCleanup",
-            source="WaitingForStep2Files",
-            dest="WaitingForStep2Files",
+            source="WaitingForFiles",
+            dest="WaitingForFiles",
         )
         self.machine.add_transition(
             trigger="ContinueAfterCleanup",
-            source="WaitingForStep2Files",
-            dest="WaitingForStep2Files",
+            source="WaitingForFiles",
+            dest="WaitingForFiles",
         )
 
 
-loop = NGTLoopStep3("Step3")
+loop = NGTLoopStep4("Step4")
 
 loop.state
 
@@ -455,16 +465,16 @@ while True:
         )  # Should be close to 60 for deployment, close to 1 for testing
         loop.TryLookForRun()
 
-    while loop.state == "WaitingForStep2Files":
+    while loop.state == "WaitingForFiles":
         loop.TryProcessFiles()
         time.sleep(sleepTime)
         loop.ContinueAfterCheckFiles()
         time.sleep(sleepTime)
-        loop.TryPrepareALCAPROMPTJobs()
+        loop.TryPrepareHarvestingJobs()
         time.sleep(sleepTime)
-        loop.TryLaunchALCAPROMPTJobs()
+        loop.TryLaunchHarvestingJobs()
         time.sleep(sleepTime)
         loop.ContinueToCleanup()
-        time.sleep(1)
+        time.sleep(sleepTime)
         loop.ContinueAfterCleanup()
-        time.sleep(1)
+        time.sleep(sleepTime)
