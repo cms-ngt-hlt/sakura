@@ -12,6 +12,7 @@ import sys
 import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+import yaml
 
 from transitions import Machine, State
 from omsapi import OMSAPI
@@ -19,6 +20,10 @@ from omsapi import OMSAPI
 CURRENT_RUN = ""
 LAST_LS = None
 
+import argparse
+parser = argparse.ArgumentParser(description='Runs step2 of our calibration loop of a given calibration workflow.')
+parser.add_argument('-c', '--calibration', type=str, help='Calibration workflow to process: e.g. SiStripBad or EcalPedestals.', required=True, choices=['SiStripBad', 'EcalPedestals'])
+args = parser.parse_args()
 
 class NGTLoopStep2(object):
 
@@ -277,11 +282,9 @@ class NGTLoopStep2(object):
         logging.info(f"LATCHED run: {CURRENT_RUN}, last LS: {LAST_LS}")
 
         # Set the path for GetListOfAvailableFiles
-        self.pathWhereFilesAppear = (
-            "/eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/"
-            + CURRENT_RUN
-            + "/00000"
-        )
+        
+        
+        self.pathWhereFilesAppear = self.file_in_path + CURRENT_RUN + "/00000"
 
         is_running = run_info.get("end_time") is None
         if is_running:
@@ -437,12 +440,16 @@ class NGTLoopStep2(object):
         # Compute min and max, then format back
         min_ls = min(ls_numbers, default=None)
         max_ls = max(ls_numbers, default=None)
+        step_args = self.calib_config["step_2_config"]
+        output_affix = step_args["output_filename_affix"]
+
         tempAffix = "".join(random.choices(string.ascii_letters + string.digits, k=10))
         self.tempScriptName = "cmsDriver_" + tempAffix + ".sh"
         affix = f"LS{min_ls:04d}To{max_ls:04d}"
         logFileName = f"run{self.runNumber}_{affix}_step2.log"
         tempOutputFileName = "output_" + tempAffix + ".root"
-        outputFileName = f"run{self.runNumber}_{affix}_step2.root"
+        outputFileName = f"run{self.runNumber}_{affix}{output_affix}.root"
+        python_filename = f"run{self.runNumber}_{affix}{output_affix}.py"
 
         # Here we should have some logic that prepares the Express jobs
         # Probably should have a call to cmsDriver
@@ -458,11 +465,12 @@ class NGTLoopStep2(object):
             # Now we do the cmsDriver.py proper
             f.write(f"cmsDriver.py expressStep2 --conditions {self.globalTag} ")
             f.write(
-                " -s RAW2DIGI,RECO,ALCAPRODUCER:EcalTestPulsesRaw "
-                + "--datatier ALCARECO --eventcontent ALCARECO --data --process RERECO "
-                + "--scenario pp --era Run3 "
-                + "--nThreads 8 --nStreams 8 -n -1 "
+            f" -s {step_args['step']} "
+            + f"--datatier {step_args['datatier']} --eventcontent {step_args['eventcontent']} --data --process {step_args['process']} "
+            + f"--scenario {step_args['scenario']} --era {step_args['era']} "
+            + "--nThreads 8 --nStreams 8 -n -1 "
             )
+
             # and we pass the list of LS to process (self.setOfLSToProcess)
             f.write("--filein ")
             # some massaging to go from PosixPath to string
@@ -470,15 +478,16 @@ class NGTLoopStep2(object):
             f.write(",".join(str_paths))
             f.write(f" --fileout file:{tempOutputFileName} --no_exec ")
             f.write(
-                f"--python_filename run{self.runNumber}_{affix}_ecalPedsStep2.py\n\n"
-            )
+                    f"--python_filename {python_filename}\n\n"
+            ) 
             f.write(
-                f"cmsRun run{self.runNumber}_{affix}_ecalPedsStep2.py > {logFileName} 2>&1\n"
+                f"cmsRun {python_filename} > {logFileName} 2>&1\n"
             )
             # we now move the file to its final location
             f.write(f"mv {tempOutputFileName} {outputFileName}\n")
             # touch the witness file
-            f.write(f"touch run{self.runNumber}_{affix}_ecalPedsStep2_job.txt \n")
+            witness_file = f"run{self.runNumber}_{affix}{output_affix}_job.txt"
+            f.write(f"touch {witness_file} \n")
             # should delete the script for good measure (FIXME: implement later)
 
         logging.info(f"Prepared file {self.tempScriptName}")
@@ -570,11 +579,11 @@ class NGTLoopStep2(object):
         self.runStartTime = None
         self.waitingLS = False
         self.enoughLS = False
-        self.pathWhereFilesAppear = (
-            "/eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/"
-            + CURRENT_RUN
-            + "/00000"
-        )
+        calibration_config_path = f"/tmp/ngt/calibrationYAML/{self.calibration_name}.yaml"
+        with open(calibration_config_path, "r") as f:
+            self.calib_config = yaml.safe_load(f)
+        self.file_in_path = self.calib_config.get("file_in_path")
+        self.pathWhereFilesAppear = self.file_in_path + CURRENT_RUN + "/00000"
         logging.info(f"self.pathWhereFilesAppear {self.pathWhereFilesAppear}")
         self.workingDir = "/dev/null"
         self.preparedFinalLS = False
@@ -595,7 +604,8 @@ class NGTLoopStep2(object):
 
         # No anonymous FSMs in my watch!
         self.name = name
-
+        self.calibration_name = args.calibration
+        print(f"We are processing {self.calibration_name}.")
         self.ResetTheMachine()
 
         # Initialize the state machine

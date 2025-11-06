@@ -8,9 +8,13 @@ import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-
+import yaml
 from transitions import Machine, State
 
+import argparse
+parser = argparse.ArgumentParser(description='Runs step3 of our calibration loop of a given calibration workflow.')
+parser.add_argument('-c', '--calibration', type=str, help='Calibration workflow to process: e.g. SiStripBad or EcalPedestals.', required=True, choices=['SiStripBad', 'EcalPedestals'])
+args = parser.parse_args()
 
 class NGTLoopStep3(object):
 
@@ -32,9 +36,11 @@ class NGTLoopStep3(object):
         path = Path(self.pathWhereFilesAppear)
         currentDirs = {p.name for p in path.iterdir() if p.is_dir()}
         newDirs = currentDirs - self.setOfRunsProcessed
+        
         newRuns = {p for p in newDirs if p.startswith("run")}
         # Thiago: rig to run on 398600
         # newRuns = {p for p in newDirs if p.startswith("run398600")}
+        
         foundNewRuns = not (not newRuns)  # Is this pythonic?
         if foundNewRuns:
             print("New runs found!")
@@ -113,16 +119,19 @@ class NGTLoopStep3(object):
     def GetSetOfAvailableFiles(self):
         # For this version, self.pathWhereFilesAppear is the same as
         # self.workingDir
+        conf = self.calib_config["step_3_config"]
+        suffixControlFiles = conf["step_2_witness_suffix"]
+        rootFileSuffix = conf["step_2_root_suffix"]
+
         targetPath = self.workingDir
-        suffixControlFiles = "ecalPedsStep2_job.txt"
         # We control the naming of these files, we know they're called like this
         setOfControlFiles = set(
-            list(Path(targetPath).glob("run*_" + suffixControlFiles))
+            list(Path(targetPath).glob(f"run*{suffixControlFiles}"))
         )
         as_strings = {str(p) for p in setOfControlFiles}
         changed = {
             (
-                s[: -len(suffixControlFiles)] + "step2.root"
+                s[: -len(suffixControlFiles)] + rootFileSuffix
                 if s.endswith(suffixControlFiles)
                 else s
             )
@@ -177,6 +186,8 @@ class NGTLoopStep3(object):
         # Save it so that we can use it later
         self.jobDir = str(alcaJobDir)
         alcaJobFile = alcaJobDir / Path("ALCAOUTPUT.sh")
+        conf = self.calib_config["step_3_config"]["cms_driver"]
+        python_filename = f"run{self.runNumber}{conf['python_filename_affix']}.py"
 
         # At this point, we already increase the self.alcaJobNumber
         self.alcaJobNumber += 1
@@ -192,7 +203,7 @@ class NGTLoopStep3(object):
             # Now we do the cmsDriver.py proper
             f.write(f"cmsDriver.py expressStep3 --conditions {self.globalTag} ")
             f.write(
-                " -s ALCAOUTPUT:EcalTestPulsesRaw,ALCA:PromptCalibProdEcalPedestals "
+                f" -s {conf['step']} "
                 + "--datatier ALCARECO --eventcontent ALCARECO "
                 + "--triggerResultsProcess RERECO "
                 + "--nThreads 8 --nStreams 8 -n -1 "
@@ -205,20 +216,26 @@ class NGTLoopStep3(object):
             # No need for fileout here
             # f.write(f" --fileout {outputFileName} --no_exec ")
             f.write(" --no_exec ")
-            f.write(f"--python_filename run{self.runNumber}_ecalPedsALCAOUTPUT.py\n\n")
+            f.write(f"--python_filename {python_filename}\n\n")
             # Some massaging to fix the source
-            f.write(f"cat <<@EOF>> run{self.runNumber}_ecalPedsALCAOUTPUT.py\n")
-            f.write(
-                'process.ALCARECOEcalTestPulsesRaw.TriggerResultsTag = cms.InputTag("TriggerResults", "", "RERECO")\n'
-            )
-            f.write("@EOF\n\n")
-            f.write(f"cmsRun run{self.runNumber}_ecalPedsALCAOUTPUT.py\n")
-            # Write the witness file for good measure
-            f.write("touch ecalPedsStep3_job.txt\n")
+
+            if 'python_config_mods' in conf and conf['python_config_mods']:
+                f.write(f"cat <<@EOF>> {python_filename}\n")
+                for mod_line in conf['python_config_mods']:
+                    f.write(f"{mod_line}\n")
+                f.write("@EOF\n\n")
+
+            # 1. Run Step 3. If it fails, 'bash -e' stops the script here.
+            f.write(f"cmsRun {python_filename}\n\n")
+
+            # 2. <<< THIS IS THE NEW LINE >>>
+            #    This line is only reached if cmsRun succeeds.
+            f.write(f"# Step 3 succeeded, now deleting Step 2 input files\n")
+
+            # 3. Write the witness file(s) for good measure
+            f.write(f"touch {conf['step_3_witness_suffix']}\n")
             # And remove the big file, we don't need it!
-            f.write(
-                "if [ -f EcalTestPulsesRaw.root ]; then rm EcalTestPulsesRaw.root; fi\n"
-            )
+            #f.write(conf['cleanup_command'])
 
     def LaunchExpressJobs(self):
         print("I am in LaunchExpressJobs...")
@@ -302,6 +319,10 @@ class NGTLoopStep3(object):
         self.alcaJobNumber = 0
         self.preparedFinalFiles = False
 
+        calibration_config_path = f"/tmp/ngt/calibrationYAML/{self.calibration_name}.yaml"
+        with open(calibration_config_path, "r") as f:
+            self.calib_config = yaml.safe_load(f)
+
         # Read some configurations
         with open(f"{self.pathWhereFilesAppear}/ngtParameters.jsn", "r") as f:
             config = json.load(f)
@@ -319,7 +340,8 @@ class NGTLoopStep3(object):
 
         # No anonymous FSMs in my watch!
         self.name = name
-
+        self.calibration_name = args.calibration
+        print(f"We are processing {self.calibration_name}.")
         self.setOfRunsProcessed = set()
         self.ResetTheMachine()
 

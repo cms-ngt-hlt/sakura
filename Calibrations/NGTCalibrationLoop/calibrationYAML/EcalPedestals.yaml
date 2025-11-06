@@ -1,0 +1,47 @@
+calibration_name: "EcalPedestals"
+
+file_in_path: /eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/
+
+step_2_config:
+  step: "RAW2DIGI,RECO,ALCAPRODUCER:EcalTestPulsesRaw"
+  scenario: "pp"
+  datatier: "ALCARECO"
+  eventcontent: "ALCARECO"
+  process: "RERECO"
+  era: "Run3"
+  nThraeds: 8
+  nStreams: 8
+  output_filename_affix: "_ecalPedsStep2"
+
+step_3_config:
+  step_2_root_suffix: "ecalPedsStep2.root"
+  step_2_witness_suffix: "ecalPedsStep2_job.txt"
+  cms_driver:
+    step: "ALCAOUTPUT:EcalTestPulsesRaw,ALCA:PromptCalibProdEcalPedestals"
+    python_filename_affix: "_ecalPedsALCAOUTPUT"
+    triggerResultsProcess: "RERECO"
+    step_3_witness_suffix: "ecalPedsStep3_job.txt" 
+    cleanup_command: "if [ -f EcalTestPulsesRaw.root ]; then rm EcalTestPulsesRaw.root; fi\n"
+    python_config_mods:
+      - 'process.ALCARECOEcalTestPulsesRaw.TriggerResultsTag = cms.InputTag("TriggerResults", "", "RERECO")'
+
+step_4_config:
+  step_3_witness_suffix: "ecalPedsStep3_job.txt"
+  step_3_root_filename: "PromptCalibProdEcalPedestals.root"
+  cmssw_base_path: "/nfshome0/sakura/" 
+  cms_driver:
+    step: "ALCAHARVEST:EcalPedestals"
+    scenario: "pp"
+    python_filename_affix: "_ecalPedsHARVESTING" 
+    python_config_mods:
+      - 'process.PoolDBOutputService.toPut[0].tag = cms.string("EcalPedestals_NGTDemonstrator")'
+  
+  upload_metadata:
+    destinationDatabase: "oracle://cms_orcon_prod/CMS_CONDITIONS"
+    destinationTags: 
+      EcalPedestals_NGTDemonstrator: {} # The key is the tag name
+    inputTag: "EcalPedestals_NGTDemonstrator"
+    userText: "Periodical fill-up EcalPedestals upload for NGT Demonstrator"
+  
+  metadata_filename: "NGTCalibEcalPedestals.txt"
+  final_db_name: "NGTCalibEcalPedestals.db"

@@ -1,0 +1,51 @@
+calibration_name: "SiStripBad"
+
+file_in_path: "/eos/cms/tier0/store/express/Run2025G/ExpressPhysics/FEVT/Express-v1/000/"
+
+# --- STEP 2 CONFIG ---
+step_2_config:
+  step: "RAW2DIGI,RECO:trackerlocalreco,ALCAPRODUCER:SiStripCalZeroBias+SiStripPCLHistos+PromptCalibProdSiStrip"
+  scenario: "pp"
+  datatier: "ALCARECO"
+  eventcontent: "ALCARECO"
+  process: "RERECO"
+  era: "Run3"
+  nThreads: 8
+  nStreams: 8
+  output_filename_affix: "_sistripBadStep2"
+  
+# --- STEP 3 CONFIG ---
+step_3_config:
+  step_2_root_suffix: "sistripBadStep2.root"
+  step_2_witness_suffix: "sistripBadStep2_job.txt"
+  cms_driver:
+    step: "ALCAOUTPUT:SiStripCalZeroBias+SiStripPCLHistos,ALCA:PromptCalibProdSiStrip"
+    python_filename_affix: "_sistripBadALCAOUTPUT"
+    triggerResultsProcess: "RECO"
+    step_3_witness_suffix: "sistripBadStep3_job.txt"
+    cleanup_command: "" # todo clean up command here
+
+# --- STEP 4 CONFIG (ALCAHARVEST) ---
+step_4_config:
+  step_3_witness_suffix: "sistripBadStep3_job.txt"
+  step_3_root_filename: "PromptCalibProdSiStrip.root" 
+
+  # CMSSW environment and paths
+  cmssw_base_path: "/nfshome0/sakura/"
+  cms_driver:
+    step: "ALCAHARVEST:SiStripQuality" 
+    scenario: "pp"
+    python_filename_affix: "_sistripBadHARVESTING"
+    python_config_mods:
+      - 'process.PoolDBOutputService.toPut[0].tag = cms.string("SiStripQuality_NGTDemonstrator")'
+  
+  upload_metadata:
+    destinationDatabase: "oracle://cms_orcon_prod/CMS_CONDITIONS"
+    destinationTags:
+      SiStripQuality_NGTDemonstrator: {} # Key is the final tag name
+    inputTag: "SiStripQuality_NGTDemonstrator"
+    userText: "Periodical fill-up SiStripQuality upload for NGT Demonstrator"
+  
+  # Final file names
+  metadata_filename: "NGTCalibSiStripBad.txt"
+  final_db_name: "NGTCalibSiStripBad.db"
