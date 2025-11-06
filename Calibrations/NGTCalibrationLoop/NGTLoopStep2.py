@@ -20,6 +20,10 @@ from omsapi import OMSAPI
 CURRENT_RUN = ""
 LAST_LS = None
 
+import argparse
+parser = argparse.ArgumentParser(description='Runs step2 of our calibration loop of a given calibration workflow.')
+parser.add_argument('-c', '--calibration', type=str, help='Calibration workflow to process: e.g. SiStripBad or EcalPedestals.', required=True, choices=['SiStripBad', 'EcalPedestals'])
+args = parser.parse_args()
 
 class NGTLoopStep2(object):
 
@@ -437,7 +441,7 @@ class NGTLoopStep2(object):
         min_ls = min(ls_numbers, default=None)
         max_ls = max(ls_numbers, default=None)
         step_args = self.calib_config["step_2_config"]
-        output_affix = step_args["output_filename_affix"] # e.g., "_ecalPedsStep2"
+        output_affix = step_args["output_filename_affix"]
 
         tempAffix = "".join(random.choices(string.ascii_letters + string.digits, k=10))
         self.tempScriptName = "cmsDriver_" + tempAffix + ".sh"
@@ -600,7 +604,7 @@ class NGTLoopStep2(object):
 
         # No anonymous FSMs in my watch!
         self.name = name
-        self.calibration_name = 'SiStripBad' # argparse this ?
+        self.calibration_name = args.calibration
         print(f"We are processing {self.calibration_name}.")
         self.ResetTheMachine()
 

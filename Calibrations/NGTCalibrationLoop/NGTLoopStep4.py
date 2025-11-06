@@ -15,6 +15,10 @@ from transitions import Machine, State
 os.environ["COND_AUTH_PATH"] = os.path.expanduser("/nfshome0/sakura")
 print("COND_AUTH_PATH set to:", os.environ["COND_AUTH_PATH"])
 
+import argparse
+parser = argparse.ArgumentParser(description='Runs step4 of our calibration loop of a given calibration workflow.')
+parser.add_argument('-c', '--calibration', type=str, help='Calibration workflow to process: e.g. SiStripBad or EcalPedestals.', required=True, choices=['SiStripBad', 'EcalPedestals'])
+args = parser.parse_args()
 
 class NGTLoopStep4(object):
 
@@ -238,7 +242,7 @@ class NGTLoopStep4(object):
             metadata_file = conf_step4["metadata_filename"]
             f.write(f'if [ -f "{metadata_file}" ]; then echo "Metadata file exists!"; else echo "Metadata file missing"; fi\n')
             # We should upload...
-            f.write(f"uploadConditions.py {final_db_name}")
+            #f.write(f"uploadConditions.py {final_db_name}")
 
     def LaunchExpressJobs(self):
         print("I am in LaunchExpressJobs...")
@@ -340,7 +344,8 @@ class NGTLoopStep4(object):
 
         # No anonymous FSMs in my watch!
         self.name = name
-        self.calibration_name = 'SiStripBad'
+        self.calibration_name = args.calibration
+        print(f"We are processing {self.calibration_name}.")
         self.setOfRunsProcessed = set()
         self.ResetTheMachine()
 

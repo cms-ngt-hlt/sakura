@@ -11,6 +11,10 @@ from pathlib import Path
 import yaml
 from transitions import Machine, State
 
+import argparse
+parser = argparse.ArgumentParser(description='Runs step3 of our calibration loop of a given calibration workflow.')
+parser.add_argument('-c', '--calibration', type=str, help='Calibration workflow to process: e.g. SiStripBad or EcalPedestals.', required=True, choices=['SiStripBad', 'EcalPedestals'])
+args = parser.parse_args()
 
 class NGTLoopStep3(object):
 
@@ -341,7 +345,8 @@ class NGTLoopStep3(object):
 
         # No anonymous FSMs in my watch!
         self.name = name
-        self.calibration_name = 'SiStripBad'
+        self.calibration_name = args.calibration
+        print(f"We are processing {self.calibration_name}.")
         self.setOfRunsProcessed = set()
         self.ResetTheMachine()
 
