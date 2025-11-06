@@ -45,4 +45,3 @@ step_4_config:
   
   metadata_filename: "NGTCalibEcalPedestals.txt"
   final_db_name: "NGTCalibEcalPedestals.db"
-

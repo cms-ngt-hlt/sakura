@@ -481,7 +481,7 @@ class NGTLoopStep2(object):
                     f"--python_filename {python_filename}\n\n"
             ) 
             f.write(
-                f"cmsRun {python_filename} > {logFileName} 2>&1\n" 
+                f"cmsRun {python_filename} > {logFileName} 2>&1\n"
             )
             # we now move the file to its final location
             f.write(f"mv {tempOutputFileName} {outputFileName}\n")

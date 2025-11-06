@@ -177,7 +177,7 @@ class NGTLoopStep3(object):
 
         # Here we should have some logic that prepares the Express jobs
         # Probably should have a call to cmsDriver
-        # There are better ways to do this, but right... (truncated)
+        # There are better ways to do this, but right now I just do it with a file
 
         # First make a particular subdir for us to run in
         alcaJobDir = Path(self.workingDir + "/apJob" + f"{self.alcaJobNumber:03}")
@@ -191,10 +191,6 @@ class NGTLoopStep3(object):
 
         # At this point, we already increase the self.alcaJobNumber
         self.alcaJobNumber += 1
-
-        # This is the command to delete the step 2 files
-        #step2_files_to_delete = [f"'{str(p)}'" for p in self.setOfExpressFiles]
-        #rm_command = "rm -f " + " ".join(step2_files_to_delete)
 
         # Write the job file
         with alcaJobFile.open("w") as f:
@@ -235,7 +231,6 @@ class NGTLoopStep3(object):
             # 2. <<< THIS IS THE NEW LINE >>>
             #    This line is only reached if cmsRun succeeds.
             f.write(f"# Step 3 succeeded, now deleting Step 2 input files\n")
-            #f.write(f"{rm_command}\n\n")
 
             # 3. Write the witness file(s) for good measure
             f.write(f"touch {conf['step_3_witness_suffix']}\n")
