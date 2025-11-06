@@ -242,7 +242,7 @@ class NGTLoopStep4(object):
             metadata_file = conf_step4["metadata_filename"]
             f.write(f'if [ -f "{metadata_file}" ]; then echo "Metadata file exists!"; else echo "Metadata file missing"; fi\n')
             # We should upload...
-            #f.write(f"uploadConditions.py {final_db_name}")
+            f.write(f"uploadConditions.py {final_db_name}")
 
     def LaunchExpressJobs(self):
         print("I am in LaunchExpressJobs...")
