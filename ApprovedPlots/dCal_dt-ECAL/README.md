@@ -9,7 +9,9 @@ As a first step, we reran HLT with various conditions. Re-HLT was ran on:
 2. Prompt Global Tag
 3. HLT Global Tag with Prompt ECAL Laser Corrections
 4. HLT Global Tag with Prompt ECAL Pedestals
-5.  HLT Global Tag with Prompt ECAL Laser Corrections and Prompt ECAL Pedestals
+5. HLT Global Tag with Prompt ECAL Laser Corrections and Prompt ECAL Pedestals
+
+Please note that in the final plot we only included 1., 2., and 5. but the recipe here still includes all of them.
 
 For this, as a first step we need to get the config files (already existing in this directory and named as dump*py here):
 ```bash
@@ -63,4 +65,27 @@ Once this is guranteed, you can start running the DQM client:
 ```
 This will result in DQM output root files.
 
+## Final plot
 
+By hand, restructure the output DQM files to follow this structure:
+```
+.
+├── dCal_dt-ECAL-plotter.py      <-- The main execution script
+├── lumi.csv                     <-- Required for plot
+├── scripts.py                   <-- Python script that fits the data
+│
+├── upload_HLTTag/               <-- Data directory for "HLT conditions"
+│   ├── *.root
+│
+├── upload_Prompt/               <-- Data directory for "Prompt conditions"
+│   ├── *.root
+│
+└── upload_HLT-LCPed/            <-- Data directory for "HLT+Prompt LC and Prompt Ped"
+    ├── *.root
+```
+
+If you have all the packages required installed, the final plots will apprear with running:
+```bash
+python3 dCal_dt-ECAL-plotter.py
+```
+and you have it ! 🎉
