@@ -1,0 +1,38 @@
+# Recipe on obtaining plot ! 
+
+![time variations of physics performance on varying conditions demonstrated on Z peak fit](screenshot_stability_comparison_sigma_over_mu.png)
+
+Included in [CMS-DP-2025/082](https://twiki.cern.ch/twiki/bin/view/CMSPublic/DP2025082).
+## Re-HLT with different conditions
+As a first step, we reran HLT with various conditions. Re-HLT was ran on: 
+1. HLT Global Tag
+2. Prompt Global Tag
+3. HLT Global Tag with Prompt ECAL Laser Corrections
+4. HLT Global Tag with Prompt ECAL Pedestals
+5.  HLT Global Tag with Prompt ECAL Laser Corrections and Prompt ECAL Pedestals
+
+For this, as a first step we need to get the config files (already existing in this directory and named as dump*py here):
+```bash
+./getConfig.sh && \
+./getConfigPrompt.sh && \
+./getLCPedconfig.sh && \
+./getLCconfig.sh && \
+./getPedconfig.sh
+```
+the dumps are needed for the HTCondor submission. The mass HTCondor submission is done through:
+```bash
+./batchsub_HLT.sh && \
+./batchsub_Prompt.sh && \
+./batchsub_HLT-LC.sh && \
+./batchsub_HLT-Ped.sh && \
+./batchsub_HLT-LCPed.sh
+```
+One can use `condor_q` to check the status of things. Now it is very frequent that jobs fail. To resubmit which jobs failed and to resubmit these, simply check with:
+```bash
+./passtojobs.sh
+./resubandcheck.sh
+```
+Repeat as often as needed.
+
+## DQM on Re-HLT
+
