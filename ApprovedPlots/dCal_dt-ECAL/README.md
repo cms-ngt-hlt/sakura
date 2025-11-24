@@ -1,4 +1,4 @@
-# Recipe on obtaining plot ! 
+# Recipe on obtaining plot
 
 ![time variations of physics performance on varying conditions demonstrated on Z peak fit](screenshot_stability_comparison_sigma_over_mu.png)
 
@@ -13,6 +13,9 @@ As a first step, we reran HLT with various conditions. Re-HLT was ran on:
 
 For this, as a first step we need to get the config files (already existing in this directory and named as dump*py here):
 ```bash
+voms-proxy-init --voms cms --valid 168:00
+scram project -n LCtimeseries CMSSW_15_0_6
+cd LCtimeseries/src/sakura/etc/etc/etc
 ./getConfig.sh && \
 ./getConfigPrompt.sh && \
 ./getLCPedconfig.sh && \
@@ -35,4 +38,29 @@ One can use `condor_q` to check the status of things. Now it is very frequent th
 Repeat as often as needed.
 
 ## DQM on Re-HLT
+To successfully run the DQM on the the obtained .root files with the varying conditions used, minor changes need to be made to pre-existing DQM packages of CMSSW. The basic set up as follows:
+```bash
+cmsrel CMSSW_15_0_8 && cd CMSSW_15_0_8/src && cmsenv
+cmsenv
+git cms-addpkg DQM/HLTEvF DQM/Integration
+scram b -j
+```
+and these are the changes that need to be made:
+1. in file `DQM/HLTEvF/python/HLTObjectMonitor_cfi.py`: change `NbinsX = cms.int32(50)`, to `NbinsX = cms.int32(100),` . This is so hat we have finer binning.
+2. in file `DQM/Integration/python/clients/hlt_dqm_sourceclient-live_cfg.py`, add
+```
+process.hltObjectsMonitor4all.processName  = cms.string("HLTX")
+process.hltObjectMonitor.processName = cms.string("HLTX")
+```
+at the end of the file. 
+Once this is guranteed, you can start running the DQM client:
+```bash
+./run_DQM_HLT.sh && \
+./run_DQM_Prompt.sh && \
+./run_DQM_LC.sh && \
+./run_DQM_Ped.sh && \
+./run_DQM_LCPed.sh
+```
+This will result in DQM output root files.
+
 
