@@ -12,6 +12,12 @@ Here a list of DP notes:
 
 This plot is included in [CMS-DP-2025/082](https://twiki.cern.ch/twiki/bin/view/CMSPublic/DP2025082) and the recipes are in `./dCal_dt-ECAL`.
 
+### Absolute timing for the Prompt Calibration Loop
+![Absolute PCL timing from Run start](./PCLTiming/aggregate_diff_upload_from_start_CMSStyle.png)
+
+![Absolute PCL timing from Run end](./PCLTiming/aggregate_diff_upload_from_end_CMSStyle.png)
+
+These plots are included in [CMS-DP-2025/XXX]() and recipes are in `./PCLTiming`
 
 ### Difference in reconstruction timing for different reconstruction options
 ![Difference in reconstruction timing for different reconstruction options](./ProfilingReco/plot.png)
