@@ -26,4 +26,6 @@ These plots are included in [CMS-DP-2025/XXX]() and recipes are in `./PCLTiming`
 
 ![Difference in reconstruction timing for different reconstruction options](./ProfilingReco/plot.png)
 
+![Latency of reconstruction vs PU](./ProfilingReco/latency_plot_approval.png)
+
 These plots are included in [CMS-DP-2025/XXX]() and recipes are in `./ProfilingReco`
