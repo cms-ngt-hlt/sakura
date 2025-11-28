@@ -20,6 +20,10 @@ This plot is included in [CMS-DP-2025/082](https://twiki.cern.ch/twiki/bin/view/
 These plots are included in [CMS-DP-2025/XXX]() and recipes are in `./PCLTiming`
 
 ### Difference in reconstruction timing for different reconstruction options
+
+![Per event time of full offline reconstruction as used in the PCL](./ProfilingReco/fullRecoTimingForPCL.png)
+![Per event time of offline reconstruction employing simplified tracking](./ProfilingReco/twoItersTimeForPCL.png)
+
 ![Difference in reconstruction timing for different reconstruction options](./ProfilingReco/plot.png)
 
-This plot is included in [CMS-DP-2025/XXX]() and recipes are in `./ProfilingReco`
+These plots are included in [CMS-DP-2025/XXX]() and recipes are in `./ProfilingReco`
