@@ -26,6 +26,8 @@ These plots are included in [CMS-DP-2025/XXX]() and recipes are in `./PCLTiming`
 
 ![Difference in reconstruction timing for different reconstruction options](./ProfilingReco/plot.png)
 
-![Latency of reconstruction vs PU](./ProfilingReco/latency_plot_approval.png)
 
-These plots are included in [CMS-DP-2025/XXX]() and recipes are in `./ProfilingReco`
+### Scaling of inverse average throughput with respect to Pile Up
+![Latency of reconstruction vs PU](./ScalingPU/latency_plot.png)
+
+These plots are included in [CMS-DP-2025/XXX]() and recipes are in `./ScalingPU`
