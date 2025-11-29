@@ -5,6 +5,9 @@ import os
 import numpy as np
 from datetime import datetime
 
+import mplhep as hep
+hep.style.use("CMS")
+
 # Database path
 db_path = "MergedPCLStats_2024.db"
 
@@ -113,20 +116,25 @@ for time_diff_col, bins in time_diff_configs:
     ax.axvline(mean_diff - rms_diff, color="green", linestyle="dotted", linewidth=1.5)
     
     # CMS label (upper left)
-    ax.text(
-        0.635, 0.955, "CMS",
-        transform=ax.transAxes,
-        fontsize=18, fontweight="bold",
-        va="top", ha="left"
-    )
+    # ax.text(
+    #     0.635, 0.955, "CMS",
+    #     transform=ax.transAxes,
+    #     fontsize=18, fontweight="bold",
+    #     va="top", ha="left"
+    # )
     
-    # "Preliminary" label (upper right)
-    ax.text(
-        0.98, 0.95, "Preliminary",
-        transform=ax.transAxes,
-        fontsize=16, style="italic",
-        va="top", ha="right"
-    )
+    # # "Preliminary" label (upper right)
+    # ax.text(
+    #     0.98, 0.95, "Preliminary",
+    #     transform=ax.transAxes,
+    #     fontsize=16, style="italic",
+    #     va="top", ha="right"
+    # )
+
+    fontsize=15
+    label = "2024"
+    hep.cms.text('Preliminary', ax=ax, fontsize=fontsize)
+    hep.cms.lumitext(label + " (13.6 TeV)", ax=ax, fontsize=fontsize)
     
     # Legend on the right, below "Preliminary"
     ax.legend(
