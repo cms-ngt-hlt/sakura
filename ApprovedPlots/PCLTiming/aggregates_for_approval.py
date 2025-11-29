@@ -70,11 +70,11 @@ time_diff_configs = [
 
 # Axis label mapping for each time difference
 time_diff_labels = {
-    "diff_job_run_from_end":    r"$\Delta T_{\mathrm{job\ creation - run\ end}}\ \mathrm{[hours]}$",
-    "diff_job_run_from_start":  r"$\Delta T_{\mathrm{job\ creation - run\ start}}\ \mathrm{[hours]}$",
+    "diff_job_run_from_end":    r"$\Delta T_{\mathrm{job\ completed - run\ end}}\ \mathrm{[hours]}$",
+    "diff_job_run_from_start":  r"$\Delta T_{\mathrm{job\ completed - run\ start}}\ \mathrm{[hours]}$",
     "diff_upload_from_end":     r"$\Delta T_{\mathrm{upload - run\ end}}\ \mathrm{[hours]}$",
     "diff_upload_from_start":   r"$\Delta T_{\mathrm{upload - run\ start}}\ \mathrm{[hours]}$",
-    "diff_upload_from_created": r"$\Delta T_{\mathrm{upload - job\ creation}}\ \mathrm{[hours]}$"
+    "diff_upload_from_created": r"$\Delta T_{\mathrm{upload - job\ completed}}\ \mathrm{[hours]}$"
 }
 
 # Generate and save aggregate plots
