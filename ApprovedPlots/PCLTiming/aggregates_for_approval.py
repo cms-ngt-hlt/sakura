@@ -155,9 +155,14 @@ for time_diff_col, bins in time_diff_configs:
     plt.tight_layout()
 
     # Save (avoid clipping right-side labels)
-    plot_path = os.path.join(output_dir, f"aggregate_{time_diff_col}_CMSStyle.png")
-    plt.savefig(plot_path, bbox_inches="tight")
+    for ext in ["png", "pdf"]:
+        plot_path = os.path.join(output_dir, f"aggregate_{time_diff_col}_CMSStyle.{ext}")
+        plt.savefig(plot_path, bbox_inches="tight")
     plt.close()
+
+    #plot_path = os.path.join(output_dir, f"aggregate_{time_diff_col}_CMSStyle.png")
+    #plt.savefig(plot_path, bbox_inches="tight")
+    #plt.close()
 
     # Plot
     # plt.figure(figsize=(10, 5))
