@@ -6,7 +6,7 @@ import mplhep as hep
 
 plt.style.use(hep.style.CMS)
 
-with open('/eos/user/j/jprendi/www/PUScaling/data.json', 'r') as file:
+with open('data.json', 'r') as file:
     data = json.load(file)
 
 data1 = data['No modification step2']
