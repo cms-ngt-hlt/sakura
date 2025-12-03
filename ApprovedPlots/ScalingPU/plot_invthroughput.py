@@ -40,5 +40,5 @@ plt.ylabel("Inverse Average Throughput (s/ev)")
 
 plt.legend(loc='upper left')
 plt.grid(True, alpha=0.6, linestyle='--') 
-plt.savefig('latency_plot.png')
+plt.savefig('latency_plot.pdf')
 #plt.show()
