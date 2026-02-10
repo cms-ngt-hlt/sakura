@@ -57,9 +57,9 @@ cd transitions
 python3 setup.py install --user
 cd ../sakura/Calibrations/NGTCalibrationLoop
 git clone ssh://git@gitlab.cern.ch:7999/cmsoms/oms-api-client.git
-cp oms-api-client/omsAPI .
+cp -r oms-api-client/omsapi .
 mkdir /tmp/ngt/
-cp -r ngtParameters.jsn calibrationYAML/ /tmp/ngt/ngtParameters.jsn 
+cp -r ngtParameters.jsn calibrationYAML/ /tmp/ngt/ 
 python3 NGTLoopStep2.py -c EcalPedestals  # or SiStripBad
 ```
 then quit the tmux session either via keyboard combination (which never manages to work for me!) or simply closing the terminal. 
