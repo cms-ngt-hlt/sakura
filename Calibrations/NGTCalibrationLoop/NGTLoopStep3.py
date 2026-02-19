@@ -9,6 +9,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 import yaml
+import logging
+import sys
 from transitions import Machine, State
 
 import argparse

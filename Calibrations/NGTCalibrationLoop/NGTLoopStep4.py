@@ -9,7 +9,8 @@ import time
 from datetime import datetime, timezone
 import yaml
 from pathlib import Path
-
+import sys
+import logging
 from transitions import Machine, State
 
 os.environ["COND_AUTH_PATH"] = os.path.expanduser("/nfshome0/sakura")
