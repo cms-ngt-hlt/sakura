@@ -33,6 +33,7 @@ class NGTLoopStep3(object):
     # We check if a new run appeared, e.g. /tmp/ngt/run386925
     def NewRunAppeared(self):
         print("Checking if a new run appeared")
+        logging.info("Checking if a new run appeared")
         path = Path(self.pathWhereFilesAppear)
         currentDirs = {p.name for p in path.iterdir() if p.is_dir()}
         newDirs = currentDirs - self.setOfRunsProcessed
@@ -44,13 +45,16 @@ class NGTLoopStep3(object):
         foundNewRuns = not (not newRuns)  # Is this pythonic?
         if foundNewRuns:
             print("New runs found!")
+            logging.info("New runs found!")
             # What happens if we found more than one run?
             # We figure that out later...
             # Slice off the "run" substring at the beginning
             self.runNumber = (self.GetNextRun(newRuns))[3:]
             print(f"Run {self.runNumber} is available")
+            logging.info(f"Run {self.runNumber} is available")
         else:
             print("No new runs...")
+            logging.info("No new runs...")
 
         return foundNewRuns
 
@@ -70,20 +74,26 @@ class NGTLoopStep3(object):
             # Weird, how come we don't have a runStart.log?
             # Fine, we set the start time to now
             print("We didn't find a runStart.log file... setting run start to NOW")
+            logging.info("We didn't find a runStart.log file... setting run start to NOW")
             self.startTime = datetime.now(timezone.utc)
 
         print(f"Run {self.runNumber} detected, started at {self.startTime.isoformat()}")
+        logging.info(f"Run {self.runNumber} detected, started at {self.startTime.isoformat()}")
 
     def AnnounceWaitingForStep2Files(self):
         print("I am WaitingForStep2Files...")
+        logging.info("I am WaitingForStep2Files...")
 
     def RunIsNotComplete(self):
         print("Is the run complete?")
+        logging.info("Is the run complete?")
         runEndedFile = Path(self.workingDir + "/runEnd.log")
         if runEndedFile.exists():
             print("The run is complete!")
+            logging.info("The run is complete!")
         else:
             print("Not yet...")
+            logging.info("Not yet...")
         return not runEndedFile.exists()
 
     def StillHaveTime(self):
@@ -91,19 +101,23 @@ class NGTLoopStep3(object):
         diff = now_utc - self.startTime
         if diff.total_seconds() > self.timeoutInSeconds:
             print("Time ran out!")
+            logging.info("Time ran out!")
             return False
         else:
             return True
 
     def CheckFilesForProcessing(self):
         print("I am in CheckFilesForProcessing...")
+        logging.info("I am in CheckFilesForProcessing...")
         # Do something to check if there are Files to process
         setOfFilesAvailable = self.GetSetOfAvailableFiles()
         self.setOfFilesObserved = self.setOfFilesObserved.union(setOfFilesAvailable)
         self.setOfFilesToProcess = setOfFilesAvailable - self.setOfFilesProcessed
         self.waitingFiles = len(self.setOfFilesToProcess) > 0
         print("New files to process:")
+        logging.info("New files to process:")
         print(self.setOfFilesToProcess)
+        logging.info(self.setOfFilesToProcess)
         if len(self.setOfFilesToProcess) >= self.minimumFiles:
             self.enoughFiles = True
         else:
@@ -142,32 +156,39 @@ class NGTLoopStep3(object):
 
     def ExecutePrepareFiles(self):
         print("I am PreparingFiles")
+        logging.info("I am PreparingFiles")
         self.PrepareFilesForProcessing()
 
     def ExecutePrepareFinalFiles(self):
         print("I am PreparingFinalFiles")
+        logging.info("I am PreparingFinalFiles")
         self.PrepareFilesForProcessing()
         # Since this is final files, they have to be enough!
         self.preparedFinalFiles = True
 
     def PrepareFilesForProcessing(self):
         print("I am in PrepareFilesForProcessing...")
+        logging.info("I am in PrepareFilesForProcessing...")
         print("Will use the following Files:")
+        logging.info("Will use the following Files:")
         # We add here an additional check: do these files all really exist?
         for fileToProcess in self.setOfFilesToProcess:
             if fileToProcess.exists():
                 self.setOfExpressFiles.add(fileToProcess)
             else:
                 print(f"File {fileToProcess} is MIA")
+                logging.info(f"File {fileToProcess} is MIA")
 
         # So here there's a subtlety: here, all files are processed,
         # but not are them are sutiable for Express
         # (e.g., because they don't exist)
         # So we keep track of the two different sets now
         print(self.setOfExpressFiles)
+        logging.info(self.setOfExpressFiles)
 
     def PrepareExpressJobs(self):
         print("I am in PrepareExpressjobs...")
+        logging.info("I am in PrepareExpressjobs...")
 
         # We may arrive here without a self.setOfExpressFiles if
         # the run started and ended without producing Files.
@@ -239,6 +260,7 @@ class NGTLoopStep3(object):
 
     def LaunchExpressJobs(self):
         print("I am in LaunchExpressJobs...")
+        logging.info("I am in LaunchExpressJobs...")
 
         # Here we should launch the Express jobs
         # We use subprocess.Popen, since we don't want to hang waiting for this
@@ -257,14 +279,18 @@ class NGTLoopStep3(object):
                 )
         else:
             print("WARNING: not launching Express jobs!")
+            logging.info("WARNING: not launching Express jobs!")
             print(f"DEBUG: {self.jobDir} and {len(self.setOfExpressFiles)}")
+            logging.info(f"DEBUG: {self.jobDir} and {len(self.setOfExpressFiles)}")
 
         # Now we have to move the files we just processed
         # to self.setOfFilesProcessed
         # and clear self.setOfFilesToProcess
         # and setOfExpressFiles
         print("Launched jobs with:")
+        logging.info("Launched jobs with:")
         print(self.setOfExpressFiles)
+        logging.info(self.setOfExpressFiles)
         self.setOfFilesProcessed = self.setOfFilesProcessed.union(
             self.setOfFilesToProcess
         )
@@ -274,15 +300,19 @@ class NGTLoopStep3(object):
     def ThereAreFilesWaiting(self):
         if self.waitingFiles:
             print("++ There are Files waiting!")
+            logging.info("++ There are Files waiting!")
         else:
             print("++ No Files waiting...")
+            logging.info("++ No Files waiting...")
         return self.waitingFiles
 
     def ThereAreEnoughFiles(self):
         if self.enoughFiles:
             print("++ Enough step2 files found!")
+            logging.info("++ Enough step2 files found!")
         else:
             print("++ Not enough step2 files...")
+            logging.info("++ Not enough step2 files...")
         return self.enoughFiles
 
     def WePreparedFinalFiles(self):
@@ -290,8 +320,10 @@ class NGTLoopStep3(object):
 
     def ExecuteCleanup(self):
         print("I am in ExecuteCleanup")
+        logging.info("I am in ExecuteCleanup")
         if self.preparedFinalFiles:
             print("We prepared final files, will reset the machine...")
+            logging.info("We prepared final files, will reset the machine...")
             # We actually have to reset the machine only when we go to NotRunning!
 
             # Make a log of everything that we did
@@ -302,9 +334,11 @@ class NGTLoopStep3(object):
             # If is easier to just add the "run" prefix here
             self.setOfRunsProcessed.add("run" + self.runNumber)
             print(self.setOfRunsProcessed)
+            logging.info(self.setOfRunsProcessed)
 
     def ResetTheMachine(self):
         print("Machine reset!")
+        logging.info("Machine reset!")
         self.runNumber = 0
         self.startTime = 0
         self.timeoutInSeconds = 9 * 60 * 60  # 8 hours
@@ -342,6 +376,7 @@ class NGTLoopStep3(object):
         self.name = name
         self.calibration_name = args.calibration
         print(f"We are processing {self.calibration_name}.")
+        logging.info(f"We are processing {self.calibration_name}.")
         self.setOfRunsProcessed = set()
         self.ResetTheMachine()
 
@@ -463,7 +498,68 @@ class NGTLoopStep3(object):
             dest="WaitingForStep2Files",
         )
 
+# --- NEW LOGGING SETUP ---
+# Create /tmp/ngt if it doesn't exist, so we can write the log file
+Path("/tmp/ngt").mkdir(parents=True, exist_ok=True)
 
+# Get the main logger
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)  # Capture everything at logger level
+
+# Create formatter
+formatter = logging.Formatter(
+    "%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+)
+
+# 1. ALL MESSAGES - Complete history
+all_handler = logging.FileHandler("/tmp/ngt/NGTLoopStep3_ALL.log")
+all_handler.setLevel(logging.DEBUG)
+all_handler.setFormatter(formatter)
+logger.addHandler(all_handler)
+
+# 2. INFO ONLY
+info_handler = logging.FileHandler("/tmp/ngt/NGTLoopStep3_INFO.log")
+info_handler.setLevel(logging.INFO)
+info_handler.addFilter(lambda record: record.levelno == logging.INFO)  # ONLY info
+info_handler.setFormatter(formatter)
+logger.addHandler(info_handler)
+
+# 3. WARNING ONLY
+warning_handler = logging.FileHandler("/tmp/ngt/NGTLoopStep3_WARNING.log")
+warning_handler.setLevel(logging.WARNING)
+warning_handler.addFilter(
+    lambda record: record.levelno == logging.WARNING
+)  # ONLY warnings
+warning_handler.setFormatter(formatter)
+logger.addHandler(warning_handler)
+
+# 4. ERROR ONLY
+error_handler = logging.FileHandler("/tmp/ngt/NGTLoopStep3_ERROR.log")
+error_handler.setLevel(logging.ERROR)
+error_handler.addFilter(lambda record: record.levelno == logging.ERROR)  # ONLY errors
+error_handler.setFormatter(formatter)
+logger.addHandler(error_handler)
+
+# 5. CRITICAL ONLY
+critical_handler = logging.FileHandler("/tmp/ngt/NGTLoopStep3_CRITICAL.log")
+critical_handler.setLevel(logging.CRITICAL)
+critical_handler.addFilter(
+    lambda record: record.levelno == logging.CRITICAL
+)  # ONLY critical
+critical_handler.setFormatter(formatter)
+logger.addHandler(critical_handler)
+
+# 6. Screen output (stderr) - warnings and above
+stream_handler = logging.StreamHandler(sys.stderr)
+stream_handler.setLevel(logging.WARNING)
+stream_handler.setFormatter(formatter)
+logger.addHandler(stream_handler)
+
+# Optional: Add a simple startup message to verify logging is working
+logging.info("Logging initialized - writing to split log files")
+logging.warning("Warning-level logging active")
+# --- END OF ENHANCED LOGGING SETUP ---
+        
 loop = NGTLoopStep3("Step3")
 
 loop.state
