@@ -1,26 +1,27 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import argparse
 import json
+import logging
 import os
-import re
 import subprocess
+import sys
 import time
 from datetime import datetime, timezone
-import yaml
 from pathlib import Path
-import sys
-import logging
+
+import yaml
 from transitions import Machine, State
 
 os.environ["COND_AUTH_PATH"] = os.path.expanduser("/nfshome0/sakura")
 print("COND_AUTH_PATH set to:", os.environ["COND_AUTH_PATH"])
 logging.info("COND_AUTH_PATH set to:", os.environ["COND_AUTH_PATH"])
 
-import argparse
 parser = argparse.ArgumentParser(description='Runs step4 of our calibration loop of a given calibration workflow.')
 parser.add_argument('-c', '--calibration', type=str, help='Calibration workflow to process: e.g. SiStripBad or EcalPedestals.', required=True, choices=['SiStripBad', 'EcalPedestals'])
 args = parser.parse_args()
+
 
 class NGTLoopStep4(object):
 
@@ -214,7 +215,6 @@ class NGTLoopStep4(object):
         conf_driver = conf_step4["cms_driver"]
         conf_upload = conf_step4["upload_metadata"]
 
-        
         # Write the metadata for the upload
         metadata = {
             "destinationDatabase": conf_upload["destinationDatabase"],
@@ -258,7 +258,7 @@ class NGTLoopStep4(object):
             f.write(
                 'if [ -f "promptCalibConditions.db" ]; then echo "DB file exists!"; else echo "DB file missing"; fi\n'
             )
-            
+
             final_db_name = conf_step4["final_db_name"]
             f.write(f"mv promptCalibConditions.db {final_db_name}\n")
             metadata_file = conf_step4["metadata_filename"]
@@ -502,6 +502,7 @@ class NGTLoopStep4(object):
             dest="WaitingForFiles",
         )
 
+
 # --- NEW LOGGING SETUP ---
 # Create /tmp/ngt if it doesn't exist, so we can write the log file
 Path("/tmp/ngt").mkdir(parents=True, exist_ok=True)
@@ -563,7 +564,7 @@ logger.addHandler(stream_handler)
 logging.info("Logging initialized - writing to split log files")
 logging.warning("Warning-level logging active")
 # --- END OF ENHANCED LOGGING SETUP ---
-        
+
 loop = NGTLoopStep4("Step4")
 
 loop.state

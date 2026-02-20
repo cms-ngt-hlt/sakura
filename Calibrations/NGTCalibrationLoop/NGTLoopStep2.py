@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import argparse
 import json
 import logging
 import os
@@ -10,20 +11,20 @@ import string
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
-import yaml
 
-from transitions import Machine, State
+import yaml
 from omsapi import OMSAPI
+from transitions import Machine, State
 
 CURRENT_RUN = ""
 LAST_LS = None
 
-import argparse
 parser = argparse.ArgumentParser(description='Runs step2 of our calibration loop of a given calibration workflow.')
 parser.add_argument('-c', '--calibration', type=str, help='Calibration workflow to process: e.g. SiStripBad or EcalPedestals.', required=True, choices=['SiStripBad', 'EcalPedestals'])
 args = parser.parse_args()
+
 
 class NGTLoopStep2(object):
 
@@ -64,7 +65,7 @@ class NGTLoopStep2(object):
         try:
             response = q.data().json()
         except Exception as e:
-            logging.warning(f"OMS query for run {runnum} failed. Returning LS 0.")
+            logging.warning(f"OMS query for run {runnum} failed: {e}. Returning LS 0.")
             return 0
         run_info = response["data"][0]["attributes"]
         last_ls = run_info.get("last_lumisection_number")
@@ -113,7 +114,7 @@ class NGTLoopStep2(object):
                 f"We will spend {self.maxLatchTimeInHours-hours_elapsed:.1f} more hours in this run before proceeding to the next one."
             )
 
-        ### Thiago: what does this do?
+        # Thiago: what does this do?
         LastLS_OMS = self.LastLSRunNumber(run_number)
         LastLS_available = self.LSavailable()
         return abs(int(LastLS_OMS) - int(LastLS_available)) <= int(LastLS_OMS * 0.04)
@@ -138,7 +139,7 @@ class NGTLoopStep2(object):
         return all_files_ready
 
     def DAQIsRunning(self):
-        global CURRENT_RUN, LAST_LS
+        global LAST_LS
         logging.info("Checking our run status via OMS...")
         omsapi = OMSAPI("https://cmsoms.cms/agg/api", "v1", cert_verify=False)
 
@@ -196,8 +197,8 @@ class NGTLoopStep2(object):
         fillType = oms_args["filltype"]
         l1_hlt_mode = oms_args["l1hltmode"]
         # --- THIS IS THE NEW, MORE ROBUST FILTER ---
-        q.filter("fill_type_runtime", fillType) # default "PROTONS"
-        q.filter("l1_hlt_mode", l1_hlt_mode) # default "collisions2026"
+        q.filter("fill_type_runtime", fillType)  # default "PROTONS"
+        q.filter("l1_hlt_mode", l1_hlt_mode)     # default "collisions2026"
         # --- END NEW FILTER ---
 
         # Sort by run number and get the top 50
@@ -237,15 +238,8 @@ class NGTLoopStep2(object):
             # Protection
             if last_ls is None:
                 continue
-            if (
-                not is_running
-                and last_ls >= self.minLSToProcess
-                and isRecentRun
-                and runDirMissing
-            ):
-                logging.info(
-                    f"Found ended run {run_number}, and no runDir for it /tmp/ngt/run{run_number}"
-                )
+            if (not is_running and last_ls >= self.minLSToProcess and isRecentRun and runDirMissing):
+                logging.info(f"Found ended run {run_number}, and no runDir for it /tmp/ngt/run{run_number}")
                 # Found a recent run that is long enough!
                 newRunAvailable = True
                 break
@@ -264,7 +258,7 @@ class NGTLoopStep2(object):
             )
             return False
 
-        ### Thiago: Rig it to run over 398593
+        # Thiago: Rig it to run over 398593
         # if(self.rigMe == True):
         #   run_number = "398593"
         #   run_type = "collisions2025"
@@ -285,8 +279,6 @@ class NGTLoopStep2(object):
         logging.info(f"LATCHED run: {CURRENT_RUN}, last LS: {LAST_LS}")
 
         # Set the path for GetListOfAvailableFiles
-        
-        
         self.pathWhereFilesAppear = self.file_in_path + CURRENT_RUN + "/00000"
 
         is_running = run_info.get("end_time") is None
@@ -324,7 +316,7 @@ class NGTLoopStep2(object):
 
     def CheckLSForProcessing(self):
         logging.info("I am in CheckLSForProcessing...")
-        ### This could be a Luigi task, for instance
+        # This could be a Luigi task, for instance
         # Do something to check if there are LS to process
         listOfLSFilesAvailable = set(self.GetListOfAvailableFiles())
 
@@ -357,7 +349,7 @@ class NGTLoopStep2(object):
             return []
 
         cmd = f"xrdfs {prefix} ls {self.pathWhereFilesAppear}"
-        ## Thiago: rig to get only one file
+        # Thiago: rig to get only one file
         # if(self.rigMe == True):
         # cmd = "xrdfs root://eoscms.cern.ch/ ls /eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/398/600/00000/e03573bc-978e-4655-909a-15e45ab59a98.root"
         all_files = (
@@ -468,10 +460,11 @@ class NGTLoopStep2(object):
             # Now we do the cmsDriver.py proper
             f.write(f"cmsDriver.py expressStep2 --conditions {self.globalTag} ")
             f.write(
-            f" -s {step_args['step']} "
-            + f"--datatier {step_args['datatier']} --eventcontent {step_args['eventcontent']} --data --process {step_args['process']} "
-            + f"--scenario {step_args['scenario']} --era {step_args['era']} "
-            + "--nThreads 8 --nStreams 8 -n -1 "
+                f" -s {step_args['step']} "
+                f"--datatier {step_args['datatier']} --eventcontent {step_args['eventcontent']} "
+                f"--data --process {step_args['process']} "
+                f"--scenario {step_args['scenario']} --era {step_args['era']} "
+                "--nThreads 8 --nStreams 8 -n -1 "
             )
 
             # and we pass the list of LS to process (self.setOfLSToProcess)
@@ -480,12 +473,8 @@ class NGTLoopStep2(object):
             str_paths = {"root://eoscms.cern.ch/" + str(p) for p in self.setOfExpressLS}
             f.write(",".join(str_paths))
             f.write(f" --fileout file:{tempOutputFileName} --no_exec ")
-            f.write(
-                    f"--python_filename {python_filename}\n\n"
-            ) 
-            f.write(
-                f"cmsRun {python_filename} > {logFileName} 2>&1\n"
-            )
+            f.write(f"--python_filename {python_filename}\n\n")
+            f.write(f"cmsRun {python_filename} > {logFileName} 2>&1\n")
             # we now move the file to its final location
             f.write(f"mv {tempOutputFileName} {outputFileName}\n")
             # touch the witness file
