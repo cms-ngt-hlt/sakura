@@ -203,7 +203,7 @@ class NGTLoopStep3(object):
         # There are better ways to do this, but right now I just do it with a file
 
         # First make a particular subdir for us to run in
-        alcaJobDir = Path(self.workingDir + "/apJob" + f"{self.alcaJobNumber:03}")
+        alcaJobDir = Path(self.workingDir + "/alcaPromptJob" + f"{self.alcaJobNumber:03}")
         alcaJobDir.mkdir(parents=True, exist_ok=True)
         os.chmod(alcaJobDir, 0o777)
         # Save it so that we can use it later
