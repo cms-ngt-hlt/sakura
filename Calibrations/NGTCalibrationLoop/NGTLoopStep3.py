@@ -178,8 +178,8 @@ class NGTLoopStep3(object):
             if fileToProcess.exists():
                 self.setOfInputFiles.add(fileToProcess)
             else:
-                print(f"File {fileToProcess} is MIA")
-                logging.info(f"File {fileToProcess} is MIA")
+                print(f"File {fileToProcess} is missing")
+                logging.info(f"File {fileToProcess} is missing")
 
         # So here there's a subtlety: here, all files are processed,
         # but not are them are suitable for AlCaPrompt
