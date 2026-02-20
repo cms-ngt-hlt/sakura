@@ -192,9 +192,12 @@ class NGTLoopStep2(object):
         omsapi = OMSAPI("https://cmsoms.cms/agg/api", "v1", cert_verify=False)
         q = omsapi.query("runs")
 
+        oms_args = self.calib_config["step_2_config"]
+        fillType = oms_args["filltype"]
+        l1_hlt_mode = oms_args["l1hltmode"]
         # --- THIS IS THE NEW, MORE ROBUST FILTER ---
-        q.filter("fill_type_runtime", "PROTONS")
-        q.filter("l1_hlt_mode", "collisions2025")
+        q.filter("fill_type_runtime", fillType) # default "PROTONS"
+        q.filter("l1_hlt_mode", l1_hlt_mode) # default "collisions2026"
         # --- END NEW FILTER ---
 
         # Sort by run number and get the top 50

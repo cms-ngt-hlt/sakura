@@ -4,6 +4,8 @@ file_in_path: "/eos/cms/tier0/store/express/Run2025G/ExpressPhysics/FEVT/Express
 
 # --- STEP 2 CONFIG ---
 step_2_config:
+  filltype : "PROTONS"
+  l1hltmode: "collisions2026"
   step: "RAW2DIGI,RECO:trackerlocalreco,ALCAPRODUCER:SiStripCalZeroBias+SiStripPCLHistos+PromptCalibProdSiStrip"
   scenario: "pp"
   datatier: "ALCARECO"

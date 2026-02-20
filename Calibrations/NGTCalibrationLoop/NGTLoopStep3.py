@@ -27,8 +27,8 @@ class NGTLoopStep3(object):
         State(name="CheckingFilesForProcess", on_enter="CheckFilesForProcessing"),
         State(name="PreparingFiles", on_enter="ExecutePrepareFiles"),
         State(name="PreparingFinalFiles", on_enter="ExecutePrepareFinalFiles"),
-        State(name="PreparingExpressJobs", on_enter="PrepareExpressJobs"),
-        State(name="LaunchingExpressJobs", on_enter="LaunchExpressJobs"),
+        State(name="PreparingAlCaPromptJobs", on_enter="PrepareAlCaPromptJobs"),
+        State(name="LaunchingAlCaPromptJobs", on_enter="LaunchAlCaPromptJobs"),
         State(name="CleanupState", on_enter="ExecuteCleanup"),
     ]
 
@@ -176,34 +176,34 @@ class NGTLoopStep3(object):
         # We add here an additional check: do these files all really exist?
         for fileToProcess in self.setOfFilesToProcess:
             if fileToProcess.exists():
-                self.setOfExpressFiles.add(fileToProcess)
+                self.setOfInputFiles.add(fileToProcess)
             else:
-                print(f"File {fileToProcess} is MIA")
-                logging.info(f"File {fileToProcess} is MIA")
+                print(f"File {fileToProcess} is missing")
+                logging.info(f"File {fileToProcess} is missing")
 
         # So here there's a subtlety: here, all files are processed,
-        # but not are them are sutiable for Express
+        # but not are them are suitable for AlCaPrompt
         # (e.g., because they don't exist)
         # So we keep track of the two different sets now
-        print(self.setOfExpressFiles)
-        logging.info(self.setOfExpressFiles)
+        print(self.setOfInputFiles)
+        logging.info(self.setOfInputFiles)
 
-    def PrepareExpressJobs(self):
-        print("I am in PrepareExpressjobs...")
-        logging.info("I am in PrepareExpressjobs...")
+    def PrepareAlCaPromptJobs(self):
+        print("I am in PrepareAlCaPromptjobs...")
+        logging.info("I am in PrepareAlCaPromptjobs...")
 
-        # We may arrive here without a self.setOfExpressFiles if
+        # We may arrive here without a self.setOfInputFiles if
         # the run started and ended without producing Files.
         # In that case, nothing to do
-        if not self.setOfExpressFiles:
+        if not self.setOfInputFiles:
             return
 
-        # Here we should have some logic that prepares the Express jobs
+        # Here we should have some logic that prepares the AlCaPrompt jobs
         # Probably should have a call to cmsDriver
         # There are better ways to do this, but right now I just do it with a file
 
         # First make a particular subdir for us to run in
-        alcaJobDir = Path(self.workingDir + "/apJob" + f"{self.alcaJobNumber:03}")
+        alcaJobDir = Path(self.workingDir + "/alcaPromptJob" + f"{self.alcaJobNumber:03}")
         alcaJobDir.mkdir(parents=True, exist_ok=True)
         os.chmod(alcaJobDir, 0o777)
         # Save it so that we can use it later
@@ -234,7 +234,7 @@ class NGTLoopStep3(object):
             # and we pass the list of files to process (self.setOfFilesToProcess)
             f.write("--filein ")
             # some massaging to go from PosixPath to string
-            str_paths = {"file:" + str(p) for p in self.setOfExpressFiles}
+            str_paths = {"file:" + str(p) for p in self.setOfInputFiles}
             f.write(",".join(str_paths))
             # No need for fileout here
             # f.write(f" --fileout {outputFileName} --no_exec ")
@@ -260,14 +260,14 @@ class NGTLoopStep3(object):
             # And remove the big file, we don't need it!
             #f.write(conf['cleanup_command'])
 
-    def LaunchExpressJobs(self):
-        print("I am in LaunchExpressJobs...")
-        logging.info("I am in LaunchExpressJobs...")
+    def LaunchAlCaPromptJobs(self):
+        print("I am in LaunchAlCaPromptJobs...")
+        logging.info("I am in LaunchAlCaPromptJobs...")
 
-        # Here we should launch the Express jobs
+        # Here we should launch the AlCaPrompt jobs
         # We use subprocess.Popen, since we don't want to hang waiting for this
         # to finish running. Some other loop will look at their output
-        if self.jobDir != "/dev/null" and len(self.setOfExpressFiles) != 0:
+        if self.jobDir != "/dev/null" and len(self.setOfInputFiles) != 0:
             with open(self.jobDir + "/stdout.log", "w") as out, open(
                 self.jobDir + "/stderr.log", "w"
             ) as err:
@@ -280,24 +280,24 @@ class NGTLoopStep3(object):
                     close_fds=True,
                 )
         else:
-            print("WARNING: not launching Express jobs!")
-            logging.info("WARNING: not launching Express jobs!")
-            print(f"DEBUG: {self.jobDir} and {len(self.setOfExpressFiles)}")
-            logging.info(f"DEBUG: {self.jobDir} and {len(self.setOfExpressFiles)}")
+            print("WARNING: not launching AlCaPrompt jobs!")
+            logging.info("WARNING: not launching AlCaPrompt jobs!")
+            print(f"DEBUG: {self.jobDir} and {len(self.setOfInputFiles)}")
+            logging.info(f"DEBUG: {self.jobDir} and {len(self.setOfInputFiles)}")
 
         # Now we have to move the files we just processed
         # to self.setOfFilesProcessed
         # and clear self.setOfFilesToProcess
-        # and setOfExpressFiles
+        # and setOfInputFiles
         print("Launched jobs with:")
         logging.info("Launched jobs with:")
-        print(self.setOfExpressFiles)
-        logging.info(self.setOfExpressFiles)
+        print(self.setOfInputFiles)
+        logging.info(self.setOfInputFiles)
         self.setOfFilesProcessed = self.setOfFilesProcessed.union(
             self.setOfFilesToProcess
         )
         self.setOfFilesToProcess = set()
-        self.setOfExpressFiles = set()
+        self.setOfInputFiles = set()
 
     def ThereAreFilesWaiting(self):
         if self.waitingFiles:
@@ -368,7 +368,7 @@ class NGTLoopStep3(object):
 
         self.setOfFilesObserved = set()
         self.setOfFilesToProcess = set()
-        self.setOfExpressFiles = set()
+        self.setOfInputFiles = set()
         self.setOfFilesProcessed = set()
         self.setOfExpectedOutputs = set()
 
@@ -454,27 +454,27 @@ class NGTLoopStep3(object):
             dest="PreparingFinalFiles",
         )
 
-        # In any case, prepare the Express jobs
+        # In any case, prepare the AlCAPrompt jobs
         self.machine.add_transition(
             trigger="TryPrepareALCAPROMPTJobs",
             source="PreparingFiles",
-            dest="PreparingExpressJobs",
+            dest="PreparingAlCaPromptJobs",
         )
         self.machine.add_transition(
             trigger="TryPrepareALCAPROMPTJobs",
             source="PreparingFinalFiles",
-            dest="PreparingExpressJobs",
+            dest="PreparingAlCaPromptJobs",
         )
 
         # And launch them!
         self.machine.add_transition(
             trigger="TryLaunchALCAPROMPTJobs",
-            source="PreparingExpressJobs",
-            dest="LaunchingExpressJobs",
+            source="PreparingAlCaPromptJobs",
+            dest="LaunchingAlCaPromptJobs",
         )
         self.machine.add_transition(
             trigger="ContinueToCleanup",
-            source="LaunchingExpressJobs",
+            source="LaunchingAlCaPromptJobs",
             dest="CleanupState",
         )
 
