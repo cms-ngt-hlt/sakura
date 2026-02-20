@@ -31,8 +31,8 @@ class NGTLoopStep4(object):
         State(name="CheckingFilesForProcess", on_enter="CheckFilesForProcessing"),
         State(name="PreparingFiles", on_enter="ExecutePrepareFiles"),
         State(name="PreparingFinalFiles", on_enter="ExecutePrepareFinalFiles"),
-        State(name="PreparingExpressJobs", on_enter="PrepareExpressJobs"),
-        State(name="LaunchingExpressJobs", on_enter="LaunchExpressJobs"),
+        State(name="PreparingHarvestingJobs", on_enter="PrepareHarvestingJobs"),
+        State(name="LaunchingHarvestingJobs", on_enter="LaunchHarvestingJobs"),
         State(name="CleanupState", on_enter="ExecuteCleanup"),
     ]
 
@@ -176,26 +176,26 @@ class NGTLoopStep4(object):
         # We add here an additional check: do these files all really exist?
         for fileToProcess in self.setOfFilesToProcess:
             if fileToProcess.exists():
-                self.setOfExpressFiles.add(fileToProcess)
+                self.setOfInputFiles.add(fileToProcess)
 
         # So here there's a subtlety: here, all files are processed,
-        # but not are them are suitable for Express
+        # but not are them are suitable for Harvesting
         # (e.g., because they don't exist)
         # So we keep track of the two different sets now
-        print(self.setOfExpressFiles)
-        logging.info(self.setOfExpressFiles)
+        print(self.setOfInputFiles)
+        logging.info(self.setOfInputFiles)
 
-    def PrepareExpressJobs(self):
-        print("I am in PrepareExpressjobs...")
-        logging.info("I am in PrepareExpressjobs...")
+    def PrepareHarvestingJobs(self):
+        print("I am in PrepareHarvestingjobs...")
+        logging.info("I am in PrepareHarvestingjobs...")
 
-        # We may arrive here without a self.setOfExpressFiles if
+        # We may arrive here without a self.setOfInputFiles if
         # the run started and ended without producing Files.
         # In that case, nothing to do
-        if not self.setOfExpressFiles:
+        if not self.setOfInputFiles:
             return
 
-        # Here we should have some logic that prepares the Express jobs
+        # Here we should have some logic that prepares the Harvesting jobs
         # Probably should have a call to cmsDriver
         # There are better ways to do this, but right now I just do it with a file
 
@@ -242,7 +242,7 @@ class NGTLoopStep4(object):
             # and we pass the list of files to process (self.setOfFilesToProcess)
             f.write(" --filein ")
             # some massaging to go from PosixPath to string
-            str_paths = {"file:" + str(p) for p in self.setOfExpressFiles}
+            str_paths = {"file:" + str(p) for p in self.setOfInputFiles}
             f.write(",".join(str_paths))
             # set a known python_filename
             f.write(" -n -1 --no_exec ")
@@ -266,14 +266,14 @@ class NGTLoopStep4(object):
             # We should upload...
             f.write(f"uploadConditions.py {final_db_name}")
 
-    def LaunchExpressJobs(self):
-        print("I am in LaunchExpressJobs...")
-        logging.info("I am in LaunchExpressJobs...")
+    def LaunchHarvestingJobs(self):
+        print("I am in LaunchHarvestingJobs...")
+        logging.info("I am in LaunchHarvestingJobs...")
 
-        # Here we should launch the Express jobs
+        # Here we should launch the Harvesting jobs
         # We use subprocess.Popen, since we don't want to hang waiting for this
         # to finish running. Some other loop will look at their output
-        if self.jobDir != "/dev/null" and len(self.setOfExpressFiles) != 0:
+        if self.jobDir != "/dev/null" and len(self.setOfInputFiles) != 0:
             with open(self.jobDir + "/stdout.log", "w") as out, open(
                 self.jobDir + "/stderr.log", "w"
             ) as err:
@@ -286,22 +286,22 @@ class NGTLoopStep4(object):
                     close_fds=True,
                 )
         else:
-            print("WARNING: not launching Express jobs!")
-            logging.info("WARNING: not launching Express jobs!")
+            print("WARNING: not launching Harvesting jobs!")
+            logging.info("WARNING: not launching Harvesting jobs!")
 
         # Now we have to move the files we just processed
         # to self.setOfFilesProcessed
         # and clear self.setOfFilesToProcess
-        # and setOfExpressFiles
+        # and setOfInputFiles
         print("Launched jobs with:")
         logging.info("Launched jobs with:")
-        print(self.setOfExpressFiles)
-        logging.info(self.setOfExpressFiles)
+        print(self.setOfInputFiles)
+        logging.info(self.setOfInputFiles)
         self.setOfFilesProcessed = self.setOfFilesProcessed.union(
             self.setOfFilesToProcess
         )
         self.setOfFilesToProcess = set()
-        self.setOfExpressFiles = set()
+        self.setOfInputFiles = set()
 
     def ThereAreFilesWaiting(self):
         if self.waitingFiles:
@@ -370,7 +370,7 @@ class NGTLoopStep4(object):
 
         self.setOfFilesObserved = set()
         self.setOfFilesToProcess = set()
-        self.setOfExpressFiles = set()
+        self.setOfInputFiles = set()
         self.setOfFilesProcessed = set()
         self.setOfExpectedOutputs = set()
 
@@ -456,27 +456,27 @@ class NGTLoopStep4(object):
             dest="PreparingFinalFiles",
         )
 
-        # In any case, prepare the Express jobs
+        # In any case, prepare the Harvesting jobs
         self.machine.add_transition(
             trigger="TryPrepareHarvestingJobs",
             source="PreparingFiles",
-            dest="PreparingExpressJobs",
+            dest="PreparingHarvestingJobs",
         )
         self.machine.add_transition(
             trigger="TryPrepareHarvestingJobs",
             source="PreparingFinalFiles",
-            dest="PreparingExpressJobs",
+            dest="PreparingHarvestingJobs",
         )
 
         # And launch them!
         self.machine.add_transition(
             trigger="TryLaunchHarvestingJobs",
-            source="PreparingExpressJobs",
-            dest="LaunchingExpressJobs",
+            source="PreparingHarvestingJobs",
+            dest="LaunchingHarvestingJobs",
         )
         self.machine.add_transition(
             trigger="ContinueToCleanup",
-            source="LaunchingExpressJobs",
+            source="LaunchingHarvestingJobs",
             dest="CleanupState",
         )
 
