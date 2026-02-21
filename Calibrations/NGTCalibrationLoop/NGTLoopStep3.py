@@ -1,22 +1,23 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import argparse
 import json
+import logging
 import os
-import re
 import subprocess
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+
 import yaml
-import logging
-import sys
 from transitions import Machine, State
 
-import argparse
 parser = argparse.ArgumentParser(description='Runs step3 of our calibration loop of a given calibration workflow.')
 parser.add_argument('-c', '--calibration', type=str, help='Calibration workflow to process: e.g. SiStripBad or EcalPedestals.', required=True, choices=['SiStripBad', 'EcalPedestals'])
 args = parser.parse_args()
+
 
 class NGTLoopStep3(object):
 
@@ -39,11 +40,10 @@ class NGTLoopStep3(object):
         path = Path(self.pathWhereFilesAppear)
         currentDirs = {p.name for p in path.iterdir() if p.is_dir()}
         newDirs = currentDirs - self.setOfRunsProcessed
-        
         newRuns = {p for p in newDirs if p.startswith("run")}
         # Thiago: rig to run on 398600
         # newRuns = {p for p in newDirs if p.startswith("run398600")}
-        
+
         foundNewRuns = not (not newRuns)  # Is this pythonic?
         if foundNewRuns:
             print("New runs found!")
@@ -225,12 +225,7 @@ class NGTLoopStep3(object):
             f.write("cd -\n\n")
             # Now we do the cmsDriver.py proper
             f.write(f"cmsDriver.py expressStep3 --conditions {self.globalTag} ")
-            f.write(
-                f" -s {conf['step']} "
-                + "--datatier ALCARECO --eventcontent ALCARECO "
-                + "--triggerResultsProcess RERECO "
-                + "--nThreads 8 --nStreams 8 -n -1 "
-            )
+            f.write(f" -s {conf['step']} --datatier ALCARECO --eventcontent ALCARECO --triggerResultsProcess RERECO --nThreads 8 --nStreams 8 -n -1 ")
             # and we pass the list of files to process (self.setOfFilesToProcess)
             f.write("--filein ")
             # some massaging to go from PosixPath to string
@@ -253,12 +248,12 @@ class NGTLoopStep3(object):
 
             # 2. <<< THIS IS THE NEW LINE >>>
             #    This line is only reached if cmsRun succeeds.
-            f.write(f"# Step 3 succeeded, now deleting Step 2 input files\n")
+            f.write("# Step 3 succeeded, now deleting Step 2 input files\n")
 
             # 3. Write the witness file(s) for good measure
             f.write(f"touch {conf['step_3_witness_suffix']}\n")
             # And remove the big file, we don't need it!
-            #f.write(conf['cleanup_command'])
+            # f.write(conf['cleanup_command'])
 
     def LaunchAlCaPromptJobs(self):
         print("I am in LaunchAlCaPromptJobs...")
@@ -500,6 +495,7 @@ class NGTLoopStep3(object):
             dest="WaitingForStep2Files",
         )
 
+
 # --- NEW LOGGING SETUP ---
 # Create /tmp/ngt if it doesn't exist, so we can write the log file
 Path("/tmp/ngt").mkdir(parents=True, exist_ok=True)
@@ -561,7 +557,8 @@ logger.addHandler(stream_handler)
 logging.info("Logging initialized - writing to split log files")
 logging.warning("Warning-level logging active")
 # --- END OF ENHANCED LOGGING SETUP ---
-        
+
+
 loop = NGTLoopStep3("Step3")
 
 loop.state
