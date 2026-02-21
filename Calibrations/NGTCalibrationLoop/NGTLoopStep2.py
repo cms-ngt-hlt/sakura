@@ -473,14 +473,23 @@ class NGTLoopStep2(object):
             str_paths = {"root://eoscms.cern.ch/" + str(p) for p in self.setOfExpressLS}
             f.write(",".join(str_paths))
             f.write(f" --fileout file:{tempOutputFileName} --no_exec ")
-            f.write(f"--python_filename {python_filename}\n\n")
-            f.write(f"cmsRun {python_filename} > {logFileName} 2>&1\n")
-            # we now move the file to its final location
-            f.write(f"mv {tempOutputFileName} {outputFileName}\n")
+            f.write(
+                f"--python_filename {python_filename}\n\n"
+            )
             # touch the witness file
             witness_file = f"run{self.runNumber}_{affix}{output_affix}_job.txt"
-            f.write(f"touch {witness_file} \n")
-            # should delete the script for good measure (FIXME: implement later)
+            f.write(
+                f"if cmsRun {python_filename} > {logFileName} 2>&1; then\n"
+            )
+            # we now move the file to its final location
+            f.write(f"  mv {tempOutputFileName} {outputFileName}\n")
+            f.write(f"  touch {witness_file} \n")
+            f.write("else\n")
+            f.write(f"  echo 'cmsRun failed' >> {logFileName}\n")
+            f.write("  exit 1\n")
+            f.write("fi\n")
+            # Delete the script after execution
+            f.write(f"rm {self.tempScriptName}\n")
 
         logging.info(f"Prepared file {self.tempScriptName}")
         self.setOfExpectedOutputs.add(self.workingDir + "/" + outputFileName)

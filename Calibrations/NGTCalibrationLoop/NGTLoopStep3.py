@@ -243,17 +243,22 @@ class NGTLoopStep3(object):
                     f.write(f"{mod_line}\n")
                 f.write("@EOF\n\n")
 
-            # 1. Run Step 3. If it fails, 'bash -e' stops the script here.
-            f.write(f"cmsRun {python_filename}\n\n")
-
-            # 2. <<< THIS IS THE NEW LINE >>>
-            #    This line is only reached if cmsRun succeeds.
-            f.write("# Step 3 succeeded, now deleting Step 2 input files\n")
-
-            # 3. Write the witness file(s) for good measure
-            f.write(f"touch {conf['step_3_witness_suffix']}\n")
-            # And remove the big file, we don't need it!
-            # f.write(conf['cleanup_command'])
+            # touch the witness file
+            witness_file = conf['step_3_witness_suffix']
+            logFileName = python_filename.replace(".py", ".log")
+            f.write(
+                f"if cmsRun {python_filename} > {logFileName} 2>&1; then\n"
+            )
+            f.write(f"  touch {witness_file} \n")
+            f.write("  # Step 3 succeeded, now deleting Step 2 input files\n")
+            for p in self.setOfExpressFiles:
+                f.write(f"  rm {p}\n")
+            f.write("else\n")
+            f.write(f"  echo 'cmsRun failed' >> {logFileName}\n")
+            f.write("  exit 1\n")
+            f.write("fi\n")
+            # Delete the script after execution
+            f.write("rm ALCAOUTPUT.sh\n")
 
     def LaunchAlCaPromptJobs(self):
         print("I am in LaunchAlCaPromptJobs...")
