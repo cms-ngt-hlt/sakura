@@ -228,43 +228,37 @@ class NGTLoopStep4(object):
             json.dump(metadata, f, indent=4)
 
         # Write the job file
-        with alcaJobFile.open("w") as f:
-            f.write("#!/bin/bash -ex\n\n")
-            # First we go to the CMSSWPath to setup CMSSW
-            f.write(f"export $SCRAM_ARCH={self.scramArch}\n")
-            f.write(f"cd {self.CMSSWPath}/{self.cmsswVersion}/src\n")
-            f.write("cmsenv\n")
-            f.write("cd -\n\n")
-            # Now we do the cmsDriver.py proper
-            python_filename = f"run{self.runNumber}{conf_driver['python_filename_affix']}.py"
-            f.write(f"cmsDriver.py expressStep4 --conditions {self.globalTag} ")
-            f.write(f" -s {conf_driver['step']} --scenario {conf_driver['scenario']} --data ")
-            # and we pass the list of files to process (self.setOfFilesToProcess)
-            f.write(" --filein ")
-            # some massaging to go from PosixPath to string
-            str_paths = {"file:" + str(p) for p in self.setOfInputFiles}
-            f.write(",".join(str_paths))
-            # set a known python_filename
-            f.write(" -n -1 --no_exec ")
-            f.write(f"--python_filename {python_filename}\n\n")
-            # Some massaging to fix the output tag
-            f.write(f"cat <<@EOF>> {python_filename}\n")
-            for mod_line in conf_driver['python_config_mods']:
-                f.write(f"{mod_line}\n")
-            f.write("@EOF\n\n")
-            # Now we run it!
-            f.write(f"cmsRun {python_filename}\n\n")
-            # If everything went alright, we should have the file promptCalibConditions.db around
-            f.write(
-                'if [ -f "promptCalibConditions.db" ]; then echo "DB file exists!"; else echo "DB file missing"; fi\n'
-            )
+        python_filename = f"run{self.runNumber}{conf_driver['python_filename_affix']}.py"
+        str_paths = ",".join("file:" + str(p) for p in self.setOfInputFiles)
+        python_config_mods = "\n".join(conf_driver['python_config_mods'])
+        final_db_name = conf_step4["final_db_name"]
+        metadata_file = conf_step4["metadata_filename"]
 
-            final_db_name = conf_step4["final_db_name"]
-            f.write(f"mv promptCalibConditions.db {final_db_name}\n")
-            metadata_file = conf_step4["metadata_filename"]
-            f.write(f'if [ -f "{metadata_file}" ]; then echo "Metadata file exists!"; else echo "Metadata file missing"; fi\n')
-            # We should upload...
-            f.write(f"uploadConditions.py {final_db_name}")
+        with alcaJobFile.open("w") as f:
+            f.write(
+f"""#!/bin/bash -ex
+
+export $SCRAM_ARCH={self.scramArch}
+cd {self.CMSSWPath}/{self.cmsswVersion}/src
+cmsenv
+cd -
+
+cmsDriver.py expressStep4 --conditions {self.globalTag} \\
+-s {conf_driver['step']} --scenario {conf_driver['scenario']} --data \\
+--filein {str_paths} -n -1 --no_exec --python_filename {python_filename}
+
+cat <<@EOF>> {python_filename}
+{python_config_mods}
+@EOF
+
+cmsRun {python_filename}
+
+if [ -f "promptCalibConditions.db" ]; then echo "DB file exists!"; else echo "DB file missing"; fi
+mv promptCalibConditions.db {final_db_name}
+if [ -f "{metadata_file}" ]; then echo "Metadata file exists!"; else echo "Metadata file missing"; fi
+uploadConditions.py {final_db_name}
+
+""")
 
     def LaunchHarvestingJobs(self):
         print("I am in LaunchHarvestingJobs...")

@@ -445,51 +445,41 @@ class NGTLoopStep2(object):
         tempOutputFileName = "output_" + tempAffix + ".root"
         outputFileName = f"run{self.runNumber}_{affix}{output_affix}.root"
         python_filename = f"run{self.runNumber}_{affix}{output_affix}.py"
+        witness_file = f"run{self.runNumber}_{affix}{output_affix}_job.txt"
+        str_paths = ",".join("root://eoscms.cern.ch/" + str(p) for p in self.setOfExpressLS)
 
         # Here we should have some logic that prepares the Express jobs
         # Probably should have a call to cmsDriver
         # There are better ways to do this, but right now I just do it with a file
         with open(self.workingDir + "/" + self.tempScriptName, "w") as f:
-            # Do we actually need to set the environment like this every time?
-            f.write("#!/bin/bash -ex\n\n")
-            f.write(f"export $SCRAM_ARCH={self.scramArch}\n")
-            f.write(f"cmsrel {self.cmsswVersion}\n")
-            f.write(f"cd {self.cmsswVersion}/src\n")
-            f.write("cmsenv\n")
-            f.write("cd -\n\n")
-            # Now we do the cmsDriver.py proper
-            f.write(f"cmsDriver.py expressStep2 --conditions {self.globalTag} ")
             f.write(
-                f" -s {step_args['step']} "
-                f"--datatier {step_args['datatier']} --eventcontent {step_args['eventcontent']} "
-                f"--data --process {step_args['process']} "
-                f"--scenario {step_args['scenario']} --era {step_args['era']} "
-                "--nThreads 8 --nStreams 8 -n -1 "
-            )
+f"""#!/bin/bash -ex
 
-            # and we pass the list of LS to process (self.setOfLSToProcess)
-            f.write("--filein ")
-            # some massaging to go from PosixPath to string
-            str_paths = {"root://eoscms.cern.ch/" + str(p) for p in self.setOfExpressLS}
-            f.write(",".join(str_paths))
-            f.write(f" --fileout file:{tempOutputFileName} --no_exec ")
-            f.write(
-                f"--python_filename {python_filename}\n\n"
-            )
-            # touch the witness file
-            witness_file = f"run{self.runNumber}_{affix}{output_affix}_job.txt"
-            f.write(
-                f"if cmsRun {python_filename} > {logFileName} 2>&1; then\n"
-            )
-            # we now move the file to its final location
-            f.write(f"  mv {tempOutputFileName} {outputFileName}\n")
-            f.write(f"  touch {witness_file} \n")
-            f.write("else\n")
-            f.write(f"  echo 'cmsRun failed' >> {logFileName}\n")
-            f.write("  exit 1\n")
-            f.write("fi\n")
-            # Delete the script after execution
-            f.write(f"rm {self.tempScriptName}\n")
+export $SCRAM_ARCH={self.scramArch}
+cmsrel {self.cmsswVersion}
+cd {self.cmsswVersion}/src
+cmsenv
+cd -
+
+cmsDriver.py expressStep2 --conditions {self.globalTag} \\
+-s {step_args['step']} --datatier {step_args['datatier']} \\
+--eventcontent {step_args['eventcontent']} --data --process {step_args['process']} \\
+--scenario {step_args['scenario']} --era {step_args['era']} \\
+--nThreads 8 --nStreams 8 -n -1 \\
+--filein {str_paths} --fileout file:{tempOutputFileName} --no_exec \\
+--python_filename {python_filename}
+
+if cmsRun {python_filename} > {logFileName} 2>&1; then
+  mv {tempOutputFileName} {outputFileName}
+  touch {witness_file}
+else
+  echo 'cmsRun failed' >> {logFileName}
+  exit 1
+fi
+
+rm {self.tempScriptName}
+
+""")
 
         logging.info(f"Prepared file {self.tempScriptName}")
         self.setOfExpectedOutputs.add(self.workingDir + "/" + outputFileName)

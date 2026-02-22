@@ -216,49 +216,44 @@ class NGTLoopStep3(object):
         self.alcaJobNumber += 1
 
         # Write the job file
+        str_paths = ",".join("file:" + str(p) for p in self.setOfInputFiles)
+        witness_file = conf['step_3_witness_suffix']
+        logFileName = python_filename.replace(".py", ".log")
+
+        python_config_mods = ""
+        if 'python_config_mods' in conf and conf['python_config_mods']:
+            mods = "\n".join(conf['python_config_mods'])
+            python_config_mods = f"cat <<@EOF>> {python_filename}\n{mods}\n@EOF\n"
+
+        rm_express_files = "\n".join(f"  rm {p}" for p in self.setOfExpressFiles)
+
         with alcaJobFile.open("w") as f:
-            f.write("#!/bin/bash -ex\n\n")
-            # First we go to the workingDir to setup CMSSW
-            f.write(f"export $SCRAM_ARCH={self.scramArch}\n")
-            f.write(f"cd {self.workingDir}/{self.cmsswVersion}/src\n")
-            f.write("cmsenv\n")
-            f.write("cd -\n\n")
-            # Now we do the cmsDriver.py proper
-            f.write(f"cmsDriver.py expressStep3 --conditions {self.globalTag} ")
-            f.write(f" -s {conf['step']} --datatier ALCARECO --eventcontent ALCARECO --triggerResultsProcess RERECO --nThreads 8 --nStreams 8 -n -1 ")
-            # and we pass the list of files to process (self.setOfFilesToProcess)
-            f.write("--filein ")
-            # some massaging to go from PosixPath to string
-            str_paths = {"file:" + str(p) for p in self.setOfInputFiles}
-            f.write(",".join(str_paths))
-            # No need for fileout here
-            # f.write(f" --fileout {outputFileName} --no_exec ")
-            f.write(" --no_exec ")
-            f.write(f"--python_filename {python_filename}\n\n")
-            # Some massaging to fix the source
-
-            if 'python_config_mods' in conf and conf['python_config_mods']:
-                f.write(f"cat <<@EOF>> {python_filename}\n")
-                for mod_line in conf['python_config_mods']:
-                    f.write(f"{mod_line}\n")
-                f.write("@EOF\n\n")
-
-            # touch the witness file
-            witness_file = conf['step_3_witness_suffix']
-            logFileName = python_filename.replace(".py", ".log")
             f.write(
-                f"if cmsRun {python_filename} > {logFileName} 2>&1; then\n"
-            )
-            f.write(f"  touch {witness_file} \n")
-            f.write("  # Step 3 succeeded, now deleting Step 2 input files\n")
-            for p in self.setOfExpressFiles:
-                f.write(f"  rm {p}\n")
-            f.write("else\n")
-            f.write(f"  echo 'cmsRun failed' >> {logFileName}\n")
-            f.write("  exit 1\n")
-            f.write("fi\n")
-            # Delete the script after execution
-            f.write("rm ALCAOUTPUT.sh\n")
+f"""#!/bin/bash -ex
+
+export $SCRAM_ARCH={self.scramArch}
+cd {self.workingDir}/{self.cmsswVersion}/src
+cmsenv
+cd -
+
+cmsDriver.py expressStep3 --conditions {self.globalTag} \\
+-s {conf['step']} --datatier ALCARECO --eventcontent ALCARECO \\
+--triggerResultsProcess RERECO --nThreads 8 --nStreams 8 -n -1 \\
+--filein {str_paths} --no_exec --python_filename {python_filename}
+
+{python_config_mods}
+if cmsRun {python_filename} > {logFileName} 2>&1; then
+  touch {witness_file}
+  # Step 3 succeeded, now deleting Step 2 input files
+{rm_express_files}
+else
+  echo 'cmsRun failed' >> {logFileName}
+  exit 1
+fi
+
+rm ALCAOUTPUT.sh
+
+""")
 
     def LaunchAlCaPromptJobs(self):
         print("I am in LaunchAlCaPromptJobs...")
