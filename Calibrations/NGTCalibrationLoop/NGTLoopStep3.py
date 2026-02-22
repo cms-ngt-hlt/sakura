@@ -14,13 +14,21 @@ from pathlib import Path
 import yaml
 from transitions import Machine, State
 
-parser = argparse.ArgumentParser(description='Runs step3 of our calibration loop of a given calibration workflow.')
-parser.add_argument('-c', '--calibration', type=str, help='Calibration workflow to process: e.g. SiStripBad or EcalPedestals.', required=True, choices=['SiStripBad', 'EcalPedestals'])
+parser = argparse.ArgumentParser(
+    description="Runs step3 of our calibration loop of a given calibration workflow."
+)
+parser.add_argument(
+    "-c",
+    "--calibration",
+    type=str,
+    help="Calibration workflow to process: e.g. SiStripBad or EcalPedestals.",
+    required=True,
+    choices=["SiStripBad", "EcalPedestals"],
+)
 args = parser.parse_args()
 
 
 class NGTLoopStep3(object):
-
     # Define some states.
     states = [
         State(name="NotRunning", on_enter="ResetTheMachine", on_exit="SetupNewRun"),
@@ -44,7 +52,7 @@ class NGTLoopStep3(object):
         # Thiago: rig to run on 398600
         # newRuns = {p for p in newDirs if p.startswith("run398600")}
 
-        foundNewRuns = not (not newRuns)  # Is this pythonic?
+        foundNewRuns = bool(newRuns)
         if foundNewRuns:
             print("New runs found!")
             logging.info("New runs found!")
@@ -69,18 +77,22 @@ class NGTLoopStep3(object):
         self.workingDir = self.pathWhereFilesAppear + "/run" + self.runNumber
         startTimeFilePath = Path(self.workingDir + "/runStart.log")
         if startTimeFilePath.exists():
-            with open(startTimeFilePath, "r") as f:
+            with open(startTimeFilePath, "r", encoding="utf-8") as f:
                 runStartLine = f.readline()
                 self.startTime = datetime.fromisoformat(runStartLine)
         else:
             # Weird, how come we don't have a runStart.log?
             # Fine, we set the start time to now
             print("We didn't find a runStart.log file... setting run start to NOW")
-            logging.info("We didn't find a runStart.log file... setting run start to NOW")
+            logging.info(
+                "We didn't find a runStart.log file... setting run start to NOW"
+            )
             self.startTime = datetime.now(timezone.utc)
 
         print(f"Run {self.runNumber} detected, started at {self.startTime.isoformat()}")
-        logging.info(f"Run {self.runNumber} detected, started at {self.startTime.isoformat()}")
+        logging.info(
+            f"Run {self.runNumber} detected, started at {self.startTime.isoformat()}"
+        )
 
     def AnnounceWaitingForStep2Files(self):
         print("I am WaitingForStep2Files...")
@@ -105,8 +117,7 @@ class NGTLoopStep3(object):
             print("Time ran out!")
             logging.info("Time ran out!")
             return False
-        else:
-            return True
+        return True
 
     def CheckFilesForProcessing(self):
         print("I am in CheckFilesForProcessing...")
@@ -203,7 +214,9 @@ class NGTLoopStep3(object):
         # There are better ways to do this, but right now I just do it with a file
 
         # First make a particular subdir for us to run in
-        alcaJobDir = Path(self.workingDir + "/alcaPromptJob" + f"{self.alcaJobNumber:03}")
+        alcaJobDir = Path(
+            self.workingDir + "/alcaPromptJob" + f"{self.alcaJobNumber:03}"
+        )
         alcaJobDir.mkdir(parents=True, exist_ok=True)
         os.chmod(alcaJobDir, 0o777)
         # Save it so that we can use it later
@@ -217,19 +230,19 @@ class NGTLoopStep3(object):
 
         # Write the job file
         str_paths = ",".join("file:" + str(p) for p in self.setOfInputFiles)
-        witness_file = conf['step_3_witness_suffix']
+        witness_file = conf["step_3_witness_suffix"]
         logFileName = python_filename.replace(".py", ".log")
 
         python_config_mods = ""
-        if 'python_config_mods' in conf and conf['python_config_mods']:
-            mods = "\n".join(conf['python_config_mods'])
+        if "python_config_mods" in conf and conf["python_config_mods"]:
+            mods = "\n".join(conf["python_config_mods"])
             python_config_mods = f"cat <<@EOF>> {python_filename}\n{mods}\n@EOF\n"
 
         rm_express_files = "\n".join(f"  rm {p}" for p in self.setOfExpressFiles)
 
         with alcaJobFile.open("w") as f:
             f.write(
-f"""#!/bin/bash -ex
+                f"""#!/bin/bash -ex
 
 export $SCRAM_ARCH={self.scramArch}
 cd {self.workingDir}/{self.cmsswVersion}/src
@@ -237,7 +250,7 @@ cmsenv
 cd -
 
 cmsDriver.py expressStep3 --conditions {self.globalTag} \\
--s {conf['step']} --datatier ALCARECO --eventcontent ALCARECO \\
+-s {conf["step"]} --datatier ALCARECO --eventcontent ALCARECO \\
 --triggerResultsProcess RERECO --nThreads 8 --nStreams 8 -n -1 \\
 --filein {str_paths} --no_exec --python_filename {python_filename}
 
@@ -253,7 +266,8 @@ fi
 
 rm ALCAOUTPUT.sh
 
-""")
+"""
+            )
 
     def LaunchAlCaPromptJobs(self):
         print("I am in LaunchAlCaPromptJobs...")
@@ -263,17 +277,16 @@ rm ALCAOUTPUT.sh
         # We use subprocess.Popen, since we don't want to hang waiting for this
         # to finish running. Some other loop will look at their output
         if self.jobDir != "/dev/null" and len(self.setOfInputFiles) != 0:
-            with open(self.jobDir + "/stdout.log", "w") as out, open(
-                self.jobDir + "/stderr.log", "w"
-            ) as err:
-                subprocess.Popen(
-                    ["bash", "ALCAOUTPUT.sh"],
-                    cwd=self.jobDir,
-                    stdout=out,
-                    stderr=err,
-                    preexec_fn=os.setsid,  # Unix-only; detaches session
-                    close_fds=True,
-                )
+            with open(self.jobDir + "/stdout.log", "w", encoding="utf-8") as out:
+                with open(self.jobDir + "/stderr.log", "w", encoding="utf-8") as err:
+                    subprocess.Popen(
+                        ["bash", "ALCAOUTPUT.sh"],
+                        cwd=self.jobDir,
+                        stdout=out,
+                        stderr=err,
+                        preexec_fn=os.setsid,  # Unix-only; detaches session
+                        close_fds=True,
+                    )
         else:
             print("WARNING: not launching AlCaPrompt jobs!")
             logging.info("WARNING: not launching AlCaPrompt jobs!")
@@ -324,7 +337,7 @@ rm ALCAOUTPUT.sh
             # We actually have to reset the machine only when we go to NotRunning!
 
             # Make a log of everything that we did
-            with open(self.workingDir + "/allStep2FilesProcessed.log", "w") as f:
+            with open(self.workingDir + "/allStep2FilesProcessed.log", "w", encoding="utf-8") as f:
                 for Files in sorted(self.setOfFilesProcessed):
                     f.write(str(Files) + "\n")
             # Add the run we have just seen to our memory
@@ -350,12 +363,14 @@ rm ALCAOUTPUT.sh
         self.alcaJobNumber = 0
         self.preparedFinalFiles = False
 
-        calibration_config_path = f"/tmp/ngt/calibrationYAML/{self.calibration_name}.yaml"
-        with open(calibration_config_path, "r") as f:
+        calibration_config_path = (
+            f"/tmp/ngt/calibrationYAML/{self.calibration_name}.yaml"
+        )
+        with open(calibration_config_path, "r", encoding="utf-8") as f:
             self.calib_config = yaml.safe_load(f)
 
         # Read some configurations
-        with open(f"{self.pathWhereFilesAppear}/ngtParameters.jsn", "r") as f:
+        with open(f"{self.pathWhereFilesAppear}/ngtParameters.jsn", "r", encoding="utf-8") as f:
             config = json.load(f)
         self.scramArch = config["SCRAM_ARCH"]
         self.cmsswVersion = config["CMSSW_VERSION"]
@@ -563,24 +578,24 @@ loop = NGTLoopStep3("Step3")
 
 loop.state
 
-sleepTime = 60
+SLEEP_TIME = 60
 
 while True:
     while loop.state == "NotRunning":
         time.sleep(
-            sleepTime
+            SLEEP_TIME
         )  # Should be close to 60 for deployment, close to 1 for testing
         loop.TryLookForRun()
 
     while loop.state == "WaitingForStep2Files":
         loop.TryProcessFiles()
-        time.sleep(sleepTime)
+        time.sleep(SLEEP_TIME)
         loop.ContinueAfterCheckFiles()
-        time.sleep(sleepTime)
+        time.sleep(SLEEP_TIME)
         loop.TryPrepareALCAPROMPTJobs()
-        time.sleep(sleepTime)
+        time.sleep(SLEEP_TIME)
         loop.TryLaunchALCAPROMPTJobs()
-        time.sleep(sleepTime)
+        time.sleep(SLEEP_TIME)
         loop.ContinueToCleanup()
         time.sleep(1)
         loop.ContinueAfterCleanup()

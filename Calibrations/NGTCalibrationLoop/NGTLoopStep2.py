@@ -21,13 +21,21 @@ from transitions import Machine, State
 CURRENT_RUN = ""
 LAST_LS = None
 
-parser = argparse.ArgumentParser(description='Runs step2 of our calibration loop of a given calibration workflow.')
-parser.add_argument('-c', '--calibration', type=str, help='Calibration workflow to process: e.g. SiStripBad or EcalPedestals.', required=True, choices=['SiStripBad', 'EcalPedestals'])
+parser = argparse.ArgumentParser(
+    description="Runs step2 of our calibration loop of a given calibration workflow."
+)
+parser.add_argument(
+    "-c",
+    "--calibration",
+    type=str,
+    help="Calibration workflow to process: e.g. SiStripBad or EcalPedestals.",
+    required=True,
+    choices=["SiStripBad", "EcalPedestals"],
+)
 args = parser.parse_args()
 
 
 class NGTLoopStep2(object):
-
     # Define some states.
     states = [
         State(name="NotRunning", on_enter="ResetTheMachine", on_exit="ExecuteRunStart"),
@@ -49,7 +57,7 @@ class NGTLoopStep2(object):
         os.chmod(p, 0o777)
         self.workingDir = str(p)
         # We take the real run start time to write it in the runStart.log
-        with open(self.workingDir + "/runStart.log", "w") as f:
+        with open(self.workingDir + "/runStart.log", "w", encoding="utf-8") as f:
             f.write(self.runStartTime.isoformat())
 
     def AnnounceWaitingForLS(self):
@@ -90,7 +98,9 @@ class NGTLoopStep2(object):
         delta = now_utc - self.runStartTime
         if int(delta.total_seconds()) < int(self.maxLatchTimeInHours * 60 * 60):
             logging.info(
-                f"We still have time: {int(self.maxLatchTimeInHours * 60 * 60) - int(delta.total_seconds())} seconds"
+                f"We still have time: "
+                f"{int(self.maxLatchTimeInHours * 60 * 60) - int(delta.total_seconds())}"
+                f" seconds"
             )
             logging.info(delta.total_seconds())
         else:
@@ -106,13 +116,14 @@ class NGTLoopStep2(object):
 
         if not self.WeStillHaveTime():
             logging.info(
-                f"It has been {hours_elapsed} h since the run started, this exceeds the maximum latch time of {self.maxLatchTimeInHours} h."
+                f"It has been {hours_elapsed} h since the run started, this exceeds"
+                f" the maximum latch time of {self.maxLatchTimeInHours} h."
             )
             return True
-        else:
-            logging.info(
-                f"We will spend {self.maxLatchTimeInHours-hours_elapsed:.1f} more hours in this run before proceeding to the next one."
-            )
+        logging.info(
+            f"We will spend {self.maxLatchTimeInHours - hours_elapsed:.1f} more hours"
+            " in this run before proceeding to the next one."
+        )
 
         # Thiago: what does this do?
         LastLS_OMS = self.LastLSRunNumber(run_number)
@@ -126,7 +137,9 @@ class NGTLoopStep2(object):
             return False
 
         logging.info(
-            f"Run {self.runNumber} has ended. Checking if all files are available before going to next run..."
+            "Run %s has ended. Checking if all files are available"
+            " before going to next run...",
+            self.runNumber,
         )
         all_files_ready = self.CalFuProcessed(self.runNumber)
 
@@ -198,7 +211,7 @@ class NGTLoopStep2(object):
         l1_hlt_mode = oms_args["l1hltmode"]
         # --- THIS IS THE NEW, MORE ROBUST FILTER ---
         q.filter("fill_type_runtime", fillType)  # default "PROTONS"
-        q.filter("l1_hlt_mode", l1_hlt_mode)     # default "collisions2026"
+        q.filter("l1_hlt_mode", l1_hlt_mode)  # default "collisions2026"
         # --- END NEW FILTER ---
 
         # Sort by run number and get the top 50
@@ -225,21 +238,28 @@ class NGTLoopStep2(object):
             isRecentRun = int(delta.total_seconds()) < int(
                 self.maxLatchTimeInHours * 60 * 60
             )
-            runDirMissing = not (Path(f"/tmp/ngt/run{run_number}").exists())
+            runDirMissing = not Path(f"/tmp/ngt/run{run_number}").exists()
             # We want a run that
             # 1. (is not running AND is long enough AND has started less than 8 hours ago)
             # OR (2. is still running AND has started less than 8 hours ago)
             if is_running and isRecentRun and runDirMissing:  # Found a live run!
                 logging.info(
-                    f"Found running run {run_number}, and no runDir for it /tmp/ngt/run{run_number}"
+                    f"Found running run {run_number},"
+                    f" and no runDir for it /tmp/ngt/run{run_number}"
                 )
                 newRunAvailable = True
                 break
             # Protection
             if last_ls is None:
                 continue
-            if (not is_running and last_ls >= self.minLSToProcess and isRecentRun and runDirMissing):
-                logging.info(f"Found ended run {run_number}, and no runDir for it /tmp/ngt/run{run_number}")
+
+            runReadyToBeProcessed = not is_running and last_ls >= self.minLSToProcess
+            runToBeProcessed = isRecentRun and runDirMissing
+            if runReadyToBeProcessed and runToBeProcessed:
+                logging.info(
+                    f"Found ended run {run_number},"
+                    f" and no runDir for it /tmp/ngt/run{run_number}"
+                )
                 # Found a recent run that is long enough!
                 newRunAvailable = True
                 break
@@ -254,7 +274,8 @@ class NGTLoopStep2(object):
         # This should never happen...?
         if not is_running and last_ls < self.minLSToProcess:
             logging.warning(
-                f"Found ended run {run_number}, but it's too short ({last_ls} LS). Skipping and waiting."
+                f"Found ended run {run_number}, but it's too short"
+                f" ({last_ls} LS). Skipping and waiting."
             )
             return False
 
@@ -295,7 +316,7 @@ class NGTLoopStep2(object):
         # for now it only works with one file, rewrite to also give out for several files..!
         cmd = ["edmFileUtil", "root://eoscms.cern.ch/" + filename, "--eventsInLumi"]
         output = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False
         )
         return output
 
@@ -328,7 +349,7 @@ class NGTLoopStep2(object):
         self.setOfLSObserved = self.setOfLSObserved.union(listOfLSFilesAvailable)
         self.setOfLSToProcess = listOfLSFilesAvailable - self.setOfLSProcessed
 
-        # logging.info("self.setOfLSToProcess",[str(p) for p in self.setOfLSToProcess]) # <-- Changed
+        # logging.info("self.setOfLSToProcess", [str(p) for p in self.setOfLSToProcess])
         # logging.info(50 * "*")
 
         self.waitingLS = len(self.setOfLSToProcess) > 0
@@ -351,9 +372,14 @@ class NGTLoopStep2(object):
         cmd = f"xrdfs {prefix} ls {self.pathWhereFilesAppear}"
         # Thiago: rig to get only one file
         # if(self.rigMe == True):
-        # cmd = "xrdfs root://eoscms.cern.ch/ ls /eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/Express-v1/000/398/600/00000/e03573bc-978e-4655-909a-15e45ab59a98.root"
+        # cmd = (
+        #     "xrdfs root://eoscms.cern.ch/ ls"
+        #     " /eos/cms/tier0/store/data/Run2025G/TestEnablesEcalHcal/RAW/"
+        #     "Express-v1/000/398/600/00000/"
+        #     "e03573bc-978e-4655-909a-15e45ab59a98.root"
+        # )
         all_files = (
-            subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            subprocess.run(cmd, shell=True, capture_output=True, text=True, check=False)
             .stdout.strip()
             .splitlines()
         )
@@ -410,7 +436,8 @@ class NGTLoopStep2(object):
             cmd = ["edmFileUtil", f"{file_path}", "--eventsInLumi"]
 
             result = subprocess.run(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                check=False
             )
 
             if result.returncode != 0:
@@ -446,14 +473,16 @@ class NGTLoopStep2(object):
         outputFileName = f"run{self.runNumber}_{affix}{output_affix}.root"
         python_filename = f"run{self.runNumber}_{affix}{output_affix}.py"
         witness_file = f"run{self.runNumber}_{affix}{output_affix}_job.txt"
-        str_paths = ",".join("root://eoscms.cern.ch/" + str(p) for p in self.setOfExpressLS)
+        str_paths = ",".join(
+            "root://eoscms.cern.ch/" + str(p) for p in self.setOfExpressLS
+        )
 
         # Here we should have some logic that prepares the Express jobs
         # Probably should have a call to cmsDriver
         # There are better ways to do this, but right now I just do it with a file
-        with open(self.workingDir + "/" + self.tempScriptName, "w") as f:
+        with open(self.workingDir + "/" + self.tempScriptName, "w", encoding="utf-8") as f:
             f.write(
-f"""#!/bin/bash -ex
+                f"""#!/bin/bash -ex
 
 export $SCRAM_ARCH={self.scramArch}
 cmsrel {self.cmsswVersion}
@@ -462,9 +491,9 @@ cmsenv
 cd -
 
 cmsDriver.py expressStep2 --conditions {self.globalTag} \\
--s {step_args['step']} --datatier {step_args['datatier']} \\
---eventcontent {step_args['eventcontent']} --data --process {step_args['process']} \\
---scenario {step_args['scenario']} --era {step_args['era']} \\
+-s {step_args["step"]} --datatier {step_args["datatier"]} \\
+--eventcontent {step_args["eventcontent"]} --data --process {step_args["process"]} \\
+--scenario {step_args["scenario"]} --era {step_args["era"]} \\
 --nThreads 8 --nStreams 8 -n -1 \\
 --filein {str_paths} --fileout file:{tempOutputFileName} --no_exec \\
 --python_filename {python_filename}
@@ -479,7 +508,8 @@ fi
 
 rm {self.tempScriptName}
 
-""")
+"""
+            )
 
         logging.info(f"Prepared file {self.tempScriptName}")
         self.setOfExpectedOutputs.add(self.workingDir + "/" + outputFileName)
@@ -548,10 +578,10 @@ rm {self.tempScriptName}
             end_log_path = Path(self.workingDir) / "runEnd.log"
             end_log_path.touch()
             # Make a log of everything that we did
-            with open(self.workingDir + "/allLSProcessed.log", "w") as f:
+            with open(self.workingDir + "/allLSProcessed.log", "w", encoding="utf-8") as f:
                 for LS in sorted(self.setOfLSProcessed):
                     f.write(str(LS) + "\n")
-            with open(self.workingDir + "/expectedOutputs.log", "w") as f:
+            with open(self.workingDir + "/expectedOutputs.log", "w", encoding="utf-8") as f:
                 for output in self.setOfExpectedOutputs:
                     f.write("file:" + output + "\n")
 
@@ -561,7 +591,8 @@ rm {self.tempScriptName}
         self.rigMe = False
         self.tempScriptName = ""
         self.startTime = 0
-        self.minimumLS = 1  # these variable names are a bit misleading as they are not minimumLS but minimum files availabe (same for the other ones ok)
+        self.minimumLS = 1  # these variable names are a bit misleading as they are not
+        # minimumLS but minimum files available (same for the other ones ok)
         self.minLSToProcess = (
             50  # to avoid the continued processing of runs that do not have enough data
         )
@@ -570,8 +601,10 @@ rm {self.tempScriptName}
         self.runStartTime = None
         self.waitingLS = False
         self.enoughLS = False
-        calibration_config_path = f"/tmp/ngt/calibrationYAML/{self.calibration_name}.yaml"
-        with open(calibration_config_path, "r") as f:
+        calibration_config_path = (
+            f"/tmp/ngt/calibrationYAML/{self.calibration_name}.yaml"
+        )
+        with open(calibration_config_path, "r", encoding="utf-8") as f:
             self.calib_config = yaml.safe_load(f)
         self.file_in_path = self.calib_config.get("file_in_path")
         self.pathWhereFilesAppear = self.file_in_path + CURRENT_RUN + "/00000"
@@ -579,7 +612,7 @@ rm {self.tempScriptName}
         self.workingDir = "/dev/null"
         self.preparedFinalLS = False
         # Read some configurations
-        with open("/tmp/ngt/ngtParameters.jsn", "r") as f:
+        with open("/tmp/ngt/ngtParameters.jsn", "r", encoding="utf-8") as f:
             config = json.load(f)
         self.scramArch = config["SCRAM_ARCH"]
         self.cmsswVersion = config["CMSSW_VERSION"]

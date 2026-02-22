@@ -18,13 +18,21 @@ os.environ["COND_AUTH_PATH"] = os.path.expanduser("/nfshome0/sakura")
 print("COND_AUTH_PATH set to:", os.environ["COND_AUTH_PATH"])
 logging.info("COND_AUTH_PATH set to:", os.environ["COND_AUTH_PATH"])
 
-parser = argparse.ArgumentParser(description='Runs step4 of our calibration loop of a given calibration workflow.')
-parser.add_argument('-c', '--calibration', type=str, help='Calibration workflow to process: e.g. SiStripBad or EcalPedestals.', required=True, choices=['SiStripBad', 'EcalPedestals'])
+parser = argparse.ArgumentParser(
+    description="Runs step4 of our calibration loop of a given calibration workflow."
+)
+parser.add_argument(
+    "-c",
+    "--calibration",
+    type=str,
+    help="Calibration workflow to process: e.g. SiStripBad or EcalPedestals.",
+    required=True,
+    choices=["SiStripBad", "EcalPedestals"],
+)
 args = parser.parse_args()
 
 
 class NGTLoopStep4(object):
-
     # Define some states.
     states = [
         State(name="NotRunning", on_enter="ResetTheMachine", on_exit="SetupNewRun"),
@@ -47,7 +55,7 @@ class NGTLoopStep4(object):
         newRuns = {p for p in newDirs if p.startswith("run")}
         # Thiago: rig to run on 398600
         # newRuns = {p for p in newDirs if p.startswith("run398600")}
-        foundNewRuns = not (not newRuns)  # Is this pythonic?
+        foundNewRuns = bool(newRuns)
         if foundNewRuns:
             print("New runs found!")
             logging.info("New runs found!")
@@ -72,18 +80,22 @@ class NGTLoopStep4(object):
         self.workingDir = self.pathWhereFilesAppear + "/run" + self.runNumber
         startTimeFilePath = Path(self.workingDir + "/runStart.log")
         if startTimeFilePath.exists():
-            with open(startTimeFilePath, "r") as f:
+            with open(startTimeFilePath, "r", encoding="utf-8") as f:
                 runStartLine = f.readline()
                 self.startTime = datetime.fromisoformat(runStartLine)
         else:
             # Weird, how come we don't have a runStart.log?
             # Fine, we set the start time to now
             print("We didn't find a runStart.log file... setting run start to NOW")
-            logging.info("We didn't find a runStart.log file... setting run start to NOW")
+            logging.info(
+                "We didn't find a runStart.log file... setting run start to NOW"
+            )
             self.startTime = datetime.now(timezone.utc)
 
         print(f"Run {self.runNumber} detected, started at {self.startTime.isoformat()}")
-        logging.info(f"Run {self.runNumber} detected, started at {self.startTime.isoformat()}")
+        logging.info(
+            f"Run {self.runNumber} detected, started at {self.startTime.isoformat()}"
+        )
 
     def AnnounceWaitingForFiles(self):
         print("I am WaitingForFiles...")
@@ -108,8 +120,7 @@ class NGTLoopStep4(object):
             print("Time ran out!")
             logging.info("Time ran out!")
             return False
-        else:
-            return True
+        return True
 
     def CheckFilesForProcessing(self):
         print("I am in CheckFilesForProcessing...")
@@ -146,7 +157,7 @@ class NGTLoopStep4(object):
         conf = self.calib_config["step_4_config"]
         controlName = conf["step_3_witness_suffix"]
         targetName = conf["step_3_root_filename"]
-        setOfControlFiles = {p for p in targetPath.rglob(controlName)}
+        setOfControlFiles = set(targetPath.rglob(controlName))
         setOfAvailableFiles = set()
         as_strings = {str(p) for p in setOfControlFiles}
         changed = {
@@ -224,19 +235,21 @@ class NGTLoopStep4(object):
             "userText": conf_upload["userText"],
         }
         metadataFile = alcaJobDir / Path(conf_step4["metadata_filename"])
-        with open(metadataFile, "w") as f:
+        with open(metadataFile, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=4)
 
         # Write the job file
-        python_filename = f"run{self.runNumber}{conf_driver['python_filename_affix']}.py"
+        python_filename = (
+            f"run{self.runNumber}{conf_driver['python_filename_affix']}.py"
+        )
         str_paths = ",".join("file:" + str(p) for p in self.setOfInputFiles)
-        python_config_mods = "\n".join(conf_driver['python_config_mods'])
+        python_config_mods = "\n".join(conf_driver["python_config_mods"])
         final_db_name = conf_step4["final_db_name"]
         metadata_file = conf_step4["metadata_filename"]
 
         with alcaJobFile.open("w") as f:
             f.write(
-f"""#!/bin/bash -ex
+                f"""#!/bin/bash -ex
 
 export $SCRAM_ARCH={self.scramArch}
 cd {self.CMSSWPath}/{self.cmsswVersion}/src
@@ -244,7 +257,7 @@ cmsenv
 cd -
 
 cmsDriver.py expressStep4 --conditions {self.globalTag} \\
--s {conf_driver['step']} --scenario {conf_driver['scenario']} --data \\
+-s {conf_driver["step"]} --scenario {conf_driver["scenario"]} --data \\
 --filein {str_paths} -n -1 --no_exec --python_filename {python_filename}
 
 cat <<@EOF>> {python_filename}
@@ -255,10 +268,12 @@ cmsRun {python_filename}
 
 if [ -f "promptCalibConditions.db" ]; then echo "DB file exists!"; else echo "DB file missing"; fi
 mv promptCalibConditions.db {final_db_name}
-if [ -f "{metadata_file}" ]; then echo "Metadata file exists!"; else echo "Metadata file missing"; fi
+        if [ -f "{metadata_file}" ]; then echo "Metadata file exists!"; \
+else echo "Metadata file missing"; fi
 uploadConditions.py {final_db_name}
 
-""")
+"""
+            )
 
     def LaunchHarvestingJobs(self):
         print("I am in LaunchHarvestingJobs...")
@@ -268,17 +283,16 @@ uploadConditions.py {final_db_name}
         # We use subprocess.Popen, since we don't want to hang waiting for this
         # to finish running. Some other loop will look at their output
         if self.jobDir != "/dev/null" and len(self.setOfInputFiles) != 0:
-            with open(self.jobDir + "/stdout.log", "w") as out, open(
-                self.jobDir + "/stderr.log", "w"
-            ) as err:
-                subprocess.Popen(
-                    ["bash", "HARVESTING.sh"],
-                    cwd=self.jobDir,
-                    stdout=out,
-                    stderr=err,
-                    preexec_fn=os.setsid,  # Unix-only; detaches session
-                    close_fds=True,
-                )
+            with open(self.jobDir + "/stdout.log", "w", encoding="utf-8") as out:
+                with open(self.jobDir + "/stderr.log", "w", encoding="utf-8") as err:
+                    subprocess.Popen(
+                        ["bash", "HARVESTING.sh"],
+                        cwd=self.jobDir,
+                        stdout=out,
+                        stderr=err,
+                        preexec_fn=os.setsid,  # Unix-only; detaches session
+                        close_fds=True,
+                    )
         else:
             print("WARNING: not launching Harvesting jobs!")
             logging.info("WARNING: not launching Harvesting jobs!")
@@ -327,7 +341,7 @@ uploadConditions.py {final_db_name}
             # We actually have to reset the machine only when we go to NotRunning!
 
             # Make a log of everything that we did
-            with open(self.workingDir + "/allStep3FilesProcessed.log", "w") as f:
+            with open(self.workingDir + "/allStep3FilesProcessed.log", "w", encoding="utf-8") as f:
                 for Files in sorted(self.setOfFilesProcessed):
                     f.write(str(Files) + "\n")
             # Add the run we have just seen to our memory
@@ -350,13 +364,15 @@ uploadConditions.py {final_db_name}
         self.jobDir = "/dev/null"
         self.alcaJobNumber = 0
         self.preparedFinalFiles = False
-        calibration_config_path = f"/tmp/ngt/calibrationYAML/{self.calibration_name}.yaml"
-        with open(calibration_config_path, "r") as f:
+        calibration_config_path = (
+            f"/tmp/ngt/calibrationYAML/{self.calibration_name}.yaml"
+        )
+        with open(calibration_config_path, "r", encoding="utf-8") as f:
             self.calib_config = yaml.safe_load(f)
         self.CMSSWPath = self.calib_config["step_4_config"]["cmssw_base_path"]
 
         # Read some configurations
-        with open(f"{self.pathWhereFilesAppear}/ngtParameters.jsn", "r") as f:
+        with open(f"{self.pathWhereFilesAppear}/ngtParameters.jsn", "r", encoding="utf-8") as f:
             config = json.load(f)
         self.scramArch = config["SCRAM_ARCH"]
         self.cmsswVersion = config["CMSSW_VERSION"]
@@ -563,25 +579,25 @@ loop = NGTLoopStep4("Step4")
 
 loop.state
 
-sleepTime = 60
+SLEEP_TIME = 60
 
 while True:
     while loop.state == "NotRunning":
         time.sleep(
-            sleepTime
+            SLEEP_TIME
         )  # Should be close to 60 for deployment, close to 1 for testing
         loop.TryLookForRun()
 
     while loop.state == "WaitingForFiles":
         loop.TryProcessFiles()
-        time.sleep(sleepTime)
+        time.sleep(SLEEP_TIME)
         loop.ContinueAfterCheckFiles()
-        time.sleep(sleepTime)
+        time.sleep(SLEEP_TIME)
         loop.TryPrepareHarvestingJobs()
-        time.sleep(sleepTime)
+        time.sleep(SLEEP_TIME)
         loop.TryLaunchHarvestingJobs()
-        time.sleep(sleepTime)
+        time.sleep(SLEEP_TIME)
         loop.ContinueToCleanup()
-        time.sleep(sleepTime)
+        time.sleep(SLEEP_TIME)
         loop.ContinueAfterCleanup()
-        time.sleep(sleepTime)
+        time.sleep(SLEEP_TIME)
