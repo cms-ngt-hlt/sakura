@@ -16,7 +16,7 @@ from transitions import Machine, State
 
 os.environ["COND_AUTH_PATH"] = os.path.expanduser("/nfshome0/sakura")
 print("COND_AUTH_PATH set to:", os.environ["COND_AUTH_PATH"])
-logging.info("COND_AUTH_PATH set to:", os.environ["COND_AUTH_PATH"])
+logging.info("COND_AUTH_PATH set to: %s", os.environ["COND_AUTH_PATH"])
 
 parser = argparse.ArgumentParser(
     description="Runs step4 of our calibration loop of a given calibration workflow."
