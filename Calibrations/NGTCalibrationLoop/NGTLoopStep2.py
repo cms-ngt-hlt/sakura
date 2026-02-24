@@ -18,6 +18,9 @@ import yaml
 from omsapi import OMSAPI
 from transitions import Machine, State
 
+os.umask(0o002)
+
+
 CURRENT_RUN = ""
 LAST_LS = None
 
@@ -54,7 +57,7 @@ class NGTLoopStep2(object):
         # We live in directory /tmp/ngt.
         p = Path(f"/tmp/ngt/run{runNumber}")
         p.mkdir(parents=True, exist_ok=True)
-        os.chmod(p, 0o777)
+        # os.chmod(p, 0o777)
         self.workingDir = str(p)
         # We take the real run start time to write it in the runStart.log
         with open(self.workingDir + "/runStart.log", "w", encoding="utf-8") as f:

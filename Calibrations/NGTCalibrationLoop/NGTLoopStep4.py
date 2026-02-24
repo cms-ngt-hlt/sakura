@@ -14,6 +14,8 @@ from pathlib import Path
 import yaml
 from transitions import Machine, State
 
+os.umask(0o002)
+
 os.environ["COND_AUTH_PATH"] = os.path.expanduser("/nfshome0/sakura")
 print("COND_AUTH_PATH set to:", os.environ["COND_AUTH_PATH"])
 logging.info("COND_AUTH_PATH set to:", os.environ["COND_AUTH_PATH"])
