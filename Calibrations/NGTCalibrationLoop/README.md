@@ -48,8 +48,8 @@ Preparing to launch the step 2 script requires:
 tmux
 source /opt/offline/cmsset_default.sh
 kinit ${USER}@CERN.CH # in case we are setting up step 2
-cmsrel CMSSW_15_0_16
-cd CMSSW_15_0_16/src
+cmsrel CMSSW_16_0_2
+cd CMSSW_16_0_2/src
 cmsenv
 git clone git@github.com:cms-ngt-hlt/sakura.git
 git clone git@github.com:pytransitions/transitions.git
@@ -69,8 +69,8 @@ For step 3:
 sudo -u sakura -i
 tmux # make sure to start the tmux session from the sakura account, s.t. the other from the group can also have access to it.
 source /opt/offline/cmsset_default.sh
-cmsrel CMSSW_15_0_16
-cd CMSSW_15_0_16/src
+cmsrel CMSSW_16_0_2
+cd CMSSW_16_0_2/src
 git clone git@github.com:cms-ngt-hlt/sakura.git
 git clone git@github.com:pytransitions/transitions.git
 cd transitions
@@ -85,7 +85,7 @@ For step 4, we simply do:
 sudo -u sakura -i
 tmux # make sure to start the tmux session from the sakura account, s.t. the other from the group can also have access to it.
 source /opt/offline/cmsset_default.sh
-cd CMSSW_15_0_16/src/sakura/Calibrations/NGTCalibrationLoop
+cd CMSSW_16_0_2/src/sakura/Calibrations/NGTCalibrationLoop
 cmsenv
 python3 NGTLoopStep4.py -c EcalPedestals
 tmux detach
