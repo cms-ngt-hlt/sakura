@@ -366,6 +366,8 @@ class NGTLoopStep2(object):
     # This function only looks at a given path and lists all available
     # files of the form "run*_ls*.root". Could be made smarter if needed
     def GetListOfAvailableFiles(self):
+        logging.info(f"GetListOfAvailableFiles: using path {self.pathWhereFilesAppear}")
+
         prefix = "root://eoscms.cern.ch/"
 
         if not self.pathWhereFilesAppear:
