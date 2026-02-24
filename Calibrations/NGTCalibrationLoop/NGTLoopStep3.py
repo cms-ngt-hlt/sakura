@@ -240,7 +240,7 @@ class NGTLoopStep3(object):
             mods = "\n".join(conf["python_config_mods"])
             python_config_mods = f"cat <<@EOF>> {python_filename}\n{mods}\n@EOF\n"
 
-        rm_express_files = "\n".join(f"  rm {p}" for p in self.setOfExpressFiles)
+        rm_express_files = "\n".join(f"  rm {p}" for p in self.setOfInputFiles)
 
         with alcaJobFile.open("w") as f:
             f.write(
