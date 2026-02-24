@@ -52,6 +52,7 @@ class NGTLoopStep2(object):
     ]
 
     def ExecuteRunStart(self):
+        """Create the working directory for the latched run and record its start time."""
         runNumber = self.runNumber
         logging.info(f"Started processing run {runNumber}!")
         # We live in directory /tmp/ngt.
@@ -64,12 +65,17 @@ class NGTLoopStep2(object):
             f.write(self.runStartTime.isoformat())
 
     def AnnounceWaitingForLS(self):
+        """Log a message indicating the machine has entered the WaitingForLS state."""
         logging.info("I am WaitingForLS...")
 
     # def AnnounceRunStop(self):
     #    logging.info("The run stopped...")
 
     def LastLSRunNumber(self, runnum):
+        """Query OMS for the last lumisection number of a given run.
+
+        Returns 0 if the OMS query fails.
+        """
         omsapi = OMSAPI("https://cmsoms.cms/agg/api", "v1", cert_verify=False)
         q = omsapi.query("runs")
         q.filter("run_number", runnum)
@@ -83,6 +89,7 @@ class NGTLoopStep2(object):
         return int(last_ls)
 
     def LSavailable(self):
+        """Return the highest lumisection number found across all currently available files."""
         availableFiles = self.GetListOfAvailableFiles()
         ls_numbers = set()
         for file_path in availableFiles:
@@ -97,6 +104,7 @@ class NGTLoopStep2(object):
         return max_ls
 
     def WeStillHaveTime(self):
+        """Return True if the elapsed time since run start is within the maximum latch window."""
         now_utc = datetime.now(timezone.utc)
         delta = now_utc - self.runStartTime
         if int(delta.total_seconds()) < int(self.maxLatchTimeInHours * 60 * 60):
@@ -111,6 +119,8 @@ class NGTLoopStep2(object):
         return delta.total_seconds() < (self.maxLatchTimeInHours * 60 * 60)
 
     def CalFuProcessed(self, run_number):
+        """Return True if the FU has processed enough lumisections relative to OMS,
+        or if time is up."""
 
         # this whole omsapi block does not need to be repeated so often lol
         now_utc = datetime.now(timezone.utc)
@@ -134,6 +144,7 @@ class NGTLoopStep2(object):
         return abs(int(LastLS_OMS) - int(LastLS_available)) <= int(LastLS_OMS * 0.04)
 
     def RunHasEndedAndFilesAreReady(self):
+        """Return True if the DAQ is no longer running and all FU files for this run are ready."""
         if self.DAQIsRunning():
             return False
         if self.runNumber == 0:
@@ -155,6 +166,11 @@ class NGTLoopStep2(object):
         return all_files_ready
 
     def DAQIsRunning(self):
+        """Query OMS to determine whether the currently latched run is still active.
+
+        Updates the global LAST_LS with the latest lumisection number for the run.
+        Returns True if the run has no end time recorded in OMS, False otherwise.
+        """
         global LAST_LS
         logging.info("Checking our run status via OMS...")
         omsapi = OMSAPI("https://cmsoms.cms/agg/api", "v1", cert_verify=False)
@@ -196,6 +212,15 @@ class NGTLoopStep2(object):
         return is_running
 
     def NewRunAvailable(self):
+        """Search OMS for a new PROTONS/collisions run to latch onto.
+
+        Iterates over the 50 most recent runs matching the configured fill type and
+        L1/HLT mode, selecting the earliest eligible run that is either currently
+        active or recently ended with enough lumisections and no existing working
+        directory.  Sets self.runNumber, self.runStartTime, and
+        self.pathWhereFilesAppear when a suitable run is found.
+        Returns True if a run was latched, False otherwise.
+        """
         # New implementation: we just ask for
         # protons, collisions2025
         # has more than 50LS
@@ -316,6 +341,7 @@ class NGTLoopStep2(object):
         return True
 
     def edmFileUtilCommand(self, filename):
+        """Run edmFileUtil on a single EOS file and return the completed subprocess result."""
         # for now it only works with one file, rewrite to also give out for several files..!
         cmd = ["edmFileUtil", "root://eoscms.cern.ch/" + filename, "--eventsInLumi"]
         output = subprocess.run(
@@ -324,6 +350,7 @@ class NGTLoopStep2(object):
         return output
 
     def GetRunNumber(self):
+        """Parse and return the run number from the first available EOS file using edmFileUtil."""
         availableFiles = self.GetListOfAvailableFiles()
         result = self.edmFileUtilCommand(availableFiles[0])
         match = re.search(r"^\s*(\d{6})\s+", result.stdout, re.MULTILINE)
@@ -339,6 +366,8 @@ class NGTLoopStep2(object):
         return runNumber
 
     def CheckLSForProcessing(self):
+        """Scan available files to determine which lumisections are new and whether
+        enough exist to process."""
         logging.info("I am in CheckLSForProcessing...")
         # This could be a Luigi task, for instance
         # Do something to check if there are LS to process
@@ -366,6 +395,7 @@ class NGTLoopStep2(object):
     # This function only looks at a given path and lists all available
     # files of the form "run*_ls*.root". Could be made smarter if needed
     def GetListOfAvailableFiles(self):
+        """List all valid ROOT files at self.pathWhereFilesAppear on EOS, skipping unavailable ones."""
         logging.info(f"GetListOfAvailableFiles: using path {self.pathWhereFilesAppear}")
 
         prefix = "root://eoscms.cern.ch/"
@@ -400,20 +430,30 @@ class NGTLoopStep2(object):
         return final_list
 
     def ExecutePrepareLS(self):
+        """State entry action: delegate to PrepareLSForProcessing for a regular LS batch."""
         logging.info("I am PreparingLS")
         self.PrepareLSForProcessing()
 
     def ExecutePrepareFinalLS(self):
+        """State entry action: prepare the final LS batch and set the preparedFinalLS flag."""
         logging.info("I am PreparingFinalLS")
         self.PrepareLSForProcessing()
         self.preparedFinalLS = True
 
     def PrepareLSForProcessing(self):
+        """Log the set of lumisections that are staged for the next processing job."""
         logging.info("I am in PrepareLSForProcessing...")
         logging.info("Will use the following LS:")
         logging.info(self.setOfLSToProcess)
 
     def PrepareExpressJobs(self):
+        """Build the cmsDriver bash script for the Express step-2 job covering the current LS batch.
+
+        Runs edmFileUtil on each input file to collect lumisection numbers, computes
+        the LS range, writes a self-contained shell script to the working directory,
+        and registers the expected output ROOT file.  Clears self.setOfLSToProcess
+        when done.
+        """
         logging.info("I am in PrepareExpressjobs...")
         # We may arrive here without a self.setOfLSToProcess if
         # the run started and ended without producing LS.
@@ -521,6 +561,12 @@ rm {self.tempScriptName}
         self.setOfLSToProcess = set()
 
     def LaunchExpressJobs(self):
+        """Launch the prepared Express bash script as a detached background process.
+
+        Skips launching if a runEnd.log file already exists or if there are no files
+        to process.  Moves the processed LS set into self.setOfLSProcessed and clears
+        self.setOfLSToProcess regardless.
+        """
         logging.info("I am in LaunchExpressJobs...")
 
         # Here we should launch the Express jobs
@@ -553,6 +599,7 @@ rm {self.tempScriptName}
         self.setOfLSToProcess = set()
 
     def ThereAreLSWaiting(self):
+        """Return True if there are unprocessed lumisections queued for the current run."""
         if self.waitingLS:
             logging.info("++ There are LS waiting!")
         else:
@@ -560,6 +607,7 @@ rm {self.tempScriptName}
         return self.waitingLS
 
     def ThereAreEnoughLS(self):
+        """Return True if the number of waiting lumisections meets the configured minimum."""
         if self.enoughLS:
             logging.info("++ Enough LS found!")
         else:
@@ -567,9 +615,12 @@ rm {self.tempScriptName}
         return self.enoughLS
 
     def WePreparedFinalLS(self):
+        """Return True if the final lumisection batch has already been prepared."""
         return self.preparedFinalLS
 
     def ExecuteCleanup(self):
+        """Perform end-of-run housekeeping: write runEnd.log and summary log files
+        when the final LS was prepared."""
         logging.info("I am in ExecuteCleanup")
         self.rigMe = False
         if self.preparedFinalLS:
@@ -591,6 +642,12 @@ rm {self.tempScriptName}
                     f.write("file:" + output + "\n")
 
     def ResetTheMachine(self):
+        """Reset all instance state to defaults and reload configuration from disk.
+
+        Reads the calibration YAML and ngtParameters.jsn to restore SCRAM_ARCH,
+        CMSSW_VERSION, GLOBAL_TAG and other parameters, and clears all processing
+        sets so the machine is ready to latch onto a new run.
+        """
         logging.info("Machine reset!")
         self.runNumber = 0
         self.rigMe = False
@@ -630,6 +687,11 @@ rm {self.tempScriptName}
         self.setOfExpectedOutputs = set()
 
     def __init__(self, name):
+        """Initialise the NGTLoopStep2 finite-state machine.
+
+        Sets the instance name and calibration workflow, resets all state variables
+        via ResetTheMachine, and registers all FSM states and transitions.
+        """
 
         # No anonymous FSMs in my watch!
         self.name = name

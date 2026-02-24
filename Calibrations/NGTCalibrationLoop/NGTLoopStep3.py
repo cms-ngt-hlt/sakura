@@ -45,6 +45,10 @@ class NGTLoopStep3(object):
 
     # We check if a new run appeared, e.g. /tmp/ngt/run386925
     def NewRunAppeared(self):
+        """Check /tmp/ngt/ for run directories not yet processed and latch onto the earliest one.
+
+        Returns True if a new run directory was found, False otherwise.
+        """
         print("Checking if a new run appeared")
         logging.info("Checking if a new run appeared")
         path = Path(self.pathWhereFilesAppear)
@@ -72,9 +76,11 @@ class NGTLoopStep3(object):
 
     # For now, we just take the earliest of the new runs
     def GetNextRun(self, newRuns):
+        """Return the earliest run directory name from the given set."""
         return sorted(newRuns)[0]
 
     def SetupNewRun(self):
+        """Configure the working directory and start time for a newly latched run."""
         # Prepare the new run
         self.workingDir = self.pathWhereFilesAppear + "/run" + self.runNumber
         startTimeFilePath = Path(self.workingDir + "/runStart.log")
@@ -97,10 +103,13 @@ class NGTLoopStep3(object):
         )
 
     def AnnounceWaitingForStep2Files(self):
+        """Log a message indicating the machine has entered the WaitingForStep2Files state."""
         print("I am WaitingForStep2Files...")
         logging.info("I am WaitingForStep2Files...")
 
     def RunIsNotComplete(self):
+        """Return True if the runEnd.log file has not yet appeared in the
+        working directory."""
         print("Is the run complete?")
         logging.info("Is the run complete?")
         runEndedFile = Path(self.workingDir + "/runEnd.log")
@@ -113,6 +122,8 @@ class NGTLoopStep3(object):
         return not runEndedFile.exists()
 
     def StillHaveTime(self):
+        """Return True if the elapsed time since the run started is within the
+        configured timeout."""
         now_utc = datetime.now(timezone.utc)
         diff = now_utc - self.startTime
         if diff.total_seconds() > self.timeoutInSeconds:
@@ -122,6 +133,8 @@ class NGTLoopStep3(object):
         return True
 
     def CheckFilesForProcessing(self):
+        """Scan for new step-2 output files and update the sets of observed, pending,
+        and processed files."""
         print("I am in CheckFilesForProcessing...")
         logging.info("I am in CheckFilesForProcessing...")
         # Do something to check if there are Files to process
@@ -146,6 +159,11 @@ class NGTLoopStep3(object):
     # "run*_*ecalPedsStep2_job.txt". If we find those,
     # we lop off that suffix and substitute it for "step2.root"
     def GetSetOfAvailableFiles(self):
+        """Return the set of step-2 ROOT files that are ready to process.
+
+        Availability is determined by the presence of the corresponding witness
+        (.txt) file; the suffix is then replaced with the configured ROOT suffix.
+        """
         # For this version, self.pathWhereFilesAppear is the same as
         # self.workingDir
         conf = self.calib_config["step_3_config"]
@@ -170,11 +188,13 @@ class NGTLoopStep3(object):
         return setOfAvailableFiles
 
     def ExecutePrepareFiles(self):
+        """State entry action: delegate to PrepareFilesForProcessing for a regular file batch."""
         print("I am PreparingFiles")
         logging.info("I am PreparingFiles")
         self.PrepareFilesForProcessing()
 
     def ExecutePrepareFinalFiles(self):
+        """State entry action: prepare the final file batch and set the preparedFinalFiles flag."""
         print("I am PreparingFinalFiles")
         logging.info("I am PreparingFinalFiles")
         self.PrepareFilesForProcessing()
@@ -182,6 +202,7 @@ class NGTLoopStep3(object):
         self.preparedFinalFiles = True
 
     def PrepareFilesForProcessing(self):
+        """Validate each pending file and add existing ones to self.setOfInputFiles."""
         print("I am in PrepareFilesForProcessing...")
         logging.info("I am in PrepareFilesForProcessing...")
         print("Will use the following Files:")
@@ -202,6 +223,12 @@ class NGTLoopStep3(object):
         logging.info(self.setOfInputFiles)
 
     def PrepareAlCaPromptJobs(self):
+        """Write the ALCAOUTPUT.sh cmsDriver script for the AlCaPrompt step-3 job.
+
+        Creates a numbered subdirectory under the working directory, writes a
+        self-contained bash script that runs cmsDriver, appends any extra python
+        config modifications, and deletes the step-2 input files on success.
+        """
         print("I am in PrepareAlCaPromptjobs...")
         logging.info("I am in PrepareAlCaPromptjobs...")
 
@@ -272,6 +299,12 @@ rm ALCAOUTPUT.sh
             )
 
     def LaunchAlCaPromptJobs(self):
+        """Launch ALCAOUTPUT.sh as a detached background process and update processing sets.
+
+        Skips launching if the job directory is unset or there are no input files.
+        After the launch attempt, moves processed files to self.setOfFilesProcessed
+        and clears self.setOfFilesToProcess and self.setOfInputFiles.
+        """
         print("I am in LaunchAlCaPromptJobs...")
         logging.info("I am in LaunchAlCaPromptJobs...")
 
@@ -310,6 +343,7 @@ rm ALCAOUTPUT.sh
         self.setOfInputFiles = set()
 
     def ThereAreFilesWaiting(self):
+        """Return True if there are unprocessed step-2 files queued for the current run."""
         if self.waitingFiles:
             print("++ There are Files waiting!")
             logging.info("++ There are Files waiting!")
@@ -319,6 +353,7 @@ rm ALCAOUTPUT.sh
         return self.waitingFiles
 
     def ThereAreEnoughFiles(self):
+        """Return True if the number of pending step-2 files meets the configured minimum."""
         if self.enoughFiles:
             print("++ Enough step2 files found!")
             logging.info("++ Enough step2 files found!")
@@ -328,9 +363,12 @@ rm ALCAOUTPUT.sh
         return self.enoughFiles
 
     def WePreparedFinalFiles(self):
+        """Return True if the final file batch has already been prepared."""
         return self.preparedFinalFiles
 
     def ExecuteCleanup(self):
+        """Write allStep2FilesProcessed.log and record this run in setOfRunsProcessed
+        when the final batch is done."""
         print("I am in ExecuteCleanup")
         logging.info("I am in ExecuteCleanup")
         if self.preparedFinalFiles:
@@ -349,6 +387,12 @@ rm ALCAOUTPUT.sh
             logging.info(self.setOfRunsProcessed)
 
     def ResetTheMachine(self):
+        """Reset all instance state to defaults and reload configuration from disk.
+
+        Reads the calibration YAML and ngtParameters.jsn to restore SCRAM_ARCH,
+        CMSSW_VERSION, GLOBAL_TAG and other parameters, and clears all file-tracking
+        sets so the machine is ready to latch onto a new run.
+        """
         print("Machine reset!")
         logging.info("Machine reset!")
         self.runNumber = 0
@@ -385,6 +429,12 @@ rm ALCAOUTPUT.sh
         self.setOfExpectedOutputs = set()
 
     def __init__(self, name):
+        """Initialise the NGTLoopStep3 finite-state machine.
+
+        Sets the instance name and calibration workflow, initialises the set of
+        already-processed runs, resets all state variables via ResetTheMachine,
+        and registers all FSM states and transitions.
+        """
 
         # No anonymous FSMs in my watch!
         self.name = name
