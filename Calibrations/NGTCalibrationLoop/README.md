@@ -68,7 +68,7 @@ then quit the tmux session either via keyboard combination (which never manages 
 For step 3:
 ```bash
 sudo -u sakura -i
-tmux # make sure to start the tmux session from the sakura account, s.t. the other from the group can also have access to it.
+tmux new -s CalibrationLoop3# make sure to start the tmux session from the sakura account, s.t. the other from the group can also have access to it.
 source /opt/offline/cmsset_default.sh
 cmsrel CMSSW_16_0_2
 cd CMSSW_16_0_2/src
@@ -84,7 +84,7 @@ tmux detach
 For step 4, we simply do:
 ```bash
 sudo -u sakura -i
-tmux # make sure to start the tmux session from the sakura account, s.t. the other from the group can also have access to it.
+tmux new -s CalibrationLoop4 # make sure to start the tmux session from the sakura account, s.t. the other from the group can also have access to it.
 source /opt/offline/cmsset_default.sh
 cd CMSSW_16_0_2/src/sakura/Calibrations/NGTCalibrationLoop
 cmsenv
