@@ -45,7 +45,7 @@ All was launched in a tmux session, when I write. The idea for now is that step 
 
 Preparing to launch the step 2 script requires:
 ```bash
-tmux
+tmux new -s CalibrationLoop2
 source /opt/offline/cmsset_default.sh
 kinit ${USER}@CERN.CH # in case we are setting up step 2
 cmsrel CMSSW_16_0_2
@@ -68,7 +68,7 @@ then quit the tmux session either via keyboard combination (which never manages 
 For step 3:
 ```bash
 sudo -u sakura -i
-tmux new -s CalibrationLoop3# make sure to start the tmux session from the sakura account, s.t. the other from the group can also have access to it.
+tmux new -s CalibrationLoop3 # make sure to start the tmux session from the sakura account, s.t. the other from the group can also have access to it.
 source /opt/offline/cmsset_default.sh
 cmsrel CMSSW_16_0_2
 cd CMSSW_16_0_2/src
