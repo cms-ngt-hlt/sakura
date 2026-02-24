@@ -14,6 +14,8 @@ from pathlib import Path
 import yaml
 from transitions import Machine, State
 
+os.umask(0o002)
+
 parser = argparse.ArgumentParser(
     description="Runs step3 of our calibration loop of a given calibration workflow."
 )

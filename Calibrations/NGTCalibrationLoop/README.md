@@ -48,8 +48,8 @@ Preparing to launch the step 2 script requires:
 tmux
 source /opt/offline/cmsset_default.sh
 kinit ${USER}@CERN.CH # in case we are setting up step 2
-cmsrel CMSSW_15_0_16
-cd CMSSW_15_0_16/src
+cmsrel CMSSW_16_0_2
+cd CMSSW_16_0_2/src
 cmsenv
 git clone git@github.com:cms-ngt-hlt/sakura.git
 git clone git@github.com:pytransitions/transitions.git
@@ -58,8 +58,9 @@ python3 setup.py install --user
 cd ../sakura/Calibrations/NGTCalibrationLoop
 git clone ssh://git@gitlab.cern.ch:7999/cmsoms/oms-api-client.git
 cp -r oms-api-client/omsapi .
-mkdir /tmp/ngt/
-cp -r ngtParameters.jsn calibrationYAML/ /tmp/ngt/ 
+mkdir -p /tmp/ngt/
+chmod g+ws /tmp/ngt/
+cp -ru ngtParameters.jsn calibrationYAML/ /tmp/ngt/ 
 python3 NGTLoopStep2.py -c EcalPedestals  # or SiStripBad
 ```
 then quit the tmux session either via keyboard combination (which never manages to work for me!) or simply closing the terminal. 
@@ -69,8 +70,8 @@ For step 3:
 sudo -u sakura -i
 tmux # make sure to start the tmux session from the sakura account, s.t. the other from the group can also have access to it.
 source /opt/offline/cmsset_default.sh
-cmsrel CMSSW_15_0_16
-cd CMSSW_15_0_16/src
+cmsrel CMSSW_16_0_2
+cd CMSSW_16_0_2/src
 git clone git@github.com:cms-ngt-hlt/sakura.git
 git clone git@github.com:pytransitions/transitions.git
 cd transitions
@@ -85,7 +86,7 @@ For step 4, we simply do:
 sudo -u sakura -i
 tmux # make sure to start the tmux session from the sakura account, s.t. the other from the group can also have access to it.
 source /opt/offline/cmsset_default.sh
-cd CMSSW_15_0_16/src/sakura/Calibrations/NGTCalibrationLoop
+cd CMSSW_16_0_2/src/sakura/Calibrations/NGTCalibrationLoop
 cmsenv
 python3 NGTLoopStep4.py -c EcalPedestals
 tmux detach
