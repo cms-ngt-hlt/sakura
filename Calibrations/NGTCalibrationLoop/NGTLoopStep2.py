@@ -26,9 +26,6 @@ from transitions import Machine, State
 os.umask(0o002)
 
 
-CURRENT_RUN = ""
-LAST_LS = None
-
 parser = argparse.ArgumentParser(
     description="Runs step2 of our calibration loop of a given calibration workflow."
 )
@@ -178,10 +175,9 @@ class NGTLoopStep2:
     def DAQIsRunning(self):
         """Query OMS to determine whether the currently latched run is still active.
 
-        Updates the global LAST_LS with the latest lumisection number for the run.
+        Updates the instance last_ls with the latest lumisection number for the run.
         Returns True if the run has no end time recorded in OMS, False otherwise.
         """
-        global LAST_LS
         logging.info("Checking our run status via OMS...")
         omsapi = OMSAPI("https://cmsoms.cms/agg/api", "v1", cert_verify=False)
 
@@ -191,7 +187,7 @@ class NGTLoopStep2:
         # (This part was already working perfectly and remains unchanged)
 
         logging.info(
-            f"Checking status of *our* latched run: {self.runNumber} ({CURRENT_RUN})"
+            f"Checking status of *our* latched run: {self.runNumber} ({self.current_run_str})"
         )
 
         # Query specifically for our run
@@ -211,12 +207,12 @@ class NGTLoopStep2:
 
         our_run_info = response_our_run["data"][0]["attributes"]
 
-        # Update the global LAST_LS to our run's last LS
-        LAST_LS = our_run_info.get("last_lumisection_number")
+        # Update the instance last_ls to our run's last LS
+        self.last_ls = our_run_info.get("last_lumisection_number")
         is_running = our_run_info.get("end_time") is None
 
         logging.info(
-            f"Our run {self.runNumber}: Last LS is {LAST_LS}. Running: {is_running}"
+            f"Our run {self.runNumber}: Last LS is {self.last_ls}. Running: {is_running}"
         )
 
         return is_running
@@ -326,19 +322,19 @@ class NGTLoopStep2:
 
         # --- LATCH THE RUN ---
         self.runNumber = run_number
-        # Set the globals
-        LAST_LS = last_ls  # run_info.get("last_lumisection_number")
+        # Set the instance attributes
+        self.last_ls = last_ls
 
         run_str = str(self.runNumber)
         if len(run_str) == 6:
-            CURRENT_RUN = f"{run_str[:3]}/{run_str[3:]}"
+            self.current_run_str = f"{run_str[:3]}/{run_str[3:]}"
         else:
-            CURRENT_RUN = run_str
+            self.current_run_str = run_str
 
-        logging.info(f"LATCHED run: {CURRENT_RUN}, last LS: {LAST_LS}")
+        logging.info(f"LATCHED run: {self.current_run_str}, last LS: {self.last_ls}")
 
         # Set the path for GetListOfAvailableFiles
-        self.pathWhereFilesAppear = self.file_in_path + CURRENT_RUN + "/00000"
+        self.pathWhereFilesAppear = self.file_in_path + self.current_run_str + "/00000"
 
         is_running = run_info.get("end_time") is None
         if is_running:
@@ -663,6 +659,8 @@ rm {self.tempScriptName}
         """
         logging.info("Machine reset!")
         self.runNumber = 0
+        self.current_run_str = ""
+        self.last_ls = None
         self.rigMe = False
         self.tempScriptName = ""
         self.startTime = 0
@@ -682,7 +680,7 @@ rm {self.tempScriptName}
         with open(calibration_config_path, "r", encoding="utf-8") as f:
             self.calib_config = yaml.safe_load(f)
         self.file_in_path = self.calib_config.get("file_in_path")
-        self.pathWhereFilesAppear = self.file_in_path + CURRENT_RUN + "/00000"
+        self.pathWhereFilesAppear = self.file_in_path + self.current_run_str + "/00000"
         logging.info(f"self.pathWhereFilesAppear {self.pathWhereFilesAppear}")
         self.workingDir = "/dev/null"
         self.preparedFinalLS = False
@@ -711,6 +709,8 @@ rm {self.tempScriptName}
         self.calibration_name = args.calibration
 
         self.runNumber = 0
+        self.current_run_str = ""
+        self.last_ls = None
         self.rigMe = False
         self.tempScriptName = ""
         self.startTime = 0
