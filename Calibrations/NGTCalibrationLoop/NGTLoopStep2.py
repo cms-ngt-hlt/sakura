@@ -709,6 +709,32 @@ rm {self.tempScriptName}
         # No anonymous FSMs in my watch!
         self.name = name
         self.calibration_name = args.calibration
+
+        self.runNumber = 0
+        self.rigMe = False
+        self.tempScriptName = ""
+        self.startTime = 0
+        self.minimumLS = 1
+        self.minLSToProcess = 50
+        self.maximumFilesPerJob = 5
+        self.maxLatchTimeInHours = 8
+        self.runStartTime = None
+        self.waitingLS = False
+        self.enoughLS = False
+        self.calib_config = {}
+        self.file_in_path = ""
+        self.pathWhereFilesAppear = ""
+        self.workingDir = ""
+        self.preparedFinalLS = False
+        self.scramArch = ""
+        self.cmsswVersion = ""
+        self.globalTag = ""
+        self.setOfLSObserved = set()
+        self.setOfLSToProcess = set()
+        self.setOfExpressLS = set()
+        self.setOfLSProcessed = set()
+        self.setOfExpectedOutputs = set()
+
         print(f"We are processing {self.calibration_name}.")
         self.ResetTheMachine()
 

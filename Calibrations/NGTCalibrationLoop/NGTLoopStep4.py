@@ -457,6 +457,29 @@ uploadConditions.py {final_db_name}
         # No anonymous FSMs in my watch!
         self.name = name
         self.calibration_name = args.calibration
+
+        self.runNumber = 0
+        self.startTime = datetime.now(timezone.utc)
+        self.timeoutInSeconds = 0
+        self.minimumFiles = 1
+        self.waitingFiles = False
+        self.enoughFiles = False
+        self.pathWhereFilesAppear = ""
+        self.workingDir = ""
+        self.jobDir = ""
+        self.alcaJobNumber = 0
+        self.preparedFinalFiles = False
+        self.calib_config = {}
+        self.CMSSWPath = ""
+        self.scramArch = ""
+        self.cmsswVersion = ""
+        self.globalTag = ""
+        self.setOfFilesObserved = set()
+        self.setOfFilesToProcess = set()
+        self.setOfInputFiles = set()
+        self.setOfFilesProcessed = set()
+        self.setOfExpectedOutputs = set()
+
         print(f"We are processing {self.calibration_name}.")
         logging.info(f"We are processing {self.calibration_name}.")
         self.setOfRunsProcessed = set()
