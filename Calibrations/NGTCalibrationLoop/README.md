@@ -40,12 +40,14 @@ Automatic Database Upload
 
 The `transitions` package and the `omsAPI` folder within the [oms-api-client](https://gitlab.cern.ch/cmsoms/oms-api-client).
 
-All was launched in a tmux session, when I write. The idea for now is that step 2 runs on a personal `cmsusr` account and step3+4 through the `sakura` user.
+All was launched in a tmux session, and all three steps can be run through the `sakura` user. 
 
 Preparing to launch the step 2 script requires:
 ```bash
+sudo -u sakura -i
 tmux new -s CalibrationLoop2
 source /opt/offline/cmsset_default.sh
+unset KRB5CCNAME
 kinit ${USER}@CERN.CH # in case we are setting up step 2
 cmsrel CMSSW_16_0_2
 cd CMSSW_16_0_2/src
@@ -62,7 +64,7 @@ chmod g+ws /tmp/ngt/
 cp -ru ngtParameters.jsn calibrationYAML/ /tmp/ngt/ 
 python3 NGTLoopStep2.py -c EcalPedestals  # or SiStripBad
 ```
-then quit the tmux session either via keyboard combination (which never manages to work for me!) or simply closing the terminal. 
+then quit the tmux session either via keyboard combination or simply closing the terminal. 
 
 For step 3:
 ```bash
