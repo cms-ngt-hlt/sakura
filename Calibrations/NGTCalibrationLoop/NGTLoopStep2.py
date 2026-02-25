@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
+"""
+This module implements Step 2 of the NGT Calibration Loop.
+It monitors OMS for new runs, latches onto them, and processes RAW files
+into step-2 output files using CMSSW cmsDriver.
+"""
 
 import argparse
 import json
@@ -38,7 +43,12 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-class NGTLoopStep2(object):
+class NGTLoopStep2:
+    """
+    Finite State Machine for NGT Loop Step 2.
+    Handles run latching, LS monitoring, and launching cmsDriver jobs.
+    """
+
     # Define some states.
     states = [
         State(name="NotRunning", on_enter="ResetTheMachine", on_exit="ExecuteRunStart"),
@@ -395,7 +405,10 @@ class NGTLoopStep2(object):
     # This function only looks at a given path and lists all available
     # files of the form "run*_ls*.root". Could be made smarter if needed
     def GetListOfAvailableFiles(self):
-        """List all valid ROOT files at self.pathWhereFilesAppear on EOS, skipping unavailable ones."""
+        """
+        List all valid ROOT files at self.pathWhereFilesAppear on EOS,
+        skipping unavailable ones.
+        """
         logging.info(f"GetListOfAvailableFiles: using path {self.pathWhereFilesAppear}")
 
         prefix = "root://eoscms.cern.ch/"

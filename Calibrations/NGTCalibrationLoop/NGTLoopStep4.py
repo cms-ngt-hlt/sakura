@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
+"""
+This module implements Step 4 of the NGT Calibration Loop.
+It performs ALCAHARVESTING on Step 3 outputs to produce and upload
+final payloads to the conditions database.
+"""
 
 import argparse
 import json
@@ -34,7 +39,12 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-class NGTLoopStep4(object):
+class NGTLoopStep4:
+    """
+    Finite State Machine for NGT Loop Step 4.
+    Handles ALCAHARVESTING and conditions database upload.
+    """
+
     # Define some states.
     states = [
         State(name="NotRunning", on_enter="ResetTheMachine", on_exit="SetupNewRun"),

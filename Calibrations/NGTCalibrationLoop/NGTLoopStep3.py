@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
+"""
+This module implements Step 3 of the NGT Calibration Loop.
+It monitors Step 2 outputs, batches them, and produces ALCARECO root files
+using CMSSW cmsDriver.
+"""
 
 import argparse
 import json
@@ -30,7 +35,12 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-class NGTLoopStep3(object):
+class NGTLoopStep3:
+    """
+    Finite State Machine for NGT Loop Step 3.
+    Handles processing of Step 2 output files into ALCARECO format.
+    """
+
     # Define some states.
     states = [
         State(name="NotRunning", on_enter="ResetTheMachine", on_exit="SetupNewRun"),
