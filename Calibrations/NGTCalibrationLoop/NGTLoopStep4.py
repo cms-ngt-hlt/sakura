@@ -671,6 +671,7 @@ loop = NGTLoopStep4("Step4")
 SLEEP_TIME = 60
 
 while True:
+    # pylint: disable=no-member
     while loop.state == "NotRunning":
         time.sleep(
             SLEEP_TIME

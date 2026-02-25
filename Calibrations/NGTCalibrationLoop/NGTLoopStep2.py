@@ -931,6 +931,7 @@ loop = NGTLoopStep2("Step2")
 # loop.rigMe = True
 
 while True:
+    # pylint: disable=no-member
     while loop.state == "NotRunning":
         time.sleep(1)
         loop.TryStartRun()
