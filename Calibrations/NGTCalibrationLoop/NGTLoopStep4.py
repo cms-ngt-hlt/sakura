@@ -668,8 +668,6 @@ logging.warning("Warning-level logging active")
 
 loop = NGTLoopStep4("Step4")
 
-loop.state
-
 SLEEP_TIME = 60
 
 while True:

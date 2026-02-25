@@ -929,7 +929,6 @@ logging.warning("Warning-level logging active")
 
 loop = NGTLoopStep2("Step2")
 # loop.rigMe = True
-loop.state
 
 while True:
     while loop.state == "NotRunning":
