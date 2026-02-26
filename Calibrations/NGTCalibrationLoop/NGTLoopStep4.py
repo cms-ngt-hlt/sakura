@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
+"""
+This module implements Step 4 of the NGT Calibration Loop.
+It performs ALCAHARVESTING on Step 3 outputs to produce and upload
+final payloads to the conditions database.
+"""
 
 import argparse
 import json
@@ -18,7 +23,7 @@ os.umask(0o002)
 
 os.environ["COND_AUTH_PATH"] = os.path.expanduser("/nfshome0/sakura")
 print("COND_AUTH_PATH set to:", os.environ["COND_AUTH_PATH"])
-logging.info("COND_AUTH_PATH set to:", os.environ["COND_AUTH_PATH"])
+logging.info("COND_AUTH_PATH set to: %s", os.environ["COND_AUTH_PATH"])
 
 parser = argparse.ArgumentParser(
     description="Runs step4 of our calibration loop of a given calibration workflow."
@@ -34,7 +39,12 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-class NGTLoopStep4(object):
+class NGTLoopStep4:
+    """
+    Finite State Machine for NGT Loop Step 4.
+    Handles ALCAHARVESTING and conditions database upload.
+    """
+
     # Define some states.
     states = [
         State(name="NotRunning", on_enter="ResetTheMachine", on_exit="SetupNewRun"),
@@ -49,6 +59,10 @@ class NGTLoopStep4(object):
 
     # We check if a new run appeared, e.g. /tmp/ngt/run386925
     def NewRunAppeared(self):
+        """Check /tmp/ngt/ for run directories not yet processed and latch onto the earliest one.
+
+        Returns True if a new run directory was found, False otherwise.
+        """
         print("Checking if a new run appeared")
         logging.info("Checking if a new run appeared")
         path = Path(self.pathWhereFilesAppear)
@@ -75,9 +89,11 @@ class NGTLoopStep4(object):
 
     # For now, we just take the earliest of the new runs
     def GetNextRun(self, newRuns):
+        """Return the earliest run directory name from the given set."""
         return sorted(newRuns)[0]
 
     def SetupNewRun(self):
+        """Configure the working directory and start time for a newly latched run."""
         # Prepare the new run
         self.workingDir = self.pathWhereFilesAppear + "/run" + self.runNumber
         startTimeFilePath = Path(self.workingDir + "/runStart.log")
@@ -100,10 +116,13 @@ class NGTLoopStep4(object):
         )
 
     def AnnounceWaitingForFiles(self):
+        """Log a message indicating the machine has entered the WaitingForFiles state."""
         print("I am WaitingForFiles...")
         logging.info("I am WaitingForFiles...")
 
     def RunIsNotComplete(self):
+        """Return True if the runEnd.log file has not yet appeared in the
+        working directory."""
         print("Is the run complete?")
         logging.info("Is the run complete?")
         runEndedFile = Path(self.workingDir + "/runEnd.log")
@@ -116,6 +135,8 @@ class NGTLoopStep4(object):
         return not runEndedFile.exists()
 
     def StillHaveTime(self):
+        """Return True if the elapsed time since the run started is within the
+        configured timeout."""
         now_utc = datetime.now(timezone.utc)
         diff = now_utc - self.startTime
         if diff.total_seconds() > self.timeoutInSeconds:
@@ -125,6 +146,12 @@ class NGTLoopStep4(object):
         return True
 
     def CheckFilesForProcessing(self):
+        """Scan for new step-3 ALCARECO files and update the full set of files to process.
+
+        Unlike step2/step3, every new file arrival triggers reprocessing of all
+        available files together, so self.setOfFilesToProcess is set to the full
+        current set of available files rather than just the incremental difference.
+        """
         print("I am in CheckFilesForProcessing...")
         logging.info("I am in CheckFilesForProcessing...")
         # Do something to check if there are Files to process
@@ -153,6 +180,12 @@ class NGTLoopStep4(object):
     # "ecalPedsStep3_job.txt". If we find those,
     # we lop off that suffix and substitute it for "PromptCalibProdEcalPedestals.root"
     def GetSetOfAvailableFiles(self):
+        """Return the set of step-3 ALCARECO ROOT files that are ready to harvest.
+
+        Availability is determined by the presence of the corresponding step-3
+        witness file; the file name is then replaced with the configured ROOT
+        output name from the calibration YAML.
+        """
         # For this version, self.pathWhereFilesAppear is the same as
         # self.workingDir
         targetPath = Path(self.workingDir)
@@ -171,11 +204,13 @@ class NGTLoopStep4(object):
         return setOfAvailableFiles
 
     def ExecutePrepareFiles(self):
+        """State entry action: delegate to PrepareFilesForProcessing for a regular file batch."""
         print("I am PreparingFiles")
         logging.info("I am PreparingFiles")
         self.PrepareFilesForProcessing()
 
     def ExecutePrepareFinalFiles(self):
+        """State entry action: prepare the final file batch and set the preparedFinalFiles flag."""
         print("I am PreparingFinalFiles")
         logging.info("I am PreparingFinalFiles")
         self.PrepareFilesForProcessing()
@@ -183,6 +218,7 @@ class NGTLoopStep4(object):
         self.preparedFinalFiles = True
 
     def PrepareFilesForProcessing(self):
+        """Validate each pending file and add existing ones to self.setOfInputFiles."""
         print("I am in PrepareFilesForProcessing...")
         logging.info("I am in PrepareFilesForProcessing...")
         print("Will use the following Files:")
@@ -200,6 +236,13 @@ class NGTLoopStep4(object):
         logging.info(self.setOfInputFiles)
 
     def PrepareHarvestingJobs(self):
+        """Write the HARVESTING.sh cmsDriver script and upload metadata for the harvesting job.
+
+        Creates a numbered subdirectory under the working directory, writes the
+        conditions upload metadata JSON file, and writes a self-contained bash
+        script that runs cmsDriver, renames the output DB, and calls
+        uploadConditions.py.
+        """
         print("I am in PrepareHarvestingjobs...")
         logging.info("I am in PrepareHarvestingjobs...")
 
@@ -278,6 +321,12 @@ uploadConditions.py {final_db_name}
             )
 
     def LaunchHarvestingJobs(self):
+        """Launch HARVESTING.sh as a detached background process and update processing sets.
+
+        Skips launching if the job directory is unset or there are no input files.
+        After the launch attempt, moves processed files to self.setOfFilesProcessed
+        and clears self.setOfFilesToProcess and self.setOfInputFiles.
+        """
         print("I am in LaunchHarvestingJobs...")
         logging.info("I am in LaunchHarvestingJobs...")
 
@@ -314,6 +363,7 @@ uploadConditions.py {final_db_name}
         self.setOfInputFiles = set()
 
     def ThereAreFilesWaiting(self):
+        """Return True if there are unprocessed step-3 files queued for the current run."""
         if self.waitingFiles:
             print("++ There are Files waiting!")
             logging.info("++ There are Files waiting!")
@@ -323,6 +373,7 @@ uploadConditions.py {final_db_name}
         return self.waitingFiles
 
     def ThereAreEnoughFiles(self):
+        """Return True if the number of pending step-3 files meets the configured minimum."""
         if self.enoughFiles:
             print("++ Enough input files found!")
             logging.info("++ Enough input files found!")
@@ -332,9 +383,12 @@ uploadConditions.py {final_db_name}
         return self.enoughFiles
 
     def WePreparedFinalFiles(self):
+        """Return True if the final file batch has already been prepared."""
         return self.preparedFinalFiles
 
     def ExecuteCleanup(self):
+        """Write allStep3FilesProcessed.log and record this run in setOfRunsProcessed
+        when the final batch is done."""
         print("I am in ExecuteCleanup")
         logging.info("I am in ExecuteCleanup")
         if self.preparedFinalFiles:
@@ -353,6 +407,12 @@ uploadConditions.py {final_db_name}
             logging.info(self.setOfRunsProcessed)
 
     def ResetTheMachine(self):
+        """Reset all instance state to defaults and reload configuration from disk.
+
+        Reads the calibration YAML and ngtParameters.jsn to restore SCRAM_ARCH,
+        CMSSW_VERSION, GLOBAL_TAG, and other parameters, and clears all
+        file-tracking sets so the machine is ready to latch onto a new run.
+        """
         print("Machine reset!")
         logging.info("Machine reset!")
         self.runNumber = 0
@@ -387,10 +447,39 @@ uploadConditions.py {final_db_name}
         self.setOfExpectedOutputs = set()
 
     def __init__(self, name):
+        """Initialise the NGTLoopStep4 finite-state machine.
+
+        Sets the instance name and calibration workflow, initialises the set of
+        already-processed runs, resets all state variables via ResetTheMachine,
+        and registers all FSM states and transitions.
+        """
 
         # No anonymous FSMs in my watch!
         self.name = name
         self.calibration_name = args.calibration
+
+        self.runNumber = 0
+        self.startTime = datetime.now(timezone.utc)
+        self.timeoutInSeconds = 0
+        self.minimumFiles = 1
+        self.waitingFiles = False
+        self.enoughFiles = False
+        self.pathWhereFilesAppear = ""
+        self.workingDir = ""
+        self.jobDir = ""
+        self.alcaJobNumber = 0
+        self.preparedFinalFiles = False
+        self.calib_config = {}
+        self.CMSSWPath = ""
+        self.scramArch = ""
+        self.cmsswVersion = ""
+        self.globalTag = ""
+        self.setOfFilesObserved = set()
+        self.setOfFilesToProcess = set()
+        self.setOfInputFiles = set()
+        self.setOfFilesProcessed = set()
+        self.setOfExpectedOutputs = set()
+
         print(f"We are processing {self.calibration_name}.")
         logging.info(f"We are processing {self.calibration_name}.")
         self.setOfRunsProcessed = set()
@@ -579,11 +668,10 @@ logging.warning("Warning-level logging active")
 
 loop = NGTLoopStep4("Step4")
 
-loop.state
-
 SLEEP_TIME = 60
 
 while True:
+    # pylint: disable=no-member
     while loop.state == "NotRunning":
         time.sleep(
             SLEEP_TIME
