@@ -2,7 +2,7 @@
 
 BASE_DIR="/fff/dqmruburamdisk"
 WATCH_DIR="${BASE_DIR}/mergeMacro"
-STREAM="DQMOnlineScouting"
+STREAM="DQMTestDataScouting"
 SLEEP_INTERVAL=2
 
 echo "INFO: Starting monitoring of directory every $SLEEP_INTERVAL seconds: $WATCH_DIR"
