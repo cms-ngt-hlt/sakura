@@ -221,91 +221,144 @@ print(f"Found {len(new_iovs)} new payload(s) to process.")
 runs_output = run_cmd("conddb listRuns --limit 500")
 runs = parse_runs(runs_output)
 
-# Step 5: Import payload into local SQLite
+print("\nCopying all new IOVs at once...")
 
-for ts_str, since_iov, payload_hash in new_iovs:
-    print(f"\nProcessing payload {payload_hash} (since {since_iov})")
+# Find oldest IOV
+min_since = min(since_iov for _, since_iov, _ in new_iovs)
+max_since = max(since_iov for _, since_iov, _ in new_iovs)
 
-    ts = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+cmd = (
+    f"conddb --yes copy "
+    f"--destdb {sqlite_file} "
+    f"--from {min_since} "
+    f"--to {max_since} "
+    f"--type tag "
+    f"{TAG_MAIN} {TAG_REF}"
+)
 
-    # Find run and LS corresponding to this timestamp
-    run, ls = find_run_and_ls(ts, runs)
-    if run is None:
-        print(f"  No matching run found for timestamp {ts_str}")
-        continue
+print(cmd)
+run_cmd(cmd)
 
-    print(f"  Closest run: {run}, LS ~ {ls}")
-
-    cmd = (
-        f"conddb --yes copy "
-        f"--destdb {sqlite_file} "
-        f"--from {since_iov} "
-        f"--to {since_iov} "
-        f"--type tag "
-        f"{TAG_MAIN} {TAG_REF}"
-    )
-
-    print(f"  Importing payload from PromptProd into {sqlite_file} ...")
-    print(f"{cmd}")
-    result = run_cmd(cmd)
-
-    print(f"  Imported {payload_hash} (IOV={since_iov}) corresponding to Run {run}, LS {ls}")
-
-#### final touch re-derive the iovs
+# Build mapping: SINCE -> timestamp string
+since_to_ts = {}
+for ts_str, since_iov, payload_hash in iov_main:
+    since_to_ts[int(since_iov)] = ts_str
 
 print(f"\nOpening {sqlite_file} for IOV conversion...")
 
-# --- Protection: check that the file exists and is not empty ---
+# --- Protection ---
 if not os.path.exists(sqlite_file):
-    print(f"SQLite file '{sqlite_file}' not found in current directory. Exiting gracefully.")
+    print(f"SQLite file '{sqlite_file}' not found.")
     sys.exit(1)
 
 if os.path.getsize(sqlite_file) == 0:
-    print(f"SQLite file '{sqlite_file}' exists but is empty (0 bytes). Exiting gracefully.")
+    print(f"SQLite file '{sqlite_file}' is empty.")
     sys.exit(1)
 
 conn = sqlite3.connect(sqlite_file)
 cur = conn.cursor()
 
-# 1. Change TIME_TYPE
+# Change TIME_TYPE
 cur.execute("UPDATE TAG SET TIME_TYPE='Lumi' WHERE TIME_TYPE='Time';")
 
-# 2. For each imported payload, compute packed IOV and update SINCE
-for ts_str, since_iov, payload_hash in new_iovs:
-    ts = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
-    run, ls = find_run_and_ls(ts, runs)
-    if run is None:
-        print(f"  Skipping {payload_hash}: could not find matching run.")
+# --- Read SINCE values actually present in DB ---
+cur.execute("SELECT SINCE FROM IOV ORDER BY SINCE;")
+db_sinces = [row[0] for row in cur.fetchall()]
+
+print("\nSINCE values found in SQLite:")
+for iov in db_sinces:
+    sec = iov >> 32
+    nsec = iov & 0xFFFFFFFF
+    dt = datetime.utcfromtimestamp(sec)
+    dt_full = dt + timedelta(microseconds=nsec / 1000)
+    print(f"{iov} -> {dt_full} UTC (+{nsec} ns)")
+
+print(f"\nTotal payloads (IOVs) copied: {len(db_sinces)}")
+
+print("\nReading IOV table...")
+cur.execute("SELECT SINCE, INSERTION_TIME FROM IOV ORDER BY SINCE;")
+rows = cur.fetchall()
+
+iov_map = {}  # (run, ls) -> (since, insertion_time)
+
+to_delete = []
+
+for since_iov, insertion_time in rows:
+    if since_iov not in since_to_ts:
+        print(f"Skipping {since_iov}: not in mapping")
+        to_delete.append(since_iov)
         continue
 
-    packed_iov = pack(run, ls)
-    print(f"  Updating IOV {since_iov} -> Run {run}, LS {ls} -> packed {packed_iov}")
+    ts_str = since_to_ts[since_iov]
+    ts = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
 
-    query = "UPDATE IOV SET SINCE=? WHERE SINCE=?;"
-    params = (packed_iov, since_iov)
+    run, ls = find_run_and_ls(ts, runs)
+    if run is None:
+        if last_run is not None:
+            print(f"No run found for {since_iov}, assigning to last run {last_run} LS {last_ls+1}")
+            run = last_run
+            ls = last_ls + 1
+        else:
+            print(f"Skipping {since_iov}: no run found and no previous run to use")
+            to_delete.append(since_iov)
+            continue
 
-    print("Executing SQL:", query, "with parameters:", params)
-    cur.execute(query, params)
-    if cur.rowcount == 0:
-        print(f" No rows updated for IOV {since_iov}")
+    key = (run, ls)
+
+    if key not in iov_map:
+        iov_map[key] = (since_iov, insertion_time)
     else:
-        print(f" Updated {cur.rowcount} row(s)")
+        # Keep the newest insertion_time
+        existing_since, existing_time = iov_map[key]
+        if insertion_time > existing_time:
+            to_delete.append(existing_since)
+            iov_map[key] = (since_iov, insertion_time)
+        else:
+            to_delete.append(since_iov)
+
+    # Update last valid run/ls
+    last_run = run
+    last_ls = ls
+
+# Delete old duplicates
+print("\nDeleting older duplicate IOVs...")
+for since_iov in to_delete:
+    print(f"Deleting old IOV {since_iov}")
+    cur.execute("DELETE FROM IOV WHERE SINCE=?;", (since_iov,))
+
+# Now update remaining IOVs to packed Run-LS
+print("\nUpdating remaining IOVs to Run-LS...")
+for (run, ls), (since_iov, _) in iov_map.items():
+    packed_iov = pack(run, ls)
+    print(f"Updating {since_iov} -> Run {run}, LS {ls} -> packed {packed_iov}")
+
+    cur.execute(
+        "UPDATE IOV SET SINCE=? WHERE SINCE=?;",
+        (packed_iov, since_iov)
+    )
 
 conn.commit()
 conn.close()
 
-print("\n All IOVs updated to Run-LS format and TIME_TYPE changed to 'Lumi'.")
+print("\nAll IOVs converted to Run-LS.")
+
+print(f"\nTotal IOVs before cleanup: {len(rows)}")
+print(f"Total duplicates removed: {len(to_delete)}")
+print(f"Total final IOVs: {len(iov_map)}")
 
 # --- Final step : show the resulting IOVs using conddb ---
 print("\n Listing the resulting IOVs using conddb:")
-cmd = [
-    "conddb",
-    "--db",
-    sqlite_file,
-    "list",
-    TAG_REF,
-]
-subprocess.run(cmd, check=True)
+cmd = (
+    f"conddb "
+    f"--db "
+    f"{sqlite_file} "
+    f"list "
+    f"{TAG_REF} "
+)
+
+print(cmd)
+res = run_cmd(cmd)
+print(res)
 
 # and now upload it!
 
