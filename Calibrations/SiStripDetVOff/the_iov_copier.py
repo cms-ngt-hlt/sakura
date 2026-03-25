@@ -221,6 +221,10 @@ print(f"Found {len(new_iovs)} new payload(s) to process.")
 runs_output = run_cmd("conddb listRuns --limit 500")
 runs = parse_runs(runs_output)
 
+if not new_iovs:
+    print("No IOVs found to copy, exiting")
+    exit(0)
+
 print("\nCopying all new IOVs at once...")
 
 # Find oldest IOV
@@ -231,7 +235,6 @@ cmd = (
     f"conddb --yes copy "
     f"--destdb {sqlite_file} "
     f"--from {min_since} "
-    f"--to {max_since} "
     f"--type tag "
     f"{TAG_MAIN} {TAG_REF}"
 )
@@ -282,6 +285,12 @@ rows = cur.fetchall()
 iov_map = {}  # (run, ls) -> (since, insertion_time)
 
 to_delete = []
+
+if iov_ref:
+    last_run, last_ls, _, _ = iov_ref[-1]
+else:
+    last_run = None
+    last_ls = None
 
 for since_iov, insertion_time in rows:
     if since_iov not in since_to_ts:
@@ -346,6 +355,10 @@ print(f"\nTotal IOVs before cleanup: {len(rows)}")
 print(f"Total duplicates removed: {len(to_delete)}")
 print(f"Total final IOVs: {len(iov_map)}")
 
+if(len(iov_map)==0):
+    print("Nothing new to upload, exiting!")
+    exit(0)
+
 # --- Final step : show the resulting IOVs using conddb ---
 print("\n Listing the resulting IOVs using conddb:")
 cmd = (
@@ -354,6 +367,17 @@ cmd = (
     f"{sqlite_file} "
     f"list "
     f"{TAG_REF} "
+)
+
+print(cmd)
+res = run_cmd(cmd)
+print(res)
+
+print("\n Listing the last 10 IOVs of the source using conddb:")
+cmd = (
+    f"conddb "
+    f"list "
+    f"{TAG_MAIN} | tail -11"
 )
 
 print(cmd)
