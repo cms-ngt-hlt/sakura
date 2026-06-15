@@ -17,7 +17,7 @@ This plot is included in [CMS-DP-2025/082](https://twiki.cern.ch/twiki/bin/view/
 
 ![Absolute PCL timing from Run end](./PCLTiming/aggregate_diff_upload_from_end_CMSStyle.png)
 
-These plots are included in [CMS-DP-2025/XXX]() and recipes are in `./PCLTiming`
+These plots are included in [CMS-DP-2025/087](https://cds.cern.ch/record/2951246?ln=en) and recipes are in `./PCLTiming`
 
 ### Difference in reconstruction timing for different reconstruction options
 
@@ -30,4 +30,4 @@ These plots are included in [CMS-DP-2025/XXX]() and recipes are in `./PCLTiming`
 ### Scaling of inverse average throughput with respect to Pile Up
 ![Latency of reconstruction vs PU](./ScalingPU/latency_plot.png)
 
-These plots are included in [CMS-DP-2025/XXX]() and recipes are in `./ScalingPU`
+These plots are included in [CMS-DP-2025/087](https://cds.cern.ch/record/2951246?ln=en) and recipes are in `./ScalingPU`
