@@ -51,7 +51,7 @@ Here a list of our DPS notes:
         Relevant links: <a href="https://cds.cern.ch/record/2961610">CDS</a>, <a href="https://twiki.cern.ch/twiki/bin/view/CMSPublic/DP2026028">twiki</a>
       </td>
       <td width="50%" valign="top" align="center">
-        <em>Plot placeholder</em>
+        <img src="CMS-DP-2026/028/EGamma/FinalPlots/HLTElectrons/plots/Zee_Comparison_Final.png" width="100%">
       </td>
     </tr>
   </tbody>
