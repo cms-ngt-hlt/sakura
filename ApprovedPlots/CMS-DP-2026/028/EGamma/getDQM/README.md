@@ -1,5 +1,6 @@
 # DQM out of the HLT output root files
-
+Since the way to go about it is identical for the Muon and EGamma objects, I will just include both here.
+## Setting up the offline DQM environment
 Given the frequent additions to the DQM clients, it is of high benefit to always take the possibly latest CMSSW IB, which you can find [here](https://cmssdt.cern.ch/SDT/html/cmssdt-ib/).
 
 When CMSSW of choice is checked out, the following packages are also needed:
@@ -84,4 +85,19 @@ index 36986f59b0a..f3075d6959a 100644
 (END)
 
 ```
+
+## Running the HLT Scouting DQM
+The scripts are already prepared and to obtain the HLT Scouting DQM results of EGamma and Muon, you can run:
+
+```
+./ScoutingAutoDQM.sh
+./ScoutingMuonDQM.sh
+```
+and the final DQM output can be found in:
+```
+/eos/cms/store/group/tsg-phase2/user/jprendi/NERD25/MoreStats/EGammas/DQM_260426
+/eos/cms/store/group/tsg-phase2/user/jprendi/NERD25/MoreStats/Muons/DQM_090526
+```
+
+## Running the HLT DQM
 
