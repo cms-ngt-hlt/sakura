@@ -1,0 +1,4 @@
+uproot==5.3.3
+numpy==1.23.5
+matplotlib==3.10.6
+mplhep==0.3.59
