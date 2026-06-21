@@ -17,15 +17,15 @@
   python3 plotAll.py --infile out_barrelendcaps_HTS.root --outdir ./plots_HTS --label "HLT Test Stand"
 ```
 
-### To overal NGT and Test Stand
+### To overlay NGT and Test Stand
 ```bash
   python3 overlay.py --regions EB EE --which total
 ```
-of
+or
 ```bash
   python3 overlay.py --which all
 ```
-### TO produce the aggregated efficiencies
+### To produce the aggregated efficiencies
 ```bash
   python3 aggregate_eff.py --pattern NGT --outfile aggregated_NGT.root --outdir plots_agg_NGT
   python3 aggregate_eff.py --pattern Test --outfile aggregated_HTS.root --outdir plots_agg_HTS
