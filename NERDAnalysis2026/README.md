@@ -19,7 +19,7 @@
 
 ### To overal NGT and Test Stand
 ```bash
-  python3 overay.py --regions EB EE --which total
+  python3 overlay.py --regions EB EE --which total
 ```
 of
 ```bash
