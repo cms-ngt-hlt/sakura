@@ -21,7 +21,8 @@ filters = [
     "hltEle32WPTightGsfTrackIsoFilter"
 ]
 
-VARIABLES = ["pt", "eta", "phi"]
+#VARIABLES = ["pt", "eta", "phi"]
+VARIABLES = ["eta", "ptEB", "ptEE", "phiEB", "phiEE"]
 
 colors = [
     ROOT.kRed + 1, ROOT.kBlue + 1, ROOT.kGreen + 2, ROOT.kOrange + 7,
@@ -103,6 +104,8 @@ aggregated = {var: {filt: None for filt in filters} for var in VARIABLES}
 n_files_used = 0
 
 for fname in sorted(os.listdir(args.folder)):
+    if fname.startswith('.'):
+        continue
     if not fname.endswith(".root"):
         continue
     if args.pattern and args.pattern not in fname:
