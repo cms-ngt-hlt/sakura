@@ -8,7 +8,8 @@
 
 ### To produce the per-run efficiencies
 ```bash
-  python3 compute_eff.py --folder dqm_files
+  python3 compute_eff.py --folder dqm_files -s NGT
+  python3 compute_eff.py --folder dqm_files -s HTS
 ```
 
 ### To produce the per-filter efficiency vs run

@@ -21,6 +21,7 @@ filters = [
 parser = argparse.ArgumentParser()
 parser.add_argument('--folder', default='dqm_files', help='Folder containing the downloaded DQM root files')
 parser.add_argument('--quiet', '-q', action='store_true', help='Suppress printout messages')
+parser.add_argument('--system', '-s', help='efficiency of which system?', required=True, choices=['NGT','HTS'])
 args = parser.parse_args()
 
 folder_path = args.folder
@@ -77,8 +78,13 @@ def get_counts(filename, run, forfakes=False):
 valid_runs = []
 all_counts = []
 
+if args.system == 'HTS':
+    systemName = 'HLTTestStand'
+else:
+    systemName = 'NGTDemonstrator'
+
 for fname in sorted(os.listdir(folder_path)):
-    if not (fname.endswith(".root") and fname.startswith("DQM") and "NGT" in fname):
+    if not (fname.endswith(".root") and fname.startswith("DQM") and systemName in fname):
         continue
     full_path = os.path.join(folder_path, fname)
     if not args.quiet:
@@ -125,7 +131,7 @@ for run, EB, EBplus, EBminus, EE, EEplus, EEminus in all_counts:
     for i, h in enumerate(histos["EEminus"]):   h.Fill(run, EEminus[i]);   h.SetBinError(h.FindBin(run), EEminus[i]**0.5)
 
 # Step 4: Write output
-outname = "out_barrelendcaps_NGT.root"
+outname = f"out_barrelendcaps_{args.system}.root"
 out = ROOT.TFile(outname, "RECREATE")
 for hlist in histos.values():
     for h in hlist:
