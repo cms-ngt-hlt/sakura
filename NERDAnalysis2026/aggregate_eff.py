@@ -18,7 +18,10 @@ filters = [
     "hltEle32WPTightGsfMissingHitsFilter",
     "hltEle32WPTightGsfDetaFilter",
     "hltEle32WPTightGsfDphiFilter",
-    "hltEle32WPTightGsfTrackIsoFilter"
+    "hltEle32WPTightGsfTrackIsoFilter",
+    "hltDiEG25CaloIdLClusterShapeUnseededFilter",
+    "hltDiEle25CaloIdLMWPMS2UnseededFilter",
+    "hltDiEle25CaloIdLPixelMatchUnseededFilter"
 ]
 
 #VARIABLES = ["pt", "eta", "phi"]
@@ -59,7 +62,12 @@ def short_label(name):
 
 def get_th2(f, run, filt, var):
     folder = f"DQMData/Run {run}/HLT/Run summary/EGM/TrigObjTnP/"
-    return f.Get(folder + f"stdTag_{filt}_{var}")
+    h =  f.Get(folder + f"stdTag_{filt}_{var}")
+    if h:
+        return h
+    h = f.Get(folder + f"stdTagAndEle25MW_{filt}_{var}")
+    return h
+
 
 def project_signal_minus_sideband(h2, name_tag, forfakes=True):
     """Project a TH2(variable, mass) onto the variable axis, integrating the
@@ -82,7 +90,7 @@ def project_signal_minus_sideband(h2, name_tag, forfakes=True):
     h_out = h_sig.Clone(name_tag + "_net")
     h_out.SetDirectory(0)
     h_out.Add(h_side, -1)
-    for b in range(1, h_out.GetNbinsX() + 1):
+    for b in range(0, h_out.GetNbinsX() + 2):
         if h_out.GetBinContent(b) < 0:
             h_out.SetBinContent(b, 0)
             h_out.SetBinError(b, 0)
@@ -91,7 +99,7 @@ def project_signal_minus_sideband(h2, name_tag, forfakes=True):
 def clamp_to_denominator(num, denom):
     num_c = num.Clone(num.GetName() + "_clamped")
     n_clamped = 0
-    for b in range(1, num_c.GetNbinsX() + 1):
+    for b in range(0, num_c.GetNbinsX() + 2):
         n, d = num_c.GetBinContent(b), denom.GetBinContent(b)
         if n > d:
             num_c.SetBinContent(b, d)
@@ -169,6 +177,7 @@ for var in VARIABLES:
         if num is None or denom is None:
             continue
         num_c, n_clamped = clamp_to_denominator(num, denom)
+
         if n_clamped and not args.quiet:
             print(f"[{var}] {short_label(filters[i])}: clamped {n_clamped} bin(s)")
         g = ROOT.TGraphAsymmErrors()
