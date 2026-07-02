@@ -1,3 +1,10 @@
+#!/bin/bash
+
+if ! voms-proxy-info -exists -valid 0:5 >  /dev/null 2>&1; then
+	echo "Error no valid GRID proxy found, or it will be expiring in 5 minutes"
+	echo "Please run 'voms-proxy-init --voms cms' and try again."
+fi
+
 BASE="https://cmsweb.cern.ch"
 PREFIX="$BASE/dqm/online/data/browse/Offline/Run2026/Online"
 CERT="/tmp/x509up_u$(id -u)"
