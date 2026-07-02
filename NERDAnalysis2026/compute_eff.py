@@ -16,6 +16,13 @@ filters = [
     'hltEle32WPTightGsfDetaFilter',
     'hltEle32WPTightGsfDphiFilter',
     'hltEle32WPTightGsfTrackIsoFilter'
+    'hltEle32WPTightGsfMissingHitsFilter',
+    'hltEle32WPTightGsfDetaFilter',
+    'hltEle32WPTightGsfDphiFilter',
+    'hltEle32WPTightGsfTrackIsoFilter',
+    'hltDiEG25CaloIdLClusterShapeUnseededFilter',
+    'hltDiEle25CaloIdLMWPMS2UnseededFilter',
+    'hltDiEle25CaloIdLPixelMatchUnseededFilter'
 ]
 
 parser = argparse.ArgumentParser()
