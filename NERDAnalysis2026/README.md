@@ -27,7 +27,7 @@ or
   python3 overlay.py --which all
 ```
 ### To overlay above but as a function of lumi (instead of runs)
-````bash
+```bash
   ./getLumi.sh
   python3 lumi.py
 ```
