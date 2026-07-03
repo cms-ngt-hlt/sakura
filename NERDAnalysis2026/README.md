@@ -26,6 +26,12 @@ or
 ```bash
   python3 overlay.py --which all
 ```
+### To overlay above but as a function of lumi (instead of runs)
+````bash
+  ./getLumi.sh
+  python3 lumi.py
+```
+
 ### To produce the aggregated efficiencies
 ```bash
   python3 aggregate_eff.py --pattern NGT --outfile aggregated_NGT.root --outdir plots_agg_NGT
