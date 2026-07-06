@@ -41,3 +41,34 @@ for n in $(seq $START $END); do
              -o "$fname" "$BASE$path"
     done <<< "$file_list"
 done
+
+
+
+cd ../
+DIR="dqm_files"
+MISMATCH_DIR="dqm_files_mismatched"
+
+mkdir -p "$MISMATCH_DIR"
+
+echo "Scanning $DIR for mismatched run files..."
+
+ngt_runs=$(ls "$DIR"/*NGT*.root 2>/dev/null | grep -o 'R000[0-9]\{6\}' | sort)
+hts_runs=$(ls "$DIR"/*Test*.root 2>/dev/null | grep -o 'R000[0-9]\{6\}' | sort)
+
+ngt_only=$(comm -23 <(echo "$ngt_runs") <(echo "$hts_runs"))
+hts_only=$(comm -13 <(echo "$ngt_runs") <(echo "$hts_runs"))
+
+mismatched_runs=$(echo -e "${ngt_only}\n${hts_only}" | grep -v '^$')
+
+if [[ -z "$mismatched_runs" ]]; then
+    echo "All files have perfect twins! Nothing to move."
+    exit 0
+fi
+
+echo "Found orphaned files. Moving them to $MISMATCH_DIR:"
+for run in $mismatched_runs; do
+    echo "  -> Quarantining files for run: $run"
+    mv "$DIR"/*"${run}"*.root "$MISMATCH_DIR"/ 2>/dev/null
+done
+
+echo "Cleanup complete! Your dqm_files folder is now perfectly symmetric."
