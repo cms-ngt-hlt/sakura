@@ -26,10 +26,7 @@ filters = [
     "hltEle32WPTightGsfMissingHitsFilter",
     "hltEle32WPTightGsfDetaFilter",
     "hltEle32WPTightGsfDphiFilter",
-    "hltEle32WPTightGsfTrackIsoFilter",
-    "hltDiEG25CaloIdLClusterShapeUnseededFilter",
-    "hltDiEle25CaloIdLMWPMS2UnseededFilter",
-    "hltDiEle25CaloIdLPixelMatchUnseededFilter"
+    "hltEle32WPTightGsfTrackIsoFilter"
 ]
 
 colors = [
