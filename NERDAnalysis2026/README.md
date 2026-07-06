@@ -37,3 +37,7 @@ or
   python3 aggregate_eff.py --pattern NGT --outfile aggregated_NGT.root --outdir plots_agg_NGT
   python3 aggregate_eff.py --pattern Test --outfile aggregated_HTS.root --outdir plots_agg_HTS
 ```
+and to compare them:
+```bash
+python3 compare_eff.py --f1 aggregated_NGT.root --l1 NGT --f2 aggregated_HTS.root --l2 "HTS TestStand"
+```
