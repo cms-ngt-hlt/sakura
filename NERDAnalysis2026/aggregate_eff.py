@@ -68,7 +68,6 @@ def get_th2(f, run, filt, var):
     h = f.Get(folder + f"stdTagAndEle25MW_{filt}_{var}")
     return h
 
-
 def project_signal_minus_sideband(h2, name_tag, forfakes=True):
     """Project a TH2(variable, mass) onto the variable axis, integrating the
     signal mass window and optionally subtracting sideband-estimated fakes
@@ -180,24 +179,33 @@ for var in VARIABLES:
 
         if n_clamped and not args.quiet:
             print(f"[{var}] {short_label(filters[i])}: clamped {n_clamped} bin(s)")
+
         g = ROOT.TGraphAsymmErrors()
         g.BayesDivide(num_c, denom)
-        g.SetName(f"g_{var}_{i}")
+
+        # Give the graph a clean, descriptive name in the ROOT file
+        clean_name = short_label(filters[i])
+        g.SetName(f"eff_{var}_{clean_name}")
+
         g.SetLineWidth(3)
         g.SetMarkerStyle(20)
         g.SetMarkerColor(colors[i % len(colors)])
         g.SetLineColor(colors[i % len(colors)])
         g.Write()
-        graphs_by_var[var].append((short_label(filters[i]), g))
+        graphs_by_var[var].append((clean_name, g))
 
     num, denom = hmap.get(filters[-1]), hmap.get(filters[0])
     if num is not None and denom is not None:
         num_c, n_clamped = clamp_to_denominator(num, denom)
         if n_clamped and not args.quiet:
             print(f"[{var}] Total: clamped {n_clamped} bin(s)")
+
         g_total = ROOT.TGraphAsymmErrors()
         g_total.BayesDivide(num_c, denom)
-        g_total.SetName(f"g_{var}_total")
+
+        # Name the total graph consistently
+        g_total.SetName(f"eff_{var}_Total")
+
         g_total.SetLineWidth(4)
         g_total.SetMarkerColor(ROOT.kBlack)
         g_total.SetLineColor(ROOT.kBlack)
