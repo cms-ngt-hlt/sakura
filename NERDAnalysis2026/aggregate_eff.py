@@ -20,9 +20,31 @@ filters = [
     "hltEle32WPTightGsfDphiFilter",
     "hltEle32WPTightGsfTrackIsoFilter",
     "hltDiEG25CaloIdLClusterShapeUnseededFilter",
-    "hltDiEle25CaloIdLMWPMS2UnseededFilter",
-    "hltDiEle25CaloIdLPixelMatchUnseededFilter"
+    "hltDiEle25CaloIdLPixelMatchUnseededFilter",
+    "hltDiEle25CaloIdLMWPMS2UnseededFilter"
 ]
+
+trigger_paths = {
+    "Ele32_WPTight": [
+        "hltEG32L1SingleEGOrEtFilter",
+        "hltEle32WPTightClusterShapeFilter",
+        "hltEle32WPTightHEFilter",
+        "hltEle32WPTightEcalIsoFilter",
+        "hltEle32WPTightHcalIsoFilter",
+        "hltEle32WPTightPixelMatchFilter",
+        "hltEle32WPTightPMS2Filter",
+        "hltEle32WPTightGsfOneOEMinusOneOPFilter",
+        "hltEle32WPTightGsfMissingHitsFilter",
+        "hltEle32WPTightGsfDetaFilter",
+        "hltEle32WPTightGsfDphiFilter",
+        "hltEle32WPTightGsfTrackIsoFilter"
+    ],
+    "DiEle25_CaloIdL": [
+        "hltDiEG25CaloIdLClusterShapeUnseededFilter",
+        "hltDiEle25CaloIdLPixelMatchUnseededFilter",
+        "hltDiEle25CaloIdLMWPMS2UnseededFilter"
+    ]
+}
 
 #VARIABLES = ["pt", "eta", "phi"]
 VARIABLES = ["eta", "ptEB", "ptEE", "phiEB", "phiEE"]
