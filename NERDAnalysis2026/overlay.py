@@ -20,7 +20,10 @@ filters = [
     "hltEle32WPTightGsfMissingHitsFilter",
     "hltEle32WPTightGsfDetaFilter",
     "hltEle32WPTightGsfDphiFilter",
-    "hltEle32WPTightGsfTrackIsoFilter"
+    "hltEle32WPTightGsfTrackIsoFilter",
+    "hltDiEG25CaloIdLClusterShapeUnseededFilter",
+    "hltDiEle25CaloIdLMWPMS2UnseededFilter",
+    "hltDiEle25CaloIdLPixelMatchUnseededFilter"
 ]
 
 def short_label(name):
