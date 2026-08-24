@@ -4,7 +4,7 @@ Repository for Task 3.4 of the CMS-NGT-HLT project (**S**peedy **A**lignment & *
 
 ## Conceptual Design for Phase 2
 
-NGT Scouting concept for Phase 2, underlining all the NGT-HLT ($R^3) tasks:
+NGT Scouting concept for Phase 2, underlining all the NGT-HLT ($R^3$) tasks:
 
 ![NGT Scouting](images/NGT-HLT_Scouting_Phase2_Workflow.png)
 
