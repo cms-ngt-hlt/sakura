@@ -2,6 +2,17 @@
 
 Repository for Task 3.4 of the CMS-NGT-HLT project (**S**peedy **A**lignment & **C**alibration **U**pgrade for **R**eal-time **A**lgorithms)
 
+## References
+
+1. **CMS Collaboration**, *Next Generation Triggers Demonstrator: Time Variation of the Calibrations and System Monitoring*, CMS Detector Performance Note CMS-DP-2025/082 (17 Nov 2025). [CDS](https://cds.cern.ch/record/2950076)
+
+2. **CMS Collaboration**, *Profiling the CMS reconstruction options within the Calibration Loop*, CMS Detector Performance Note CMS-DP-2025/087 (8 Dec 2025). [CDS](https://cds.cern.ch/record/2951246)
+
+3. **CMS Collaboration**, *Physics Performance Assessment of the Run 3 Optimal Calibrations Next Generation Triggers Demonstrator*, CMS Detector Performance Note CMS-DP-2026/028 (18 May 2026). [CDS](https://cds.cern.ch/record/2961610)
+
+4. **CMS Collaboration**, *Physics Performance Assessment of the Run 3 Optimal Calibrations Next Generation Triggers Demonstrator (Addendum)*, CMS Detector Performance Note CMS-DP-2026/119 (6 Aug 2026). [CDS](https://cds.cern.ch/record/2968109)
+
+
 ## Conceptual Design for Phase 2
 
 NGT Scouting concept for Phase 2, underlining all the NGT-HLT ($R^3$) tasks:
