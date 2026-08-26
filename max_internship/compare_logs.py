@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
-"""Compare per-log summaries across calibration tags.
+"""Compare per-log summaries across the HLT, NGT and Prompt calibration tags.
+
+Reads the {tag}_{run}.json files written by summarize_logs.py and prints per-run
+tables (events, input files, dropped messages), log messages present under one
+tag but not another, and per-log internal consistency checks.
 
 Usage: python3 compare.py <summarydir>
-Reads {tag}_{run}.json written by summarize_logs.py, prints a report.
+  summarydir  output directory of summarize_logs.py
 """
 
 import json
