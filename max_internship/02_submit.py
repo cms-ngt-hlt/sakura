@@ -4,10 +4,6 @@
 Usage:
     python3 02_submit.py --tag NGT [--cfg pipeline.cfg] [--force]
 Then submit manually with the printed condor_submit command.
-
-NGT uses one config per run (configs/NGT_configs/hltDataDump_NGT_<run>.py, each
-with its own GlobalTag snapshotTime); the other tags use a single run-independent
-config (configs/hltDataDump_<tag>.py).
 """
 import argparse
 import importlib.util
@@ -88,6 +84,9 @@ def main():
     tags = cfg_array(cfg, "TAGS")
     if tag not in tags:
         sys.exit(f"ERROR: tag {tag!r} not in TAGS={tags}")
+    gtags = cfg_array(cfg, "GTAGS")
+    gt = gtags[tags.index(tag)] # looking up the globaltag for the globaltag (sic)
+
 
     filelist = Path(cfg_scalar(cfg, "FILELIST"))
     eos_base = cfg_scalar(cfg, "EOS_BASE")
@@ -101,15 +100,9 @@ def main():
     cmssw_src = cfg_scalar(cfg, "CMSSW_SRC")
     assert len(streams) == len(local_files), "STREAMS/LOCAL_FILES length mismatch"
 
-    per_run_configs = (tag == "NGT")
-    if per_run_configs:
-        config_dir = HERE / "configs" / f"{tag}_configs"
-        if not config_dir.is_dir():
-            sys.exit(f"ERROR: {config_dir} not found: run 01_make_config.sh first")
-    else:
-        dump = HERE / "configs" / f"hltDataDump_{tag}.py"
-        if not dump.exists():
-            sys.exit(f"ERROR: {dump} not found: run 01_make_config.sh first")
+    dump = HERE / "configs" / f"hltDataDump.py"
+    if not dump.exists():
+        sys.exit(f"ERROR: {dump} not found: run 01_make_configs.sh first")
 
     jobs_root = HERE / f"Jobs_{tag}"
     if jobs_root.exists():
@@ -135,19 +128,28 @@ def main():
     if not run_lists:
         sys.exit(f"ERROR: no files parsed from {filelist}")
 
-    process = None if per_run_configs else load_process(str(dump))
+    process = load_process(str(dump))
+    process.GlobalTag.globaltag = gt # now we set the correct globaltag in the dump that was prev. an empty string
+
+    snapshots = {}
+    if tag == "NGT":
+        oms_csv = HERE / "oms_runs.csv"
+        if not oms_csv.exists():
+            sys.exit(f"ERROR: {oms_csv} not found :( (needed for NGT Snapshot time)")
+        for line in oms_csv.read_text().splitlines()[1:]:
+            f = line.split(",")
+            snapshots[int(f[0])] = f[5].strip()
 
     manifest_rows, job_scripts = [], []
     n_files_total = 0
     for run, files in sorted(run_lists.items()):
-        if per_run_configs:
-            dump = config_dir / f"hltDataDump_{tag}_{run}.py"
-            if not dump.exists():
-                sys.exit(f"ERROR: {dump} not found: run 01_make_config.sh first")
-            process = load_process(str(dump))
         n_files_total += len(files)
         eos_run_dir = f"{eos_base}/{tag}/run_{run}"
         os.makedirs(eos_run_dir, exist_ok=True)
+        if tag == "NGT":
+            if run not in snapshots:
+                sys.exit(f"ERROR: no snapshot time for run {run} in oms_runs.csv")
+            process.GlobalTag.snapshotTime = snapshots[run]
         for k, chunk in chunks(files, n_per_job):
             jobdir = jobs_root / f"run_{run}" / f"job_{k}"
             jobdir.mkdir(parents=True)
