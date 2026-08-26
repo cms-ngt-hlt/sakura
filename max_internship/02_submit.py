@@ -1,0 +1,190 @@
+#!/usr/bin/env python3
+"""this script generates condor jobs for one tag.
+
+Usage:
+    python3 02_submit.py --tag NGT [--cfg pipeline.cfg] [--force]
+Then submit manually with the printed condor_submit command.
+
+NGT uses one config per run (configs/NGT_configs/hltDataDump_NGT_<run>.py, each
+with its own GlobalTag snapshotTime); the other tags use a single run-independent
+config (configs/hltDataDump_<tag>.py).
+"""
+import argparse
+import importlib.util
+import os
+import re
+import shutil
+import subprocess
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+
+
+# acessing/reading pipeline.cfg
+def _bash(cfg, expr):
+    r = subprocess.run(["bash", "-c", f'set -e; source "{cfg}"; {expr}'],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit(f"ERROR reading {cfg}: {r.stderr.strip()}")
+    return r.stdout.rstrip("\n")
+
+def cfg_scalar(cfg, name):
+    return _bash(cfg, f'printf "%s" "${{{name}}}"')
+
+def cfg_array(cfg, name):
+    out = _bash(cfg, f'printf "%s\\n" "${{{name}[@]}}"')
+    return [l for l in out.split("\n") if l]
+
+
+def load_process(dump_path):
+    spec = importlib.util.spec_from_file_location("pycfg", dump_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)          # requires cmsenv (imports FWCore)
+    return mod.process
+
+
+def chunks(lst, n):
+    for i in range(0, len(lst), n):
+        yield i // n, lst[i:i + n]
+
+
+def write_job_sh(path, jobdir, cmssw_src, streams, local_files, eos_xrd, eos_paths):
+    """Wrapper run on the worker node. Exit codes:
+    1 = cmsRun failed, 2 = expected output missing, 3 = stage-out copy failed."""
+    lines = [
+        "#!/bin/bash",
+        "set -uo pipefail",   # NOT -e: phases handle their own exit codes
+        'cd "${TMPDIR:-/tmp}"',
+        "mkdir -p work_$$ && cd work_$$",
+        f'cp "{jobdir}/run_cfg.py" .',
+        f'cd "{cmssw_src}" && eval "$(scramv1 runtime -sh)" && cd - >/dev/null',
+        "cmsRun run_cfg.py",
+        "rc=$?",
+        "echo \"--- files in workdir after cmsRun (exit $rc) ---\"",
+        "ls -la",
+        '[ "$rc" -eq 0 ] || exit 1',
+    ]
+    for stream, local, eos_path in zip(streams, local_files, eos_paths):
+        lines += [
+            f'[ -f "{local}" ] || {{ echo "MISSING expected output {local} ({stream})"; exit 2; }}',
+            f'xrdcp -f "{local}" "{eos_xrd}//{eos_path}" || {{ echo "STAGE-OUT FAILED {stream}"; exit 3; }}',
+        ]
+    lines += ["echo JOB_DONE_OK", "exit 0"]
+    path.write_text("\n".join(lines) + "\n")
+    path.chmod(0o755)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--tag", required=True)
+    ap.add_argument("--cfg", default=str(HERE / "pipeline.cfg"))
+    ap.add_argument("--force", action="store_true",
+                    help="delete an existing Jobs_<TAG> tree first")
+    a = ap.parse_args()
+    cfg, tag = a.cfg, a.tag
+
+    tags = cfg_array(cfg, "TAGS")
+    if tag not in tags:
+        sys.exit(f"ERROR: tag {tag!r} not in TAGS={tags}")
+
+    filelist = Path(cfg_scalar(cfg, "FILELIST"))
+    eos_base = cfg_scalar(cfg, "EOS_BASE")
+    eos_xrd = cfg_scalar(cfg, "EOS_XRD")
+    streams = cfg_array(cfg, "STREAMS")
+    local_files = cfg_array(cfg, "LOCAL_FILES")
+    n_per_job = int(cfg_scalar(cfg, "N_PER_JOB"))
+    flavour = cfg_scalar(cfg, "JOB_FLAVOUR")
+    req_mem = cfg_scalar(cfg, "REQUEST_MEMORY_MB")
+    proxy = cfg_scalar(cfg, "PROXY")
+    cmssw_src = cfg_scalar(cfg, "CMSSW_SRC")
+    assert len(streams) == len(local_files), "STREAMS/LOCAL_FILES length mismatch"
+
+    per_run_configs = (tag == "NGT")
+    if per_run_configs:
+        config_dir = HERE / "configs" / f"{tag}_configs"
+        if not config_dir.is_dir():
+            sys.exit(f"ERROR: {config_dir} not found: run 01_make_config.sh first")
+    else:
+        dump = HERE / "configs" / f"hltDataDump_{tag}.py"
+        if not dump.exists():
+            sys.exit(f"ERROR: {dump} not found: run 01_make_config.sh first")
+
+    jobs_root = HERE / f"Jobs_{tag}"
+    if jobs_root.exists():
+        if not a.force:
+            sys.exit(f"ERROR: {jobs_root} exists. Use --force to regenerate "
+                     f"(this deletes local job dirs and logs, NOT EOS outputs).")
+        shutil.rmtree(jobs_root)
+
+    # Flat filelist -> grouped by run, parsed from the LFN's /000/RRR/RRR/ segment
+    if not filelist.exists():
+        sys.exit(f"ERROR: {filelist} not found")
+    RUN_RE = re.compile(r"/000/(\d{3})/(\d{3})/")
+    run_lists = defaultdict(list)
+    for line in filelist.read_text().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        m = RUN_RE.search(line)
+        if not m:
+            sys.exit(f"ERROR: could not parse run number from line: {line}")
+        run = int(m.group(1) + m.group(2))
+        run_lists[run].append(line)
+    if not run_lists:
+        sys.exit(f"ERROR: no files parsed from {filelist}")
+
+    process = None if per_run_configs else load_process(str(dump))
+
+    manifest_rows, job_scripts = [], []
+    n_files_total = 0
+    for run, files in sorted(run_lists.items()):
+        if per_run_configs:
+            dump = config_dir / f"hltDataDump_{tag}_{run}.py"
+            if not dump.exists():
+                sys.exit(f"ERROR: {dump} not found: run 01_make_config.sh first")
+            process = load_process(str(dump))
+        n_files_total += len(files)
+        eos_run_dir = f"{eos_base}/{tag}/run_{run}"
+        os.makedirs(eos_run_dir, exist_ok=True)
+        for k, chunk in chunks(files, n_per_job):
+            jobdir = jobs_root / f"run_{run}" / f"job_{k}"
+            jobdir.mkdir(parents=True)
+
+            process.source.fileNames = chunk
+            (jobdir / "run_cfg.py").write_text(process.dumpPython())
+
+            eos_paths = [f"{eos_run_dir}/{tag}_run{run}_job{k}_{s}.root" for s in streams]
+            write_job_sh(jobdir / "job.sh", str(jobdir), cmssw_src,
+                         streams, local_files, eos_xrd, eos_paths)
+            job_scripts.append(str(jobdir / "job.sh"))
+            for s, ep in zip(streams, eos_paths):
+                manifest_rows.append(f"{run}\t{k}\t{s}\t{ep}\t{';'.join(chunk)}")
+
+    (HERE / f"manifest_{tag}.tsv").write_text(
+        "run\tjob\tstream\teos_path\tinputs\n" + "\n".join(manifest_rows) + "\n")
+    (HERE / f"jobs_to_run_{tag}.txt").write_text("\n".join(job_scripts) + "\n")
+
+    sub = "\n".join([
+        "executable = $(jobscript)",
+        "use_x509userproxy = true",
+        f"x509userproxy = {proxy}",
+        "output = $Fp(jobscript)hlt.stdout",
+        "error  = $Fp(jobscript)hlt.stderr",
+        "log    = $Fp(jobscript)hlt.log",
+        f"request_memory = {req_mem}",
+        f'+JobFlavour = "{flavour}"',
+        f"queue jobscript from {HERE}/jobs_to_run_{tag}.txt",
+    ]) + "\n"
+    (HERE / f"condor_{tag}.sub").write_text(sub)
+
+    print(f"[{tag}] {len(run_lists)} runs, {n_files_total} files -> "
+          f"{len(job_scripts)} jobs ({len(manifest_rows)} expected output files).")
+    print(f"Manifest: manifest_{tag}.tsv")
+    print(f"Check proxy first:  voms-proxy-info -timeleft   (proxy: {proxy})")
+    print(f"Submit with:        condor_submit condor_{tag}.sub")
+
+
+if __name__ == "__main__":
+    main()
