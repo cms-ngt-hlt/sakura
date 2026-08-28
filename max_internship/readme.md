@@ -1,7 +1,4 @@
-# Pls do not merge yet
-**ToDo:**
-[] upload report
-
+# NGT offline Evaluation Pipeline
 
 This pipeline can be used to evaluate the performance of the NGT demonstrator.
 
