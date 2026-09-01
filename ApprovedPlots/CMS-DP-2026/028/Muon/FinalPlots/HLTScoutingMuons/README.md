@@ -20,6 +20,9 @@ under:
 /eos/cms/store/group/tsg-phase2/user/jprendi/NERD25/MoreStats/Muons/DQM_090526
 ```
 
+The CMSSW configuration and script used to produce these files are documented
+in [Muon/getDQM](../../getDQM/README.md#running-the-hlt-scouting-muon-dqm).
+
 ## Requirements
 
 The plots were created locally using Python in a virtual environment. Install
