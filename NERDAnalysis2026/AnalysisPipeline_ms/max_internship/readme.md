@@ -17,7 +17,7 @@ Make sure you have a compatible CMSSW version. We are using **CMSSW_16_0_8**.
     this should give you: 
     ```condor_<tag>.sub```
     You have to submit these files manually to HTCondor. But before: 
-    * run `vomsi` (or equivalently, `voms-proxy-init --voms cms --valid 168:00`)
+    * run `voms-proxy-init --voms cms --valid 168:00`
     * cp your proxy file in current directory
     * run this command: `module load lxbatch/eossubmit`
     Now run:
