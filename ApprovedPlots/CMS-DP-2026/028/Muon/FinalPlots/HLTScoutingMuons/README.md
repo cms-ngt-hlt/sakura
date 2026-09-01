@@ -17,7 +17,7 @@ Please create this structure locally or adjust the paths in
 under:
 
 ```text
-/eos/cms/store/group/tsg-phase2/user/jprendi/NERD25/MoreStats/Muons
+/eos/cms/store/group/tsg-phase2/user/jprendi/NERD25/MoreStats/Muons/DQM_090526
 ```
 
 ## Requirements
