@@ -1,18 +1,25 @@
-# DQM out of the HLT output root files
-Since the way to go about it is identical for the Muon and EGamma objects, I will just include both here.
-## Setting up the offline DQM environment
-Given the frequent additions to the DQM clients, it is of high benefit to always take the possibly latest CMSSW IB, which you can find [here](https://cmssdt.cern.ch/SDT/html/cmssdt-ib/).
+# DQM from the HLT output ROOT files
 
-When CMSSW of choice is checked out, the following packages are also needed:
-```
+## Setting up the offline DQM environment
+
+Given the frequent additions to the DQM clients, use a recent CMSSW
+integration build from the [CMSSW IB page](https://cmssdt.cern.ch/SDT/html/cmssdt-ib/).
+
+After checking out the chosen CMSSW release, add the required packages:
+
+```bash
 git cms-addpkg HLTriggerOffline/Scouting DQM/HLTEvF DQM/Integration DQMOffline/HLTScouting DQMOffline/Configuration
 ```
-all the changes need to be added onto the pre-existing code:
 
-```
-jprendi@lxplus953 src (from-CMSSW_16_1_X_2026-04-26-0000)$ git diff
+The following changes must be applied to the existing CMSSW code.
+
+## Configuring the HLT EGamma DQM
+
+The HLT output uses the process name `HLTX`. Update
+`DQM/HLTEvF/python/FourVectorHLT_cfi.py` accordingly:
+
+```diff
 diff --git a/DQM/HLTEvF/python/FourVectorHLT_cfi.py b/DQM/HLTEvF/python/FourVectorHLT_cfi.py
-index d84928327a5..72f5164ec9e 100644
 --- a/DQM/HLTEvF/python/FourVectorHLT_cfi.py
 +++ b/DQM/HLTEvF/python/FourVectorHLT_cfi.py
 @@ -9,7 +9,7 @@ hltResults = DQMEDAnalyzer("FourVectorHLT",
@@ -22,24 +29,35 @@ index d84928327a5..72f5164ec9e 100644
 -     triggerSummaryLabel = cms.InputTag("hltTriggerSummaryAOD::HLT")
 +     triggerSummaryLabel = cms.InputTag("hltTriggerSummaryAOD::HLTX")
  )
- 
- 
+```
+
+Set the process name for both HLT object monitors in
+`DQM/Integration/python/clients/hlt_dqm_sourceclient-live_cfg.py`:
+
+```diff
 diff --git a/DQM/Integration/python/clients/hlt_dqm_sourceclient-live_cfg.py b/DQM/Integration/python/clients/hlt_dqm_sourceclient-live_cfg.py
-index 69eedae6c92..75d36bb5d27 100644
 --- a/DQM/Integration/python/clients/hlt_dqm_sourceclient-live_cfg.py
 +++ b/DQM/Integration/python/clients/hlt_dqm_sourceclient-live_cfg.py
 @@ -133,6 +133,9 @@ process.load("DQM.HLTEvF.HLTObjectMonitor_cff")
  
  process.load("DQM.HLTEvF.HLTObjectMonitor_Client_cff")
  
-+process.hltObjectsMonitor4all.processName  = cms.string("HLTX")
++process.hltObjectsMonitor4all.processName = cms.string("HLTX")
 +process.hltObjectMonitor.processName = cms.string("HLTX")
 +
  #process.p = cms.EndPath(process.hlts+process.hltsClient)
  
  process.pp = cms.Path(process.dqmEnv+process.dqmSaver)#+process.dqmSaverPB)
+```
+
+## Configuring the HLT Scouting EGamma DQM
+
+In `DQM/Integration/python/clients/scouting_dqm_sourceclient-live_cfg.py`,
+process only Scouting data and configure the collection inputs for the `HLTX`
+process. The 2025 Scouting RecHit inputs must use the same process name:
+
+```diff
 diff --git a/DQM/Integration/python/clients/scouting_dqm_sourceclient-live_cfg.py b/DQM/Integration/python/clients/scouting_dqm_sourceclient-live_cfg.py
-index 36986f59b0a..f3075d6959a 100644
 --- a/DQM/Integration/python/clients/scouting_dqm_sourceclient-live_cfg.py
 +++ b/DQM/Integration/python/clients/scouting_dqm_sourceclient-live_cfg.py
 @@ -47,12 +47,38 @@ process.hltOnlineBeamSpot = _onlineBeamSpotProducer.clone()
@@ -55,49 +73,61 @@ index 36986f59b0a..f3075d6959a 100644
  
 +#process.scoutingCollectionMonitor.processName = cms.string("HLTX")
 +
-+process.scoutingCollectionMonitor.muons           = cms.InputTag("hltScoutingMuonPackerNoVtx", "", "HLTX")
-+process.scoutingCollectionMonitor.muonsVtx        = cms.InputTag("hltScoutingMuonPackerVtx",   "", "HLTX")
-+process.scoutingCollectionMonitor.electrons       = cms.InputTag("hltScoutingEgammaPacker",    "", "HLTX")
-+process.scoutingCollectionMonitor.photons         = cms.InputTag("hltScoutingEgammaPacker",    "", "HLTX")
-+process.scoutingCollectionMonitor.pfcands         = cms.InputTag("hltScoutingPFPacker",        "", "HLTX")
-+process.scoutingCollectionMonitor.pfjets          = cms.InputTag("hltScoutingPFPacker",        "", "HLTX")
-+process.scoutingCollectionMonitor.tracks          = cms.InputTag("hltScoutingTrackPacker",     "", "HLTX")
++process.scoutingCollectionMonitor.muons = cms.InputTag("hltScoutingMuonPackerNoVtx", "", "HLTX")
++process.scoutingCollectionMonitor.muonsVtx = cms.InputTag("hltScoutingMuonPackerVtx", "", "HLTX")
++process.scoutingCollectionMonitor.electrons = cms.InputTag("hltScoutingEgammaPacker", "", "HLTX")
++process.scoutingCollectionMonitor.photons = cms.InputTag("hltScoutingEgammaPacker", "", "HLTX")
++process.scoutingCollectionMonitor.pfcands = cms.InputTag("hltScoutingPFPacker", "", "HLTX")
++process.scoutingCollectionMonitor.pfjets = cms.InputTag("hltScoutingPFPacker", "", "HLTX")
++process.scoutingCollectionMonitor.tracks = cms.InputTag("hltScoutingTrackPacker", "", "HLTX")
 +process.scoutingCollectionMonitor.primaryVertices = cms.InputTag("hltScoutingPrimaryVertexPacker", "primaryVtx", "HLTX")
 +process.scoutingCollectionMonitor.displacedVertices = cms.InputTag("hltScoutingMuonPackerVtx", "displacedVtx", "HLTX")
 +process.scoutingCollectionMonitor.displacedVerticesNoVtx = cms.InputTag("hltScoutingMuonPackerNoVtx", "displacedVtx", "HLTX")
-+process.scoutingCollectionMonitor.pfMetPt         = cms.InputTag("hltScoutingPFPacker", "pfMetPt",  "HLTX")
-+process.scoutingCollectionMonitor.pfMetPhi        = cms.InputTag("hltScoutingPFPacker", "pfMetPhi", "HLTX")
-+process.scoutingCollectionMonitor.rho             = cms.InputTag("hltScoutingPFPacker", "rho",      "HLTX")
++process.scoutingCollectionMonitor.pfMetPt = cms.InputTag("hltScoutingPFPacker", "pfMetPt", "HLTX")
++process.scoutingCollectionMonitor.pfMetPhi = cms.InputTag("hltScoutingPFPacker", "pfMetPhi", "HLTX")
++process.scoutingCollectionMonitor.rho = cms.InputTag("hltScoutingPFPacker", "rho", "HLTX")
 +
-+# 2025 RecHits updates (Integrated in your script, but ensuring HLTX is set)
++# 2025 RecHit inputs
 +from Configuration.Eras.Modifier_run3_scouting_2025_cff import run3_scouting_2025
 +run3_scouting_2025.toModify(process.scoutingCollectionMonitor,
-+    pfRecHitsEB        = cms.InputTag("hltScoutingRecHitPacker", "EB", "HLTX"),
-+    pfRecHitsEE        = cms.InputTag("hltScoutingRecHitPacker", "EE", "HLTX"),
++    pfRecHitsEB = cms.InputTag("hltScoutingRecHitPacker", "EB", "HLTX"),
++    pfRecHitsEE = cms.InputTag("hltScoutingRecHitPacker", "EE", "HLTX"),
 +    pfCleanedRecHitsEB = cms.InputTag("hltScoutingRecHitPacker", "EBCleaned", "HLTX"),
 +    pfCleanedRecHitsEE = cms.InputTag("hltScoutingRecHitPacker", "EECleaned", "HLTX"),
-+    pfRecHitsHBHE      = cms.InputTag("hltScoutingRecHitPacker", "HBHE", "HLTX")
++    pfRecHitsHBHE = cms.InputTag("hltScoutingRecHitPacker", "HBHE", "HLTX")
 +)
 +
  process.load("DQM.HLTEvF.ScoutingTrackingMonitor_cff")
  process.load("DQM.HLTEvF.ScoutingMuonMonitoring_cff")
  process.load("DQM.HLTEvF.ScoutingJetMonitoring_cff")
-(END)
-
 ```
 
-## Running the HLT Scouting DQM
-The scripts are already prepared and to obtain the HLT Scouting DQM results of EGamma and Muon, you can run:
+## Running the HLT Scouting EGamma DQM
 
-```
+Run the prepared script from the configured CMSSW environment:
+
+```bash
 ./ScoutingAutoDQM.sh
-./ScoutingMuonDQM.sh
 ```
-and the final DQM output can be found in:
-```
+
+The script processes the Prompt, NGT, and HLT Scouting ROOT files run by run.
+The resulting DQM files and logs are stored in tag-specific directories under:
+
+```text
 /eos/cms/store/group/tsg-phase2/user/jprendi/NERD25/MoreStats/EGammas/DQM_260426
-/eos/cms/store/group/tsg-phase2/user/jprendi/NERD25/MoreStats/Muons/DQM_090526
 ```
 
-## Running the HLT DQM
+## Running the HLT EGamma DQM
 
+Run the prepared regular HLT DQM script:
+
+```bash
+./AaDQM.sh
+```
+
+The script processes the Prompt, HLT, and NGT `*Raw.root` files run by run.
+The resulting DQM files and logs are stored in tag-specific directories under:
+
+```text
+/eos/cms/store/group/tsg-phase2/user/jprendi/NERD25/MoreStats/EGammas/DQM_Raws
+```
