@@ -1,0 +1,78 @@
+# =====================================================================
+# Shared configuration for ALL Scouting comparison plots.
+# settings that are identical across scripts, or that must be changed everywhere at once (lumi, year, conditions, diff pairs) -> live HERE.
+# settings specific to one plot (histogram names, axis labels, z-limits, figure geometry) -> hardcoded in the concrete subclass in the entry script.
+# =====================================================================
+
+# ---------------------------------------------------------------------
+# The conditions scenarios to compare.
+#
+#   label        short key: used by diff_pairs, 2D titles and filenames
+#                (matches the old 2D scripts' files_config)
+#   legend_label long form: used in the 1D plot legends
+#                (matches the old 1D scripts' files_config)
+#   path         directory globbed for "*.root"
+#   color/style  matplotlib settings, used by the 1D overlays only
+#
+# ORDER MATTERS for the 1D legend order; the reference is named
+# explicitly below (no more "reference = first entry" convention).
+# ---------------------------------------------------------------------
+conditions:
+  - label: "Prompt"
+    legend_label: "Prompt Conditions"
+    path: "Prompt"
+    color: "black"
+    style: "-"
+  - label: "HLT"
+    legend_label: "HLT Conditions"
+    path: "HLT"
+    color: "#5790fc"
+    style: "--"
+  - label: "NGT"
+    legend_label: "NGT Conditions"
+    path: "NGT"
+    color: "#f89c20"
+    style: ":"
+
+# The reference for the 1D ratio panel and the gray uncertainty band.
+reference: "Prompt"
+
+# ---------------------------------------------------------------------
+# CMS label (hep.cms.label) parameters.  Single source of truth --
+# updating lumi/year here updates all eight plots at once.
+# (This also brings the four old 1D scripts, which still said
+# year=2025 / lumi=2.09, up to date.)
+# NOTE: the fontsize is NOT here on purpose: it differs between scripts
+# (22 vs 20) and is part of the pixel-for-pixel output, so it stays in
+# the subclasses.
+# ---------------------------------------------------------------------
+cms_label:
+  year: 2026
+  lumi: 3.88        # fb^-1
+  com: 13.6         # sqrt(s) in TeV
+
+# ---------------------------------------------------------------------
+# Path template inside the DQM ROOT files, between the run folder and
+# the plot-specific subfolder:
+#   DQMData/{Run XXXXXX}/<dqm_prefix>/<subpath from the subclass>
+# ---------------------------------------------------------------------
+dqm_prefix: "HLT/Run summary/ScoutingOnline"
+
+# ---------------------------------------------------------------------
+# (A, B) pairs for the 2D difference maps: A - B  resp.  (A - B) / B.
+# Identical across all four 2D scripts -> shared.  Labels must match
+# `conditions[].label` above.
+# ---------------------------------------------------------------------
+diff_pairs:
+  - ["Prompt", "NGT"]
+  - ["HLT", "NGT"]
+  - ["HLT", "Prompt"]
+
+# ---------------------------------------------------------------------
+# Output settings.  Each script still writes its own multi-page PDF
+# (name hardcoded per subclass, as before); the individual PNGs (and
+# the dielectron per-plot PDFs) now go into a common subfolder instead
+# of cluttering the working directory.
+# ---------------------------------------------------------------------
+output:
+  png_dir: "png"
