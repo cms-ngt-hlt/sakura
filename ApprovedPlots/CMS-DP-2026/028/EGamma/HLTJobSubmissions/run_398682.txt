@@ -1,0 +1,1 @@
+root://cms-xrd-global.cern.ch//store/data/Run2025G/EGamma1/RAW-RECO/ZElectron-PromptReco-v1/000/398/682/00000/877d09dd-c478-44f9-8773-a644bdc9aadf.root

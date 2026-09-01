@@ -1,0 +1,9 @@
+root://cms-xrd-global.cern.ch//store/data/Run2025G/EGamma1/RAW-RECO/ZElectron-PromptReco-v1/000/398/797/00000/bc1342d6-ae3c-4212-b077-29a77c7ddd33.root
+root://cms-xrd-global.cern.ch//store/data/Run2025G/EGamma1/RAW-RECO/ZElectron-PromptReco-v1/000/398/797/00000/2de1b5a2-3f47-4ef2-a767-c88b76daa05a.root
+root://cms-xrd-global.cern.ch//store/data/Run2025G/EGamma1/RAW-RECO/ZElectron-PromptReco-v1/000/398/797/00000/63ecad87-a48b-4101-95f9-7b6f617b089d.root
+root://cms-xrd-global.cern.ch//store/data/Run2025G/EGamma1/RAW-RECO/ZElectron-PromptReco-v1/000/398/797/00000/ca46188c-6468-45bd-abe8-a8183c2295d1.root
+root://cms-xrd-global.cern.ch//store/data/Run2025G/EGamma1/RAW-RECO/ZElectron-PromptReco-v1/000/398/797/00000/9a92e885-afc0-4b75-832b-cb864169cea8.root
+root://cms-xrd-global.cern.ch//store/data/Run2025G/EGamma1/RAW-RECO/ZElectron-PromptReco-v1/000/398/797/00000/c8a24b1f-3055-4dc0-923e-34c8928efe04.root
+root://cms-xrd-global.cern.ch//store/data/Run2025G/EGamma1/RAW-RECO/ZElectron-PromptReco-v1/000/398/797/00000/cd88c6da-2566-4fc0-9698-ab8beb0cba61.root
+root://cms-xrd-global.cern.ch//store/data/Run2025G/EGamma1/RAW-RECO/ZElectron-PromptReco-v1/000/398/797/00000/9e133038-6bac-474a-8f58-7a68dee330b3.root
+root://cms-xrd-global.cern.ch//store/data/Run2025G/EGamma1/RAW-RECO/ZElectron-PromptReco-v1/000/398/797/00000/e4d7134f-902c-420d-9003-9e7b7cba45c5.root
