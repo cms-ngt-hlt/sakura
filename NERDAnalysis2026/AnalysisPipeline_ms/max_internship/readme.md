@@ -2,7 +2,7 @@
 
 This pipeline can be used to evaluate the performance of the NGT demonstrator.
 
-![Schematic overview of the evaluation pipeline](NGT_eval_pipeline.svg "NGT Evaluation Pipeline")
+![Schematic overview of the evaluation pipeline](docs/NGT_eval_pipeline.svg "NGT Evaluation Pipeline")
 
 
 ## Running the pipeline
@@ -13,7 +13,7 @@ git clone git@github.com:cms-ngt-hlt/sakura.git
 cd sakura/NERDAnalysis2026/AnalysisPipeline_ms/max_internship/
 cmsrel CMSSW_16_0_9
 cd CMSSW_16_0_9/src/ && cmsenv && cd ../../
-voms-proxy-init --voms cms --valid 168:00
+voms-proxy-init --voms cms -rfc --valid 168:00
 cp /tmp/x509up******* .
 ```
 This will have your environment set up.
@@ -79,7 +79,7 @@ In case you want to run each step separately
 
 
 ## Further Information
-For more details, espeically on the curation of the file list and the software architecture of the plotting scripts, see the [report](report.pdf)
+For more details, espeically on the curation of the file list and the software architecture of the plotting scripts, see the [report](docs/report.pdf)
 
 
 
