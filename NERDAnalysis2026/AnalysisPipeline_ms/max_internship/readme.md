@@ -6,7 +6,35 @@ This pipeline can be used to evaluate the performance of the NGT demonstrator.
 
 
 ## Running the pipeline
-Make sure you have a compatible CMSSW version. We are using **CMSSW_16_0_8**. 
+### Getting stared
+Make sure you have a compatible CMSSW version. We are using **CMSSW_16_0_9**:
+```bash
+git clone git@github.com:cms-ngt-hlt/sakura.git
+cd sakura/NERDAnalysis2026/AnalysisPipeline_ms/max_internship/
+cmsrel CMSSW_16_0_9
+cd CMSSW_16_0_9/src/ && cmsenv && cd ../../
+voms-proxy-init --voms cms --valid 168:00
+cp /tmp/x509up******* .
+```
+This will have your environment set up.
+
+### Skip step 1 and 2 (less work, same output, higher trust in pipeline needed)
+To skip step 1 and 2 of the recipe below, the preparation and submission-file generation can be run for every tag with:
+```bash
+bash ./00_run_pipeline.sh
+```
+and if you want it to also do the job submission directly for you (having set up the proxy as described above), run:
+```bash
+bash ./00_run_pipeline.sh --fulltrust
+```
+`00_run_pipeline.sh` runs `generate_filelists.sh` and `01_make_config.sh` in parallel, waits for
+both to finish, and then runs `02_submit.py` for every tag in `pipeline.cfg`.
+Pass `--force` to replace existing `Jobs_<TAG>` directories. 
+
+And then you can follow the subsequent step 3 to 5, described below. 
+
+### Run every step "by yourself" (more work, same output, less trust in pipeline needed)
+In case you want to run each step separately
 
 0.  Run `cmsenv`.
 
@@ -52,11 +80,6 @@ Make sure you have a compatible CMSSW version. We are using **CMSSW_16_0_8**.
 
 ## Further Information
 For more details, espeically on the curation of the file list and the software architecture of the plotting scripts, see the [report](report.pdf)
-
-
-
-
-
 
 
 
