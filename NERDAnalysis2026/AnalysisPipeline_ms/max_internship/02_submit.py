@@ -46,7 +46,7 @@ def chunks(lst, n):
         yield i // n, lst[i:i + n]
 
 
-def write_job_sh(path, jobdir, cmssw_src, streams, local_files, eos_xrd, eos_paths):
+def write_job_sh(path, jobdir, cmssw_src, streams, local_files, eos_xrd, eos_paths, proxy_abs_path):
     """Wrapper run on the worker node. Exit codes:
     1 = cmsRun failed, 2 = expected output missing, 3 = stage-out copy failed."""
     lines = [
@@ -56,6 +56,14 @@ def write_job_sh(path, jobdir, cmssw_src, streams, local_files, eos_xrd, eos_pat
         "mkdir -p work_$$ && cd work_$$",
         f'cp "{jobdir}/run_cfg.py" .',
         f'cd "{cmssw_src}" && eval "$(scramv1 runtime -sh)" && cd - >/dev/null',
+        f'export X509_USER_PROXY="{proxy_abs_path}"',
+
+        'echo "=== PROXY DEBUG START ==="',
+        'echo "Looking for proxy at: $X509_USER_PROXY"',
+        'ls -la "$X509_USER_PROXY" || echo "[ERROR] Worker node cannot read the proxy file from AFS!"',
+        'voms-proxy-info -all -file "$X509_USER_PROXY" || echo "[ERROR] Proxy is invalid or unreadable!"',
+        'echo "=== PROXY DEBUG END ==="',
+        'export X509_CERT_DIR=/cvmfs/grid.cern.ch/etc/grid-security/certificates',
         "cmsRun run_cfg.py",
         "rc=$?",
         "echo \"--- files in workdir after cmsRun (exit $rc) ---\"",
@@ -172,8 +180,10 @@ def main():
             (jobdir / "run_cfg.py").write_text(process.dumpPython())
 
             eos_paths = [f"{eos_run_dir}/{tag}_run{run}_job{k}_{s}.root" for s in streams]
+            proxy_abs_path = HERE / proxy
+
             write_job_sh(jobdir / "job.sh", str(jobdir), cmssw_src,
-                         streams, local_files, eos_xrd, eos_paths)
+                         streams, local_files, eos_xrd, eos_paths, str(proxy_abs_path))
             job_scripts.append(str(jobdir / "job.sh"))
             for s, ep in zip(streams, eos_paths):
                 manifest_rows.append(f"{run}\t{k}\t{s}\t{ep}\t{';'.join(chunk)}")
@@ -188,8 +198,6 @@ def main():
 
     sub = "\n".join([
         "executable = $(jobscript)",
-        "use_x509userproxy = true",
-        f"x509userproxy = {proxy}",
         "output = $Fp(jobscript)hlt.stdout",
         "error  = $Fp(jobscript)hlt.stderr",
         "log    = $Fp(jobscript)hlt.log",
@@ -208,4 +216,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
