@@ -4,7 +4,8 @@
 Usage: python3 03_check.py --tag NGT [--cfg pipeline.cfg]
 Outputs: check_report_<TAG>.md, resubmit_<TAG>.txt, condor_resubmit_<TAG>.sub
 Statuses: OK, EMPTY (0 events), FAIL (errors>0), CRASHED, NO_SUMMARY,
-          NOT_RUN (no logs yet), MISSING_OUTPUT (job fine, file(s) not on EOS).
+          PENDING (still running or not submitted),
+          MISSING_OUTPUT (job fine, file(s) not on EOS).
 """
 import argparse
 import re
@@ -16,8 +17,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 
 # find relevant lines with regex
-SUMMARY_RE = re.compile(r"Events total\s*=\s*(\d+)\s*passed\s*=\s*(\d+)\s*errors\s*=\s*(\d+)")
-SUMMARY_RE = re.compile(r"Events total\s*=\s*(\d+)\s*passed\s*=\s*(\d+)\s*failed\s*=\s*(\d+)")
+SUMMARY_RE = re.compile(
+    r"Events total\s*=\s*(\d+)\s*passed\s*=\s*(\d+)\s*(?:errors|failed)\s*=\s*(\d+)"
+)
 CRASH_RE = re.compile(r"Fatal Exception|FatalRootError|segmentation|bad_alloc", re.I)
 
 
@@ -29,7 +31,7 @@ def job_status(jobdir: Path):
         if p.exists():
             texts.append(p.read_text(errors="replace"))
     if not texts:
-        return "NOT_RUN", "-", "-", "-"
+        return "PENDING", "-", "-", "-"
     m = None
     for t in texts:
         for m in SUMMARY_RE.finditer(t):
@@ -85,7 +87,9 @@ def main():
         if status == "OK" and missing:
             status = "MISSING_OUTPUT"
         good = status in ("OK", "EMPTY") and not missing   # EMPTY: see note below
-        if not good:
+        # With no stdout/stderr there is no evidence of failure: Condor may still
+        # be running the job, or the job may not have been submitted yet.
+        if not good and status != "PENDING":
             resubmit.append(str(jobdir / "job.sh"))
         counts[status] += 1
         report_rows.append(
@@ -117,8 +121,11 @@ def main():
     if resubmit:
         print(f"{len(resubmit)} job(s) to redo ->  condor_submit condor_resubmit_{tag}.sub")
     else:
-        print("Converged: nothing to resubmit.")
+        print("No failed jobs to resubmit.")
+    if counts["PENDING"]:
+        print(f"{counts['PENDING']} job(s) are either still running or have not been submitted.")
 
 
 if __name__ == "__main__":
     main()
+
