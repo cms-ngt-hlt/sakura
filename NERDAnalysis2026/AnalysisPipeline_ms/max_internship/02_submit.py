@@ -80,6 +80,7 @@ def main():
                     help="delete an existing Jobs_<TAG> tree first")
     a = ap.parse_args()
     cfg, tag = a.cfg, a.tag
+    print(f"Creating jobs for tag {tag}...", flush=True)
 
     tags = cfg_array(cfg, "TAGS")
     if tag not in tags:
@@ -114,6 +115,7 @@ def main():
     # Flat filelist -> grouped by run, parsed from the LFN's /000/RRR/RRR/ segment
     if not filelist.exists():
         sys.exit(f"ERROR: {filelist} not found")
+    print(f"Reading input files from {filelist}...", flush=True)
     RUN_RE = re.compile(r"/000/(\d{3})/(\d{3})/")
     run_lists = defaultdict(list)
     for line in filelist.read_text().splitlines():
@@ -127,9 +129,14 @@ def main():
         run_lists[run].append(line)
     if not run_lists:
         sys.exit(f"ERROR: no files parsed from {filelist}")
+    parsed_files = sum(len(files) for files in run_lists.values())
+    print(f"Found {parsed_files} input files across {len(run_lists)} runs.",
+          flush=True)
 
+    print(f"Loading CMSSW configuration {dump}...", flush=True)
     process = load_process(str(dump))
     process.GlobalTag.globaltag = gt # now we set the correct globaltag in the dump that was prev. an empty string
+    print(f"CMSSW configuration loaded; GlobalTag set to {gt}.", flush=True)
 
     snapshots = {}
     if tag == "NGT":
@@ -142,8 +149,10 @@ def main():
 
     manifest_rows, job_scripts = [], []
     n_files_total = 0
-    for run, files in sorted(run_lists.items()):
+    sorted_runs = sorted(run_lists.items())
+    for run, files in sorted_runs:
         n_files_total += len(files)
+        jobs_before_run = len(job_scripts)
         eos_run_dir = f"{eos_base}/{tag}/run_{run}"
         os.makedirs(eos_run_dir, exist_ok=True)
         if tag == "NGT":
@@ -163,7 +172,11 @@ def main():
             job_scripts.append(str(jobdir / "job.sh"))
             for s, ep in zip(streams, eos_paths):
                 manifest_rows.append(f"{run}\t{k}\t{s}\t{ep}\t{';'.join(chunk)}")
+        jobs_created = len(job_scripts) - jobs_before_run
+        print(f"Finished run {run}: created {jobs_created} jobs "
+              f"from {len(files)} input files.", flush=True)
 
+    print("Writing manifest and Condor submission files...", flush=True)
     (HERE / f"manifest_{tag}.tsv").write_text(
         "run\tjob\tstream\teos_path\tinputs\n" + "\n".join(manifest_rows) + "\n")
     (HERE / f"jobs_to_run_{tag}.txt").write_text("\n".join(job_scripts) + "\n")
@@ -190,3 +203,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
