@@ -12,6 +12,8 @@ Repository for Task 3.4 of the CMS-NGT-HLT project (**S**peedy **A**lignment & *
 
 4. **CMS Collaboration**, *Physics Performance Assessment of the Run 3 Optimal Calibrations Next Generation Triggers Demonstrator (Addendum)*, CMS Detector Performance Note CMS-DP-2026/119 (6 Aug 2026). [CDS](https://cds.cern.ch/record/2968109)
 
+5. **Glines, C.** et al. *Calibration Profiling & Database solutions for optimal NGT-CMS-HLT Calibrations*, Zenodo (2026). [DOI](https://doi.org/10.5281/zenodo.22255567).
+
 ## Public Presentations
 
 - **Musich, M.** et al. (2025) *Task 3.4: Optimal Calibrations for the CMS High-Level Trigger*. Next Generation Triggers 2nd Technical Workshop, CERN, 21 November 2025. [DOI](https://doi.org/10.17181/gzvw9-t3379).
