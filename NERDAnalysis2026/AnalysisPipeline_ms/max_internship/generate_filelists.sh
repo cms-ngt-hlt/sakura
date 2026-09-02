@@ -1,43 +1,57 @@
 #!/bin/bash
 set -euo pipefail
 
-CSV=oms_runs.csv
-OUTDIR=filelists
+HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+CFG="${HERE}/pipeline.cfg"
 
-# regex to match valid file paths
-DATASET_REGEX='^/EGamma[0-9]+/[^/]+ZElectron-PromptReco-v[0-9]+/RAW-RECO$'
+# shellcheck source=pipeline.cfg
+source "$CFG"
 
-# quick sanity check if we can really read from the csv file
-[[ -f "$CSV" ]] || { echo "can not read $CSV" >&2; exit 1; }
+[[ ${#RUNS[@]} -gt 0 ]] || { echo "RUNS is empty in $CFG" >&2; exit 1; }
+[[ -n "$DATASET_PATTERN" ]] || { echo "DATASET_PATTERN is empty in $CFG" >&2; exit 1; }
+[[ -n "$FILELIST" ]] || { echo "FILELIST is empty in $CFG" >&2; exit 1; }
+command -v dasgoclient >/dev/null || { echo "dasgoclient is not available" >&2; exit 1; }
 
-mkdir -p "$OUTDIR" # create outdir if it doesn't exist
+if [[ "$FILELIST" = /* ]]; then
+  FILELIST_PATH="$FILELIST"
+else
+  FILELIST_PATH="${HERE}/${FILELIST}"
+fi
 
-while read -r run; do
+# Start with an empty output file, then append each run's files to it.
+: > "$FILELIST_PATH"
+
+for run in "${RUNS[@]}"; do
   echo "run ${run}"
 
-  # first, we check which datasets are actually contained in this run
+  # Find the datasets available for this run, then retain the one configured
+  # dataset family.
   all=$(dasgoclient --query="dataset run=${run}")
-
-  # then, we filter down to ZElectron RAW_RECO datasets that match the regex string
-  datasets=$(grep -E "$DATASET_REGEX" <<< "$all" || true)
+  datasets=$(grep -E "$DATASET_PATTERN" <<< "$all" || true)
   echo "Found the following datasets: ${datasets}"
+
   if [[ -z "$datasets" ]]; then
     echo "Warning: no dataset found for this run - skipping"
     continue
   fi
 
-  # finally, we create one file per dataset query
+  # Resolve every matching dataset shard to its files for this run.
   files=$(
     while read -r ds; do
       dasgoclient --query="file dataset=${ds} run=${run}"
     done <<< "$datasets"
   )
 
-    printf '%s\n' "$files" > "${OUTDIR}/run_${run}.txt"
-    echo "  $(wc -l <<< "$datasets") datasets -> $(wc -l <<< "$files") files"
- 
-done < <(tail -n +2 "$CSV" | cut -d, -f1)
- 
+  if [[ -n "$files" ]]; then
+    printf '%s\n' "$files" >> "$FILELIST_PATH"
+    file_count=$(printf '%s\n' "$files" | wc -l | tr -d ' ')
+  else
+    file_count=0
+  fi
+
+  echo "  ${file_count} files"
+done
+
 echo "---"
-echo "Done. Lists in ${OUTDIR}/"
+echo "Done. File list: ${FILELIST_PATH} ($(wc -l < "$FILELIST_PATH" | tr -d ' ') files)"
 

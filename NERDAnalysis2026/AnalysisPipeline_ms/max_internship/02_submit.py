@@ -163,7 +163,12 @@ def main():
             jobdir = jobs_root / f"run_{run}" / f"job_{k}"
             jobdir.mkdir(parents=True)
 
-            process.source.fileNames = chunk
+            xrootd_prefix = "root://cms-xrd-global.cern.ch/"
+            process.source.fileNames = [
+                    xrootd_prefix + filename
+                    for filename in chunk
+            ]
+           # process.source.fileNames = chunk
             (jobdir / "run_cfg.py").write_text(process.dumpPython())
 
             eos_paths = [f"{eos_run_dir}/{tag}_run{run}_job{k}_{s}.root" for s in streams]
