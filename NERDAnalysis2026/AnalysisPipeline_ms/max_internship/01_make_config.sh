@@ -7,8 +7,10 @@ source ./pipeline.cfg
 
 [ -n "${CMSSW_BASE:-}" ] || { echo "ERROR: cmsenv not active (CMSSW_BASE unset)"; exit 1; }
 mkdir -p configs
-# empty input, just like here https://github.com/jprendi/sakura/blob/main/ApprovedPlots/CMS-DP-2026/028/EGamma/HLTJobSubmissions/EGammaFullHLT.sh
-# GT is also left empty - gets later overwriten by 02_submit.py!!!
+# empty input for global tag and input files, as they will get overwritten in 02_submit.py
+
+echo "Generating hlt config file.."
+
 hltGetConfiguration "${HLT_MENU}" \
   --globaltag " " \
   --data \
@@ -21,17 +23,16 @@ hltGetConfiguration "${HLT_MENU}" \
   --input " " \
   > "hltData.py"
 
-cat <<'EOF' >> "hltData.py"
 # customize the output modules
+cat <<'EOF' >> "hltData.py"
 process.hltOutputLocalTestDataRaw.outputCommands = [
    'drop *',
    'keep GlobalObjectMapRecord_hltGtStage2ObjectMap_*_HLTX',
    'keep edmTriggerResults_*_*_HLTX',
    'keep triggerTriggerEvent_*_*_HLTX'
 ]
-# make summary available (needed by 03_check.py's HLT-Report parsing)
+
 process.options.wantSummary = True
 EOF
-module load lxbatch/eossubmit
 edmConfigDump "hltData.py" > "configs/hltDataDump.py" # needed for HTCondor
-echo "Done"
+echo "Done!"
