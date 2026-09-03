@@ -64,7 +64,7 @@ def write_job_sh(path, jobdir, cmssw_src, streams, local_files, eos_xrd, eos_pat
         'voms-proxy-info -all -file "$X509_USER_PROXY" || echo "[ERROR] Proxy is invalid or unreadable!"',
         'echo "=== PROXY DEBUG END ==="',
         'export X509_CERT_DIR=/cvmfs/grid.cern.ch/etc/grid-security/certificates',
-        "cmsRun run_cfg.py",
+        "cmsRun run_cfg.py 2> /dev/null",
         "rc=$?",
         "echo \"--- files in workdir after cmsRun (exit $rc) ---\"",
         "ls -la",
