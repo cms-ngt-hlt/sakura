@@ -14,7 +14,7 @@ cd sakura/NERDAnalysis2026/AnalysisPipeline_ms/max_internship/
 cmsrel CMSSW_16_0_9
 cd CMSSW_16_0_9/src/ && cmsenv && cd ../../
 voms-proxy-init --voms cms -rfc --valid 168:00
-cp /tmp/x509up******* .
+cp /tmp/x509up_u$(id -u) .
 ```
 This will have your environment set up.
 
