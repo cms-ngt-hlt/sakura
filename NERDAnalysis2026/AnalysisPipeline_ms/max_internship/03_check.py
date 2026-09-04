@@ -25,29 +25,49 @@ CRASH_RE = re.compile(r"Fatal Exception|FatalRootError|segmentation|bad_alloc", 
 
 def job_status(jobdir: Path):
     """-> (status, total, passed, errors)"""
-    texts = []
-    for name in ("hlt.stderr", "hlt.stdout"):
-        p = jobdir / name
-        if p.exists():
-            texts.append(p.read_text(errors="replace"))
-    if not texts:
+    # ONLY read hlt.stdout now!
+    stdout_path = jobdir / "hlt.stdout"
+
+    if not stdout_path.exists():
         return "PENDING", "-", "-", "-"
+
+    text = stdout_path.read_text(errors="replace")
+
+    # 1. Determine status using your new custom bash script markers!
+    if "JOB_DONE_OK" in text:
+        status = "OK"
+    elif "MISSING expected output" in text:
+        status = "MISSING_OUTPUT"
+    elif "STAGE-OUT FAILED" in text:
+        status = "FAIL"
+    elif re.search(r"after cmsRun \(exit [^0]\)", text):
+        # Grabs cases where cmsRun crashed (e.g. exit 1, exit 134, etc.)
+        status = "CRASHED"
+    elif CRASH_RE.search(text):
+        # Fallback for segmentation faults, bad_alloc, etc.
+        status = "CRASHED"
+    else:
+        # File exists, but didn't reach the end markers (possibly hit time limit / condor eviction)
+        status = "NO_SUMMARY"
+
+    # 2. Try to find the Event summary counts (Total / Passed / Errors)
+    # If you silenced cmsRun, these might just become "-", which is totally fine.
+    total, passed, errors = "-", "-", "-"
     m = None
-    for t in texts:
-        for m in SUMMARY_RE.finditer(t):
-            pass                      # keep last match
-        if m:
-            break
-    if m is None:
-        if any(CRASH_RE.search(t) for t in texts):
-            return "CRASHED", "-", "-", "-"
-        return "NO_SUMMARY", "-", "-", "-"
-    total, passed, errors = (int(g) for g in m.groups())
-    if errors:
-        return "FAIL", total, passed, errors
-    if total == 0:
-        return "EMPTY", total, passed, errors
-    return "OK", total, passed, errors
+    for m in SUMMARY_RE.finditer(text):
+        pass  # keep last match
+
+    if m:
+        total, passed, errors = (int(g) for g in m.groups())
+
+        # If the job succeeded but processed 0 events, mark as EMPTY
+        if total == 0 and status == "OK":
+            status = "EMPTY"
+        # If the job succeeded but the summary reported errors, flag it
+        if errors > 0 and status == "OK":
+            status = "FAIL"
+
+    return status, total, passed, errors
 
 
 def main():
@@ -89,8 +109,9 @@ def main():
         good = status in ("OK", "EMPTY") and not missing   # EMPTY: see note below
         # With no stdout/stderr there is no evidence of failure: Condor may still
         # be running the job, or the job may not have been submitted yet.
-        if not good and status != "PENDING":
+        if status in ("FAIL", "CRASHED", "NO_SUMMARY", "MISSING_OUTPUT"):
             resubmit.append(str(jobdir / "job.sh"))
+
         counts[status] += 1
         report_rows.append(
             f"| {run} | {job} | {total} | {passed} | {errors} | {status} "
@@ -128,4 +149,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
