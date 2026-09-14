@@ -44,6 +44,15 @@ In case you want to run each step separately
     ```python3 02_submit.py --tag <tag>```
     this should give you: 
     ```condor_<tag>.sub```
+    Each tag has one shared CMSSW config, `Jobs_<tag>/run_cfg.py`, frozen from
+    `configs/hltDataDump.py` during preparation. Each small `job.sh` supplies its
+    input files and (for NGT) run snapshot time through `HLT_JOB_OPTIONS`.
+    `cmsRun` applies these values on the worker; no full configs are generated per job.
+    Workers copy the shared config into their temporary work directory, using the
+    same shared-filesystem access as before. Keep `Jobs_<tag>` unchanged until all
+    jobs and resubmissions finish. Job directories, logs, and `03_check.py` usage
+    are unchanged. Step 2 no longer imports CMSSW; step 1 and workers still require it.
+
     You have to submit these files manually to HTCondor. But before: 
     * run `voms-proxy-init --voms cms --valid 168:00`
     * cp your proxy file in current directory
@@ -80,7 +89,6 @@ In case you want to run each step separately
 
 ## Further Information
 For more details, espeically on the curation of the file list and the software architecture of the plotting scripts, see the [report](docs/report.pdf)
-
 
 
 

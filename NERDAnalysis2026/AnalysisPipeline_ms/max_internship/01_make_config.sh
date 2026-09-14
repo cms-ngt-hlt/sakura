@@ -7,7 +7,7 @@ source ./pipeline.cfg
 
 [ -n "${CMSSW_BASE:-}" ] || { echo "ERROR: cmsenv not active (CMSSW_BASE unset)"; exit 1; }
 mkdir -p configs
-# empty input for global tag and input files, as they will get overwritten in 02_submit.py
+# Placeholder global tag and inputs; the shared job config overrides them at runtime.
 
 echo "Generating hlt config file.."
 

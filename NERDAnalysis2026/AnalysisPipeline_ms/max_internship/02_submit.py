@@ -6,9 +6,10 @@ Usage:
 Then submit manually with the printed condor_submit command.
 """
 import argparse
-import importlib.util
+import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -34,11 +35,20 @@ def cfg_array(cfg, name):
     return [l for l in out.split("\n") if l]
 
 
-def load_process(dump_path):
-    spec = importlib.util.spec_from_file_location("pycfg", dump_path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)          # requires cmsenv (imports FWCore)
-    return mod.process
+def write_shared_config(path, dump_path, globaltag):
+    """Freeze the menu once per tag; apply job-specific values inside cmsRun."""
+    overrides = f'''
+
+# Job parameters are supplied by job.sh on the worker node.
+import json as _job_json
+import os as _job_os
+_job_options = _job_json.loads(_job_os.environ["HLT_JOB_OPTIONS"])
+process.GlobalTag.globaltag = {globaltag!r}
+process.source.fileNames = _job_options["input_files"]
+if _job_options["snapshot_time"] is not None:
+    process.GlobalTag.snapshotTime = _job_options["snapshot_time"]
+'''
+    path.write_text(dump_path.read_text() + overrides)
 
 
 def chunks(lst, n):
@@ -46,7 +56,7 @@ def chunks(lst, n):
         yield i // n, lst[i:i + n]
 
 
-def write_job_sh(path, jobdir, cmssw_src, streams, local_files, eos_xrd, eos_paths, proxy_abs_path):
+def write_job_sh(path, shared_config, job_options, cmssw_src, streams, local_files, eos_xrd, eos_paths, proxy_abs_path):
     """Wrapper run on the worker node. Exit codes:
     1 = cmsRun failed, 2 = expected output missing, 3 = stage-out copy failed."""
     lines = [
@@ -54,7 +64,7 @@ def write_job_sh(path, jobdir, cmssw_src, streams, local_files, eos_xrd, eos_pat
         "set -uo pipefail",   # NOT -e: phases handle their own exit codes
         'cd "${TMPDIR:-/tmp}"',
         "mkdir -p work_$$ && cd work_$$",
-        f'cp "{jobdir}/run_cfg.py" .',
+        f'cp {shlex.quote(str(shared_config))} run_cfg.py || exit 1',
         f'cd "{cmssw_src}" && eval "$(scramv1 runtime -sh)" && cd - >/dev/null',
         f'export X509_USER_PROXY="{proxy_abs_path}"',
 
@@ -64,6 +74,7 @@ def write_job_sh(path, jobdir, cmssw_src, streams, local_files, eos_xrd, eos_pat
         'voms-proxy-info -all -file "$X509_USER_PROXY" || echo "[ERROR] Proxy is invalid or unreadable!"',
         'echo "=== PROXY DEBUG END ==="',
         'export X509_CERT_DIR=/cvmfs/grid.cern.ch/etc/grid-security/certificates',
+        f'export HLT_JOB_OPTIONS={shlex.quote(json.dumps(job_options))}',
         "cmsRun run_cfg.py 2> /dev/null",
         "rc=$?",
         "echo \"--- files in workdir after cmsRun (exit $rc) ---\"",
@@ -103,6 +114,8 @@ def main():
     streams = cfg_array(cfg, "STREAMS")
     local_files = cfg_array(cfg, "LOCAL_FILES")
     n_per_job = int(cfg_scalar(cfg, "N_PER_JOB"))
+    if n_per_job < 1:
+        sys.exit("ERROR: N_PER_JOB must be at least 1")
     flavour = cfg_scalar(cfg, "JOB_FLAVOUR")
     req_mem = cfg_scalar(cfg, "REQUEST_MEMORY_MB")
     proxy = cfg_scalar(cfg, "PROXY")
@@ -111,7 +124,7 @@ def main():
 
     dump = HERE / "configs" / f"hltDataDump.py"
     if not dump.exists():
-        sys.exit(f"ERROR: {dump} not found: run 01_make_configs.sh first")
+        sys.exit(f"ERROR: {dump} not found: run 01_make_config.sh first")
 
     jobs_root = HERE / f"Jobs_{tag}"
     if jobs_root.exists():
@@ -141,11 +154,6 @@ def main():
     print(f"Found {parsed_files} input files across {len(run_lists)} runs.",
           flush=True)
 
-    print(f"Loading CMSSW configuration {dump}...", flush=True)
-    process = load_process(str(dump))
-    process.GlobalTag.globaltag = gt # now we set the correct globaltag in the dump that was prev. an empty string
-    print(f"CMSSW configuration loaded; GlobalTag set to {gt}.", flush=True)
-
     snapshots = {}
     if tag == "NGT":
         oms_csv = HERE / "oms_runs.csv"
@@ -154,6 +162,12 @@ def main():
         for line in oms_csv.read_text().splitlines()[1:]:
             f = line.split(",")
             snapshots[int(f[0])] = f[5].strip()
+
+    jobs_root.mkdir(parents=True)
+    shared_config = jobs_root / "run_cfg.py"
+    write_shared_config(shared_config, dump, gt)
+    print(f"Shared CMSSW configuration: {shared_config} (GlobalTag {gt}).",
+          flush=True)
 
     manifest_rows, job_scripts = [], []
     n_files_total = 0
@@ -166,23 +180,20 @@ def main():
         if tag == "NGT":
             if run not in snapshots:
                 sys.exit(f"ERROR: no snapshot time for run {run} in oms_runs.csv")
-            process.GlobalTag.snapshotTime = snapshots[run]
         for k, chunk in chunks(files, n_per_job):
             jobdir = jobs_root / f"run_{run}" / f"job_{k}"
             jobdir.mkdir(parents=True)
 
             xrootd_prefix = "root://cms-xrd-global.cern.ch/"
-            process.source.fileNames = [
+            job_options = {"input_files": [
                     xrootd_prefix + filename
                     for filename in chunk
-            ]
-           # process.source.fileNames = chunk
-            (jobdir / "run_cfg.py").write_text(process.dumpPython())
+            ], "snapshot_time": snapshots[run] if tag == "NGT" else None}
 
             eos_paths = [f"{eos_run_dir}/{tag}_run{run}_job{k}_{s}.root" for s in streams]
             proxy_abs_path = HERE / proxy
 
-            write_job_sh(jobdir / "job.sh", str(jobdir), cmssw_src,
+            write_job_sh(jobdir / "job.sh", shared_config, job_options, cmssw_src,
                          streams, local_files, eos_xrd, eos_paths, str(proxy_abs_path))
             job_scripts.append(str(jobdir / "job.sh"))
             for s, ep in zip(streams, eos_paths):
