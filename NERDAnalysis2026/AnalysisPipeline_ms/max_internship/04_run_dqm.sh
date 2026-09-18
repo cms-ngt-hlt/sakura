@@ -1,94 +1,81 @@
 #!/bin/bash
-# 04_run_dqm.sh — run the DQM clients over the staged HLT/Prompt/NGT outputs.
-# Meant to be run inside tmux because it takes quite a while
-#   tmux new -d -s dqm 'bash 04_run_dqm.sh 2>&1 | tee dqm_master.log; exec bash'
-#
-# By default processes all TAGS x STREAMS from pipeline.cfg
-# Pass --tag <TAG> and/or --stream <STREAM> to restrict to a single value,
-# e.g. for running one (tag, stream) combo per node in parallel:
-#   bash 04_run_dqm.sh --tag HLT --stream LocalTestDataRaw
-set -uo pipefail
-cd "$(dirname "$0")"
+# Run each script in DQM_CONFIGS for the selected tags and runs.
+set -euo pipefail
+HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+cd "$HERE"
 source ./pipeline.cfg
 
-ARG_TAG=""
-ARG_STREAM=""
-while [[ $# -gt 0 ]]; do
+SELECT_TAG=""
+SELECT_RUN=""
+while (( $# )); do
     case "$1" in
-        --tag) ARG_TAG="$2"; shift 2 ;;
-        --stream) ARG_STREAM="$2"; shift 2 ;;
-        *) echo "ERROR: unknown argument '$1'"; exit 1 ;;
+        --tag|--run)
+            [[ $# -ge 2 ]] || { echo "ERROR: $1 needs a value" >&2; exit 1; }
+            case "$1" in
+                --tag) SELECT_TAG="$2" ;;
+                --run) SELECT_RUN="$2" ;;
+            esac
+            shift 2 ;;
+        -h|--help)
+            echo "Usage: bash 04_run_dqm.sh [--tag NGT] [--run 403863]"
+            exit 0 ;;
+        *) echo "ERROR: unknown argument '$1'" >&2; exit 1 ;;
     esac
 done
 
-if [ -n "$ARG_TAG" ]; then
-    tag_ok=false
-    for t in "${TAGS[@]}"; do [ "$t" = "$ARG_TAG" ] && tag_ok=true; done
-    [ "$tag_ok" = true ] || { echo "ERROR: --tag '$ARG_TAG' not in TAGS=(${TAGS[*]})"; exit 1; }
-    RUN_TAGS=("$ARG_TAG")
-else
-    RUN_TAGS=("${TAGS[@]}")
+[[ -n "${CMSSW_BASE:-}" ]] || { echo "ERROR: run cmsenv first" >&2; exit 1; }
+[[ -n "${EOS_BASE//[[:space:]]/}" && -n "${DQM_DEST_BASE//[[:space:]]/}" ]] || {
+    echo "ERROR: set EOS_BASE and DQM_DEST_BASE in pipeline.cfg" >&2; exit 1;
+}
+[[ ${#TAGS[@]} -eq ${#GTAGS[@]} ]] || { echo "ERROR: TAGS and GTAGS must match" >&2; exit 1; }
+[[ "$DQM_THREADS" =~ ^[1-9][0-9]*$ ]] || { echo "ERROR: DQM_THREADS must be positive" >&2; exit 1; }
+if [[ -n "$SELECT_TAG" ]]; then
+    found=false
+    for TAG in "${TAGS[@]}"; do [[ "$TAG" != "$SELECT_TAG" ]] || found=true; done
+    $found || { echo "ERROR: unknown tag '$SELECT_TAG'" >&2; exit 1; }
+fi
+if [[ -n "$SELECT_RUN" ]]; then
+    found=false
+    for RUN in "${RUNS[@]}"; do [[ "$RUN" != "$SELECT_RUN" ]] || found=true; done
+    $found || { echo "ERROR: unknown run '$SELECT_RUN'" >&2; exit 1; }
 fi
 
-if [ -n "$ARG_STREAM" ]; then
-    stream_ok=false
-    for s in "${STREAMS[@]}"; do [ "$s" = "$ARG_STREAM" ] && stream_ok=true; done
-    [ "$stream_ok" = true ] || { echo "ERROR: --stream '$ARG_STREAM' not in STREAMS=(${STREAMS[*]})"; exit 1; }
-    RUN_STREAMS=("$ARG_STREAM")
-else
-    RUN_STREAMS=("${STREAMS[@]}")
+# Resolve paths before moving into each job's working directory.
+mkdir -p "$DQM_WORK_BASE" "$DQM_DEST_BASE"
+WORK_BASE=$(cd "$DQM_WORK_BASE" && pwd)
+DEST_BASE=$(cd "$DQM_DEST_BASE" && pwd)
+EOS_BASE=$(cd "$EOS_BASE" && pwd)
+if [[ -n "${CMSSW_SRC//[[:space:]]/}" ]]; then
+    CMSSW_SRC=$(cd "$CMSSW_SRC" && pwd)
 fi
+export ERA DQM_THREADS DQM_HARVEST_CONDITIONS CMSSW_SRC
 
-[ -n "${CMSSW_BASE:-}" ] || { echo "ERROR: cmsenv not active (CMSSW_BASE unset)"; exit 1; }
-mkdir -p "$DQM_DEST_BASE"
-mkdir -p upload   # DQMFileSaverOnline writes here and does not create it itself
-
-for TAG in "${RUN_TAGS[@]}"; do
-    echo "===================================================="
-    echo "STARTING TAG: $TAG"
-    echo "===================================================="
-
-    SRC_DIR="${EOS_BASE}/${TAG}"
-    DEST_DIR="${DQM_DEST_BASE}/${TAG}"
-    LOG_DIR="${DQM_DEST_BASE}/DQM_logs/${TAG}"
-    mkdir -p "$DEST_DIR" "$LOG_DIR"
-
-    for STREAM in "${RUN_STREAMS[@]}"; do
-        if [ "$STREAM" = "LocalTestDataRaw" ]; then
-            CFG="${CMSSW_SRC}/${DQM_HLT_CFG}"
-        elif [ "$STREAM" = "DQMTestDataScouting" ]; then
-            CFG="${CMSSW_SRC}/${DQM_SCOUTING_CFG}"
-        else
-            echo "ERROR: no DQM config mapped for stream '$STREAM'"; exit 1
-        fi
-
-        echo "--- Stream: $STREAM  (config: $CFG)"
-
-        RUNS=$(find "$SRC_DIR" -name "${TAG}_run*_job*_${STREAM}.root" \
-                   | sed -n "s/.*run\([0-9]\+\)_job.*/\1/p" | sort -un)
-        echo "    Found runs: $RUNS"
-
-        for RUN in $RUNS; do
-            echo "    --> Processing run $RUN"
-            FILES=$(find "$SRC_DIR" -name "${TAG}_run${RUN}_job*_${STREAM}.root" \
-                        | sort | sed "s|^${SRC_DIR}|${EOS_XRD}/${SRC_DIR}|" | paste -sd, -)
-            LOG_FILE="dqmclient_${TAG}_${STREAM}_run${RUN}.log"
-
-            cmsRun "$CFG" inputFiles="$FILES" >& "$LOG_FILE"
-            echo "    <-- Finished run $RUN (log: $LOG_FILE)"
+for SCRIPT in "${DQM_CONFIGS[@]}"; do
+    NAME=$(basename "$SCRIPT" .sh)
+    [[ "$SCRIPT" = /* ]] || SCRIPT="$HERE/$SCRIPT"
+    [[ -f "$SCRIPT" ]] || { echo "ERROR: missing script $SCRIPT" >&2; exit 1; }
+    for i in "${!TAGS[@]}"; do
+        TAG=${TAGS[$i]}
+        GTAG=${GTAGS[$i]}
+        [[ -z "$SELECT_TAG" || "$TAG" == "$SELECT_TAG" ]] || continue
+        for RUN in "${RUNS[@]}"; do
+            [[ -z "$SELECT_RUN" || "$RUN" == "$SELECT_RUN" ]] || continue
+            LOCALPATH="$EOS_BASE/$TAG/run_$RUN"
+            export TAG GTAG RUN LOCALPATH
+            mkdir -p "$WORK_BASE/$NAME/$TAG/run_$RUN" "$DEST_BASE/$NAME/$TAG"
+            WORK=$(mktemp -d "$WORK_BASE/$NAME/$TAG/run_$RUN/attempt_XXXXXX")
+            echo "Running $NAME / $TAG / $RUN in $WORK"
+            # Keep the exact recipe alongside the generated configs and logs.
+            cp "$SCRIPT" "$WORK/recipe.sh"
+            (cd "$WORK" && bash recipe.sh) || {
+                echo "ERROR: $NAME failed; see $WORK" >&2; exit 1;
+            }
+            [[ -s "$WORK/result.root" ]] || { echo "ERROR: no result.root in $WORK" >&2; exit 1; }
+            OUTPUT="$DEST_BASE/$NAME/$TAG/DQM_${NAME}_R$(printf '%09d' "$RUN").root"
+            TEMP_OUTPUT=$(mktemp "$DEST_BASE/$NAME/$TAG/.publishing_XXXXXX")
+            cp "$WORK/result.root" "$TEMP_OUTPUT"
+            mv -f "$TEMP_OUTPUT" "$OUTPUT"
+            echo "Saved $OUTPUT"
         done
     done
-
-    echo "Moving DQM output for $TAG -> $DEST_DIR/"
-    if [ -d upload ] && [ -n "$(ls -A upload 2>/dev/null)" ]; then
-        mv upload/* "$DEST_DIR/"
-    else
-        echo "    WARNING: upload/ empty or missing for tag $TAG"
-    fi
-    mv "dqmclient_${TAG}_"*.log "$LOG_DIR/" 2>/dev/null || true
-
-    echo "Finished tag: $TAG"
-    echo ""
 done
-
-echo "All done."
