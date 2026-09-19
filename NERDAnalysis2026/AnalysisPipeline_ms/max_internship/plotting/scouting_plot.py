@@ -35,6 +35,7 @@ from dataclasses import dataclass
 import glob
 import os
 import traceback
+import warnings
 
 import numpy as np
 import uproot
@@ -45,6 +46,13 @@ from matplotlib.colors import SymLogNorm, TwoSlopeNorm
 from matplotlib.lines import Line2D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import mplhep as hep
+
+# mplhep >= 1.x emits this for every histplot() call with integer bin
+# contents (also for the ratio panel's reference entry, which is drawn
+# without error bars).  Without scipy the errors are sqrt(N) as before;
+# the message carries no information for us, so silence it once here.
+warnings.filterwarnings(
+    "ignore", message="Integer weights indicate poissonian data")
 
 
 # ----------------------------------------------------------------------
@@ -133,7 +141,10 @@ class HistogramSource:
         """
         if "DQMData" not in file_handle:
             return None
-        dqm_keys = file_handle["DQMData"].keys(cycle=False)
+        # recursive=False: the default recursive listing walks the whole
+        # ~2500-object tree on every file open (~0.1 s per file), and the
+        # run folder is a direct child of DQMData anyway.
+        dqm_keys = file_handle["DQMData"].keys(recursive=False, cycle=False)
         run_folder = next((k for k in dqm_keys if "Run " in k), None)
         if run_folder is None:
             return None
@@ -253,7 +264,7 @@ class ScoutingPlot(ABC):
     def cms_label(self, ax, fontsize):
         """The experiment label; year/lumi/com come from config.yaml (single source of truth for all eight plots)."""
         cl = self.config["cms_label"]
-        hep.cms.label(ax=ax, data=True, label="Private Work (CMS data)",
+        hep.cms.label(ax=ax, data=True, text="Private Work (CMS data)",
                       year=cl["year"], lumi=cl["lumi"], com=cl["com"],
                       fontsize=fontsize)
 
@@ -488,7 +499,11 @@ class ComparisonPlot1D(ScoutingPlot):
         ax_main.legend(handles=[header] + handles,
                        labels=[r"$\bf{HLT\ Scouting}$"] + labels,
                        fontsize=18, loc=loc)
-        ax_ratio.legend(fontsize=14, loc=loc)
+        # the ratio legend only holds the gray band; when the reference
+        # histogram is missing there is nothing to show (and matplotlib
+        # would warn about an empty legend)
+        if ax_ratio.get_legend_handles_labels()[0]:
+            ax_ratio.legend(fontsize=14, loc=loc)
 
         return [FigureOutput(fig=fig,
                              png_name=self.png_name(target),
