@@ -85,6 +85,7 @@ In case you want to run each step separately
 5.  Now you have all the event data that you need, next step is plotting. 
     If you want, you can run `python3 sanitiy_check_event_counter.py` first - this shows you the Z -> ee event counts for the different calibration tags. 
     The different plotting scripts are available in the `plotting` folder. They can be executed like simple python files: `python3 <script.py>`. 
+    To compare *all* 1D histograms of the DQM files at once (instead of the hand-picked ones of the dedicated scripts), use `python3 all_1D_ScoutingDQM.py`; it supports `--include/--exclude` regex filters and `--list`, see [plotting/README_all_1D_ScoutingDQM.md](plotting/README_all_1D_ScoutingDQM.md). 
 
 
 ## Further Information
