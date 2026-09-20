@@ -264,7 +264,7 @@ class ScoutingPlot(ABC):
     def cms_label(self, ax, fontsize):
         """The experiment label; year/lumi/com come from config.yaml (single source of truth for all eight plots)."""
         cl = self.config["cms_label"]
-        hep.cms.label(ax=ax, data=True, text="Private Work (CMS data)",
+        hep.cms.label(ax=ax, data=True, label="Private Work (CMS data)",
                       year=cl["year"], lumi=cl["lumi"], com=cl["com"],
                       fontsize=fontsize)
 
