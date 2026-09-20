@@ -15,11 +15,10 @@ uncertainty band of the reference.
 ## Prerequisites
 
 * Python 3 with `numpy`, `uproot`, `pyyaml`, `matplotlib`, `mplhep`
-  (same as the other plotting scripts; `pip3 install --user mplhep uproot pyyaml`
-  if missing).
+  (same as the other plotting scripts; see the virtual-environment recipe below).
 * Run from the `plotting/` directory (the script imports `scouting_plot.py`
   and reads `config.yaml` from there).
-* Set `DQM_DEST_BASE` in the pipeline's `pipeline.cfg`, for example
+* In default pipeline mode, set `DQM_DEST_BASE` in the pipeline's `pipeline.cfg`, for example
   `DQM_DEST_BASE="DQM_OUTPUT"`. Relative base paths are resolved from the
   directory containing `pipeline.cfg`, not from `plotting/`; absolute paths
   and Bash variable expansion are supported. The config is sourced with Bash,
@@ -35,6 +34,104 @@ uncertainty band of the reference.
   conditions, the reference, colours, the CMS label (year / lumi / √s) and the
   path inside the ROOT file is taken from `config.yaml` exactly as for the
   other scripts; nothing plot-specific has to be edited in the script.
+* With `--local`, `pipeline.cfg` is never read or sourced, and `DQM_DEST_BASE`
+  is not required. Each condition's `path` in `config.yaml` is used relative
+  to the current working directory; absolute paths and `~` paths also work.
+  This flag controls input lookup, so it can also be used on LXPLUS.
+
+## Python environment (LXPLUS or laptop)
+
+For LXPLUS, first connect with `ssh YOUR_CERN_USERNAME@lxplus.cern.ch`.
+Run the following setup on the machine where you will plot. Use a fresh shell
+without `cmsenv` or an LCG environment: plotting uses uproot, not PyROOT, and
+does not require CMSSW. On LXPLUS, `/usr/bin/python3` can be used in place of
+`python3` below to explicitly select the system Python.
+
+Create the environment once (do not copy a laptop environment to LXPLUS):
+
+```bash
+mkdir -p "$HOME/venvs"
+python3 -m venv "$HOME/venvs/scouting-plots"
+source "$HOME/venvs/scouting-plots/bin/activate"
+python -m pip install --upgrade pip
+python -m pip install numpy uproot pyyaml matplotlib mplhep
+```
+
+For every subsequent login or new terminal, activate it again:
+
+```bash
+source "$HOME/venvs/scouting-plots/bin/activate"
+```
+
+Check the environment before running:
+
+```bash
+which python
+python -m pip --version
+python -c "import numpy, uproot, yaml, matplotlib, mplhep; print('Environment ready')"
+```
+
+The Python executable and pip location should both be inside
+`$HOME/venvs/scouting-plots`. If pip defaults to a user installation, check that
+you activated the environment. If pip or packages still come from `/cvmfs/cms-ib/...`,
+the shell is still exposing CMS packages (for example through `PYTHONPATH`).
+Start a clean shell without the CMS setup and create a separate environment
+with `/usr/bin/python3 -m venv "$HOME/venvs/scouting-plots-clean"`, then activate
+that environment and install the packages as above.
+
+The script uses Matplotlib's headless backend; no display or `ssh -X` is needed.
+If an older checkout raises `exp_label() got an unexpected keyword argument 'text'`,
+update the `hep.cms.label(...)` call in `scouting_plot.py` to use
+`label="Private Work (CMS data)"` instead of `text=...` (already fixed here).
+
+## LXPLUS recipe: use pipeline output
+
+After activating the environment, enter the checkout's `plotting/` directory.
+Set `DQM_DEST_BASE` in `../pipeline.cfg` to the actual input location accessible
+on LXPLUS, for example `DQM_DEST_BASE="/eos/.../DQM_OUTPUT"` (replace the example
+path). The expected directories are `scouting/Prompt`, `scouting/HLT` and
+`scouting/NGT` below that base, or directly `Prompt`, `HLT` and `NGT` for older
+outputs without a `scouting/` directory.
+
+```bash
+cd /path/to/max_internship/plotting
+python all_1D_ScoutingDQM.py --limit 5 --jobs 1
+python all_1D_ScoutingDQM.py --jobs 1 --no-png
+```
+
+Keep `--jobs 1` on a shared LXPLUS login node: the default otherwise uses all
+available cores. For larger parallel runs, use batch resources and set `--jobs`
+to the number of allocated cores. Omit `--no-png` to also write PNGs.
+
+## Local recipe: use condition folders directly
+
+Place the DQM ROOT files in these folders (or edit the condition paths in
+`config.yaml` to point to their actual locations):
+
+```text
+plotting/
+  config.yaml
+  Prompt/*.root
+  HLT/*.root
+  NGT/*.root
+```
+
+With the environment activated, run:
+
+```bash
+cd /path/to/max_internship/plotting
+python all_1D_ScoutingDQM.py --local --list
+python all_1D_ScoutingDQM.py --local --limit 5 --jobs 1
+python all_1D_ScoutingDQM.py --local --jobs 2 --no-png
+```
+
+`--local` does not search recursively or add a `scouting/` prefix. For example,
+`path: "Prompt"` means `./Prompt`, and `path: "../DQM_OUTPUT/scouting/Prompt"`
+uses that relative directory. Relative paths remain relative to your working
+directory even when using `--config /somewhere/other.yaml`. A missing or empty
+`pipeline.cfg` is irrelevant; even an explicit `--pipeline-cfg` is ignored.
+Every configured condition directory must exist and should contain its `.root`
+files. PDFs are written to the working directory and PNGs to `output.png_dir`.
 
 ## Basic usage
 
@@ -79,7 +176,8 @@ python3 all_1D_ScoutingDQM.py -h
 | option | meaning |
 |---|---|
 | `--config PATH` | alternative `config.yaml` (default `config.yaml`) |
-| `--pipeline-cfg PATH` | alternative pipeline config (default: `pipeline.cfg` beside the pipeline scripts) |
+| `--local` | bypass `pipeline.cfg`; use condition paths relative to the current working directory (absolute paths also work) |
+| `--pipeline-cfg PATH` | alternative pipeline config (default: `pipeline.cfg` beside the pipeline scripts); ignored with `--local` |
 | `--include REGEX` | only histograms whose `sub/folder/name` matches; repeatable (OR-ed) |
 | `--exclude REGEX` | drop histograms whose `sub/folder/name` matches; repeatable |
 | `--list` | print the selected histograms (after include/exclude) and exit, no plotting |
@@ -127,7 +225,8 @@ Quick smoke test (first 5 histograms of the Tracks folder):
 python3 all_1D_ScoutingDQM.py --include "^Tracks/" --limit 5
 ```
 
-Fastest full survey: everything, one PDF per sub-folder, no PNGs, all cores:
+Full survey on allocated compute resources: everything, one PDF per sub-folder,
+no PNGs, all cores (on an LXPLUS login node, add `--jobs 1`):
 
 ```bash
 python3 all_1D_ScoutingDQM.py --group-by subdir --no-png
