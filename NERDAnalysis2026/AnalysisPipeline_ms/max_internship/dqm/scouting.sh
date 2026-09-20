@@ -52,6 +52,8 @@ cmsDriver.py step3 -s HARVESTING:@standardDQM \
 
 cmsRun harvesting.py > harvesting.log 2>&1
 
+rm -f step2.root
+
 # The harvester writes the histogram file separately from step2's DQMIO.
 OUTPUTS=(DQM*.root)
 (( ${#OUTPUTS[@]} == 1 )) || { echo "ERROR: expected one harvested DQM file" >&2; exit 1; }
