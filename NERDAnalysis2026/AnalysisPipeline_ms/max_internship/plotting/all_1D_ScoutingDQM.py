@@ -42,8 +42,10 @@ import glob
 import multiprocessing
 import os
 import re
+import subprocess
 import time
 import traceback
+from pathlib import Path
 
 import matplotlib
 matplotlib.use("Agg")           # headless; required for --jobs > 1
@@ -72,14 +74,46 @@ _ROOT_SYMBOL_RE = re.compile(
     "#(" + "|".join(sorted(_ROOT_SYMBOLS, key=len, reverse=True)) + ")")
 
 
+def scouting_input_dir(pipeline_cfg):
+    """Read the shell config using the same working directory as the pipeline."""
+    cfg = Path(pipeline_cfg).expanduser().resolve()
+    if not cfg.is_file():
+        raise ValueError(f"Pipeline config not found: {cfg}")
+    result = subprocess.run(
+        ["bash", "-c", 'set -e; source "$1" >&2; printf "%s" "${DQM_DEST_BASE:-}"',
+         "bash", str(cfg)],
+        cwd=cfg.parent, capture_output=True, text=True)
+    if result.returncode:
+        raise ValueError(f"Error reading {cfg}: {result.stderr.strip()}")
+    if not result.stdout.strip():
+        raise ValueError(f"DQM_DEST_BASE is empty or unset in {cfg}")
+    base = Path(result.stdout).expanduser()
+    if not base.is_absolute():
+        base = cfg.parent / base
+    # Prefer separated scouting output; older pipelines wrote tags directly
+    # under DQM_DEST_BASE. Also allows DQM_DEST_BASE to point at scouting itself.
+    scouting = base / "scouting"
+    return scouting if scouting.is_dir() else base
+
+
 class All1DPlot(ComparisonPlot1D):
 
     output_pdf = "Comparison_All1D.pdf"     # rewritten per group in run()
 
     def __init__(self, config_path="config.yaml", include=(), exclude=(),
                  group_by="top", single_pdf=False, yscale="auto",
-                 keep_empty=False, limit=None, jobs=1, save_png=True):
+                 keep_empty=False, limit=None, jobs=1, save_png=True,
+                 pipeline_cfg=Path(__file__).resolve().parents[1] / "pipeline.cfg"):
         super().__init__(config_path=config_path)
+        input_dir = scouting_input_dir(pipeline_cfg)
+        for cond in self.conditions:
+            # Absolute paths in custom plotting configs remain explicit overrides.
+            cond.path = str(input_dir / Path(cond.path).expanduser())
+            if not Path(cond.path).is_dir():
+                raise ValueError(
+                    f"DQM input directory not found for {cond.label}: {cond.path}. "
+                    f"Check DQM_DEST_BASE in {pipeline_cfg} and condition paths "
+                    "in the plotting config.")
         self.include = [re.compile(p) for p in include]
         self.exclude = [re.compile(p) for p in exclude]
         self.group_by = group_by
@@ -405,6 +439,10 @@ def _parse_args():
                     "across the conditions in config.yaml.")
     p.add_argument("--config", default="config.yaml",
                    help="path to config.yaml (default: %(default)s)")
+    p.add_argument("--pipeline-cfg",
+                   default=str(Path(__file__).resolve().parents[1] / "pipeline.cfg"),
+                   help="pipeline.cfg defining DQM_DEST_BASE "
+                        "(default: pipeline.cfg next to the pipeline scripts)")
     p.add_argument("--include", action="append", default=[], metavar="REGEX",
                    help="only histograms whose 'subpath/name' matches "
                         "(repeatable, OR-ed)")
@@ -437,11 +475,15 @@ def _parse_args():
 
 if __name__ == "__main__":
     args = _parse_args()
-    plot = All1DPlot(config_path=args.config, include=args.include,
+    try:
+        plot = All1DPlot(config_path=args.config, include=args.include,
                      exclude=args.exclude, group_by=args.group_by,
                      single_pdf=args.single_pdf, yscale=args.yscale,
                      keep_empty=args.keep_empty, limit=args.limit,
-                     jobs=args.jobs, save_png=not args.no_png)
+                     jobs=args.jobs, save_png=not args.no_png,
+                     pipeline_cfg=args.pipeline_cfg)
+    except ValueError as exc:
+        raise SystemExit(f"ERROR: {exc}") from exc
     if args.list:
         for t in plot.targets():
             print(f"{t['subpath']}/{t['hist_name']}")

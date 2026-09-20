@@ -19,9 +19,19 @@ uncertainty band of the reference.
   if missing).
 * Run from the `plotting/` directory (the script imports `scouting_plot.py`
   and reads `config.yaml` from there).
-* The per-condition directories from `config.yaml` (`Prompt/`, `HLT/`, `NGT/`
-  by default) must exist and contain the DQM `*.root` files
-  (`DQM_V0001_ScoutingDQM_R00XXXXXX.root`). Everything about *which*
+* Set `DQM_DEST_BASE` in the pipeline's `pipeline.cfg`, for example
+  `DQM_DEST_BASE="DQM_OUTPUT"`. Relative base paths are resolved from the
+  directory containing `pipeline.cfg`, not from `plotting/`; absolute paths
+  and Bash variable expansion are supported. The config is sourced with Bash,
+  just as in the pipeline, so use a trusted config file.
+* The per-condition paths from `config.yaml` (`Prompt`, `HLT`, `NGT`
+  by default) are resolved under `$DQM_DEST_BASE/scouting/` when that folder
+  exists, otherwise directly under `$DQM_DEST_BASE/` for older outputs.
+  With the example above, inputs are `DQM_OUTPUT/scouting/Prompt/*.root`,
+  `DQM_OUTPUT/scouting/HLT/*.root`, and `DQM_OUTPUT/scouting/NGT/*.root`.
+  Absolute condition paths remain explicit overrides. Missing directories or
+  an empty `DQM_DEST_BASE` produce an error. These directories must contain
+  the DQM files (`DQM_V0001_ScoutingDQM_R00XXXXXX.root`). Everything about *which*
   conditions, the reference, colours, the CMS label (year / lumi / √s) and the
   path inside the ROOT file is taken from `config.yaml` exactly as for the
   other scripts; nothing plot-specific has to be edited in the script.
@@ -69,6 +79,7 @@ python3 all_1D_ScoutingDQM.py -h
 | option | meaning |
 |---|---|
 | `--config PATH` | alternative `config.yaml` (default `config.yaml`) |
+| `--pipeline-cfg PATH` | alternative pipeline config (default: `pipeline.cfg` beside the pipeline scripts) |
 | `--include REGEX` | only histograms whose `sub/folder/name` matches; repeatable (OR-ed) |
 | `--exclude REGEX` | drop histograms whose `sub/folder/name` matches; repeatable |
 | `--list` | print the selected histograms (after include/exclude) and exit, no plotting |
