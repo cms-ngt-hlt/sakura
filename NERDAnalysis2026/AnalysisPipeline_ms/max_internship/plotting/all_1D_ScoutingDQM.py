@@ -103,17 +103,23 @@ class All1DPlot(ComparisonPlot1D):
     def __init__(self, config_path="config.yaml", include=(), exclude=(),
                  group_by="top", single_pdf=False, yscale="auto",
                  keep_empty=False, limit=None, jobs=1, save_png=True,
-                 pipeline_cfg=Path(__file__).resolve().parents[1] / "pipeline.cfg"):
+                 pipeline_cfg=Path(__file__).resolve().parents[1] / "pipeline.cfg",
+                 local=False):
         super().__init__(config_path=config_path)
-        input_dir = scouting_input_dir(pipeline_cfg)
+        # Local mode must not read or source pipeline.cfg at all.
+        input_dir = Path.cwd() if local else scouting_input_dir(pipeline_cfg)
         for cond in self.conditions:
             # Absolute paths in custom plotting configs remain explicit overrides.
             cond.path = str(input_dir / Path(cond.path).expanduser())
             if not Path(cond.path).is_dir():
+                hint = ("Check condition paths in the plotting config "
+                        "(relative to the current working directory in --local mode)."
+                        if local else
+                        f"Check DQM_DEST_BASE in {pipeline_cfg} and condition paths "
+                        "in the plotting config.")
                 raise ValueError(
                     f"DQM input directory not found for {cond.label}: {cond.path}. "
-                    f"Check DQM_DEST_BASE in {pipeline_cfg} and condition paths "
-                    "in the plotting config.")
+                    + hint)
         self.include = [re.compile(p) for p in include]
         self.exclude = [re.compile(p) for p in exclude]
         self.group_by = group_by
@@ -442,7 +448,11 @@ def _parse_args():
     p.add_argument("--pipeline-cfg",
                    default=str(Path(__file__).resolve().parents[1] / "pipeline.cfg"),
                    help="pipeline.cfg defining DQM_DEST_BASE "
-                        "(default: pipeline.cfg next to the pipeline scripts)")
+                        "(default: pipeline.cfg next to the pipeline scripts; "
+                        "ignored with --local)")
+    p.add_argument("--local", action="store_true",
+                   help="ignore pipeline.cfg and use condition paths from config.yaml "
+                        "relative to the current working directory")
     p.add_argument("--include", action="append", default=[], metavar="REGEX",
                    help="only histograms whose 'subpath/name' matches "
                         "(repeatable, OR-ed)")
@@ -481,7 +491,7 @@ if __name__ == "__main__":
                      single_pdf=args.single_pdf, yscale=args.yscale,
                      keep_empty=args.keep_empty, limit=args.limit,
                      jobs=args.jobs, save_png=not args.no_png,
-                     pipeline_cfg=args.pipeline_cfg)
+                     pipeline_cfg=args.pipeline_cfg, local=args.local)
     except ValueError as exc:
         raise SystemExit(f"ERROR: {exc}") from exc
     if args.list:

@@ -104,6 +104,59 @@ in place. Do not regenerate them while jobs or resubmissions still use them.
 
 ## 3. Check production jobs
 
+The plotting scripts need Python with `numpy`, `uproot`, `pyyaml`, `matplotlib`
+and `mplhep`; they do not need CMSSW or PyROOT. On LXPLUS, connect with
+`ssh YOUR_CERN_USERNAME@lxplus.cern.ch` and use a fresh shell without `cmsenv`
+so that CMS packages do not leak into the plotting environment.
+
+Run this once on the machine where you will plot (LXPLUS or your laptop):
+
+```bash
+mkdir -p "$HOME/venvs"
+python3 -m venv "$HOME/venvs/scouting-plots"
+source "$HOME/venvs/scouting-plots/bin/activate"
+python -m pip install --upgrade pip
+python -m pip install numpy uproot pyyaml matplotlib mplhep
+```
+
+For each new terminal, activate the environment again with
+`source "$HOME/venvs/scouting-plots/bin/activate"`. Both `which python` and
+`python -m pip --version` should point inside that environment.
+
+**On LXPLUS, using pipeline output:** set `DQM_DEST_BASE` in `pipeline.cfg`
+to your DQM output base. With the default plotting config, inputs are
+`$DQM_DEST_BASE/scouting/{Prompt,HLT,NGT}/*.root` (or directly under the base
+when there is no `scouting/` directory). From this pipeline directory:
+
+```bash
+cd plotting
+python all_1D_ScoutingDQM.py --limit 5 --jobs 1
+python all_1D_ScoutingDQM.py --jobs 1 --no-png
+```
+
+Use `--jobs 1` on shared LXPLUS login nodes; the default uses all cores.
+
+**Using local files:** put the ROOT files in `plotting/Prompt/`, `plotting/HLT/`
+and `plotting/NGT/`, or set the condition paths in `plotting/config.yaml` to
+their actual locations. From `plotting/`, run:
+
+```bash
+python all_1D_ScoutingDQM.py --local --limit 5 --jobs 1
+python all_1D_ScoutingDQM.py --local --jobs 2 --no-png
+```
+
+`--local` skips reading or sourcing `pipeline.cfg` entirely. Relative condition
+paths are resolved from the working directory, absolute paths are used directly,
+and `--pipeline-cfg` is ignored. This mode also works on LXPLUS. Omit `--no-png`
+to write PNGs in addition to PDFs.
+
+See the [all-1D plotting guide](plotting/README_all_1D_ScoutingDQM.md) for
+environment troubleshooting, input layouts and the full list of options.
+
+## Further Information
+For more details, espeically on the curation of the file list and the software architecture of the plotting scripts, see the [report](docs/report.pdf)
+>>>>>>> fc458db (Add local input mode and document plotting setup)
+
 Monitor jobs with `condor_q`. Once they have finished, run this for each tag:
 
 ```bash
