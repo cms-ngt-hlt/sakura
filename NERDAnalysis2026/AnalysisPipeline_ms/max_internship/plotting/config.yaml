@@ -56,7 +56,7 @@ cms_label:
 # the plot-specific subfolder:
 #   DQMData/{Run XXXXXX}/<dqm_prefix>/<subpath from the subclass>
 # ---------------------------------------------------------------------
-dqm_prefix: "HLT/Run summary/ScoutingOnline"
+dqm_prefix: "HLT/Run summary/ScoutingOffline"
 
 # ---------------------------------------------------------------------
 # (A, B) pairs for the 2D difference maps: A - B  resp.  (A - B) / B.
