@@ -11,12 +11,43 @@ for f in "${FILES[@]}"; do
     ALL_FILES+="file:${f},"
 done
 ALL_FILES="${ALL_FILES%,}"
+echo "Input source: $LOCALPATH"
+echo "Discovered files: $ALL_FILES"
 printf '%s\n' "${FILES[@]}" > inputs.txt
 
-mkdir -p upload
-cp "$CMSSW_SRC/DQM/Integration/python/clients/hlt_dqm_sourceclient-live_cfg.py" client.py
-cmsRun client.py inputFiles="$ALL_FILES" > dqm.log 2>&1
+cmsDriver.py step2 -s DQM:onlinehlt4vector \
+    --conditions "$GTAG" \
+    --datatier DQMIO \
+    -n -1 \
+    --eventcontent DQMIO \
+    --geometry DB:Extended \
+    --era "$ERA" \
+    --filein "$ALL_FILES" \
+    --fileout file:step2.root \
+    --nThreads "$DQM_THREADS" \
+    --python_filename dqm.py \
+    --no_exec
 
-OUTPUTS=(upload/*.root)
-(( ${#OUTPUTS[@]} == 1 )) || { echo "ERROR: expected one final HLT DQM file in upload/" >&2; exit 1; }
+cmsRun dqm.py > dqm.log 2>&1
+
+cmsDriver.py step3 -s HARVESTING:@standardDQM \
+    --conditions 160X_dataRun3_HLT_v1 \
+    --data \
+    --geometry DB:Extended \
+    --scenario pp \
+    --filetype DQM \
+    --era "$ERA" \
+    -n -1 \
+    --filein file:step2.root \
+    --fileout file:step3.root \
+    --python_filename harvesting.py \
+    --no_exec
+
+cmsRun harvesting.py > harvesting.log 2>&1
+
+rm -f step2.root
+
+# The harvester writes the histogram file separately from step2's DQMIO.
+OUTPUTS=(DQM*.root)
+(( ${#OUTPUTS[@]} == 1 )) || { echo "ERROR: expected one harvested DQM file" >&2; exit 1; }
 cp "${OUTPUTS[0]}" result.root
