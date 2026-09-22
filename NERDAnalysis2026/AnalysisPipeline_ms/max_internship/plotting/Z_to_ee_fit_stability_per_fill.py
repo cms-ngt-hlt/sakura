@@ -9,6 +9,8 @@ For every fill found in the HLT / NGT / Prompt folders (by grouping runs):
   3. Saves a sanity-check plot for the aggregated fill.
   4. Collects the fitted μ and σ/μ per fill and plots them vs integrated
      luminosity, centering the points at the midpoint of each fill's lumi range.
+     Zero is the start of the first available input run; the range ends at
+     the last available input run, retaining CSV luminosity between them.
 
 Usage
 -----
@@ -303,16 +305,42 @@ class PerFillFitAnalyzer:
         self.sanity_dir = os.path.join(output_dir, "fit_sanity_checks_per_fill")
         os.makedirs(self.sanity_dir, exist_ok=True)
 
-        # Group runs by fill
+        # Use one common luminosity origin for all sources, based on input
+        # runs with luminosity metadata. Reuse this inventory for fitting.
+        self.source_files = {}
+        for label, info in self.SOURCES.items():
+            folder = Path(self.base_path) / info['folder']
+            if not folder.is_dir():
+                print(f"Warning: {folder} not found, skipping {label}.")
+                continue
+            self.source_files[label] = {
+                extract_run_number(path.name): str(path)
+                for path in sorted(folder.glob('*.root'))
+                if path.is_file() and extract_run_number(path.name) is not None
+            }
+        available_runs = sorted({
+            run for files in self.source_files.values() for run in files
+            if run in self.run_lumi and run in self.run_fill
+        })
+        # Keep luminosity from intervening runs even if their DQM files are
+        # missing, but exclude everything before/after the available data.
+        self.all_runs = (
+            sorted(run for run in self.run_lumi
+                   if available_runs[0] <= run <= available_runs[-1])
+            if available_runs else []
+        )
+
+        # Group only runs in the selected luminosity range by fill. This also
+        # clips a partially available first/last fill at the selected runs.
         self.fill_to_runs = {}
-        for run, fill in self.run_fill.items():
+        for run in self.all_runs:
+            fill = self.run_fill[run]
             if fill not in self.fill_to_runs:
                 self.fill_to_runs[fill] = []
             self.fill_to_runs[fill].append(run)
 
         # Calculate lumi ranges for fills
         # We need a consistent run order to define "start" and "end" of each fill in cumulative lumi
-        self.all_runs = sorted(self.run_lumi.keys())
         self.run_to_cum_end = {}
         curr = 0.0
         for r in self.all_runs:
@@ -365,17 +393,7 @@ class PerFillFitAnalyzer:
     def _run_all_fits(self):
         ROOT.gROOT.SetBatch(True)
 
-        for label, info in self.SOURCES.items():
-            folder = os.path.join(self.base_path, info['folder'])
-            if not os.path.exists(folder):
-                print(f"Warning: {folder} not found, skipping {label}.")
-                continue
-
-            files = sorted(
-                f for f in os.listdir(folder)
-                if f.endswith('.root') and not f.endswith('.origin')
-            )
-            run_to_file = {extract_run_number(f): f for f in files}
+        for label, run_to_file in self.source_files.items():
             
             print(f"\n=== Fitting {label} per fill ===")
 
@@ -385,7 +403,7 @@ class PerFillFitAnalyzer:
                 
                 for run_num in runs_in_fill:
                     if run_num in run_to_file:
-                        fpath = os.path.join(folder, run_to_file[run_num])
+                        fpath = run_to_file[run_num]
                         h = self._open_histogram(fpath, run_num)
                         if h:
                             if h_sum is None:
@@ -421,7 +439,7 @@ class PerFillFitAnalyzer:
             2, 1, figsize=(10, 12), sharex=True,
             gridspec_kw={'height_ratios': [3, 2], 'hspace': 0.05}
         )
-        hep.cms.label(ax=ax_top, data=True, text="Preliminary",
+        hep.cms.label(ax=ax_top, data=True, label="Preliminary",
                       year=2025, lumi=2.09, com=13.6, fontsize=22)
 
         for label, info in self.SOURCES.items():

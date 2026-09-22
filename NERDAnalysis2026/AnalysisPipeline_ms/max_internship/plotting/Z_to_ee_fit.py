@@ -137,7 +137,7 @@ def get_fit_results(base_path, folder_name, label, output_dir="."):
         sharex=True,
         gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.05}
     )
-    hep.cms.label(ax=ax_s, data=True, text="Sanity Check", year=2025, label=label)
+    hep.cms.label(ax=ax_s, data=True, label=f"Sanity Check | {label}", year=2025)
     
     # Plot data
     hep.histplot(combined_hist, ax=ax_s, label=f"{label} Data", color='black', histtype='errorbar', marker='o')
@@ -281,7 +281,7 @@ def main():
     )
 
     # --- Top Plot: Distributions ---
-    hep.cms.label(ax=ax_main, data=True, text="Preliminary", year=2025, lumi=2.09, com=13.6, fontsize=22)
+    hep.cms.label(ax=ax_main, data=True, label="Preliminary", year=2025, lumi=2.09, com=13.6, fontsize=22)
 
     prompt_counts = global_histos.get('Prompt')
 
