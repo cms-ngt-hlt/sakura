@@ -1,3 +1,13 @@
+"""Fit Z-to-ee HLT DQM histograms from DQM_DEST_BASE in pipeline.cfg.
+
+Use --pipeline-cfg for another config, or --local for HLT/NGT/Prompt
+folders in the current directory. Plots are saved in the current directory.
+"""
+
+import argparse
+from pathlib import Path
+import subprocess
+
 import ROOT
 import os
 import re
@@ -8,6 +18,56 @@ import uproot
 
 # Set CMS style
 plt.style.use(hep.style.CMS)
+
+def dqm_input_dir(pipeline_cfg, recipe):
+    """Read the shell config using the same working directory as the pipeline."""
+    cfg = Path(pipeline_cfg).expanduser().resolve()
+    if not cfg.is_file():
+        raise ValueError(f"Pipeline config not found: {cfg}")
+    result = subprocess.run(
+        ["bash", "-c", 'set -e; source "$1" >&2; printf "%s" "${DQM_DEST_BASE:-}"',
+         "bash", str(cfg)],
+        cwd=cfg.parent, capture_output=True, text=True)
+    if result.returncode:
+        raise ValueError(f"Error reading {cfg}: {result.stderr.strip()}")
+    if not result.stdout.strip():
+        raise ValueError(f"DQM_DEST_BASE is empty or unset in {cfg}")
+    base = Path(result.stdout).expanduser()
+    if not base.is_absolute():
+        base = cfg.parent / base
+    # Prefer recipe-specific output; older pipelines wrote tags directly
+    # under DQM_DEST_BASE. Also accepts a base pointing at the recipe itself.
+    # On case-insensitive filesystems, the HLT tag also matches "hlt".
+    if recipe == "hlt" and all(
+            (base / tag).is_dir() for tag in ("HLT", "NGT", "Prompt")):
+        return base
+    recipe_dir = base / recipe
+    return recipe_dir if recipe_dir.is_dir() else base
+
+
+def add_dqm_arguments(parser):
+    parser.add_argument(
+        "--pipeline-cfg",
+        default=str(Path(__file__).resolve().parents[1] / "pipeline.cfg"),
+        help="pipeline.cfg defining DQM_DEST_BASE (ignored with --local)")
+    parser.add_argument(
+        "--local", action="store_true",
+        help="ignore pipeline.cfg and read HLT/NGT/Prompt under the current directory")
+
+
+def hlt_input_dir(args, parser):
+    try:
+        base = Path.cwd() if args.local else dqm_input_dir(args.pipeline_cfg, "hlt")
+        for tag in ("HLT", "NGT", "Prompt"):
+            if not (base / tag).is_dir():
+                raise ValueError(
+                    f"DQM input directory not found: {base / tag}. "
+                    "Check DQM_DEST_BASE in pipeline.cfg (or the current directory "
+                    "with --local).")
+        return base
+    except ValueError as exc:
+        parser.error(str(exc))
+
 
 def extract_run_number(filename):
     match = re.search(r'_R(\d+)\.root', filename)
@@ -30,7 +90,7 @@ def dcb_func(x, p):
         B = nH / aH - aH
         return p[2] * A * (B + t)**(-nH) + bkg
 
-def get_fit_results(base_path, folder_name, label):
+def get_fit_results(base_path, folder_name, label, output_dir="."):
     folder_path = os.path.join(base_path, folder_name)
     files = [f for f in os.listdir(folder_path) if f.endswith(".root")]
     combined_hist = None
@@ -70,7 +130,7 @@ def get_fit_results(base_path, folder_name, label):
     combined_hist.Fit(fit_func, "SRLIMQ", "", fit_min, fit_max)
     
     # --- Sanity Check Plot ---
-    os.makedirs(os.path.join(base_path, "fit_sanity_checks"), exist_ok=True)
+    os.makedirs(os.path.join(output_dir, "fit_sanity_checks"), exist_ok=True)
     fig_s, (ax_s, ax_p) = plt.subplots(
         2, 1, 
         figsize=(10, 10), 
@@ -166,7 +226,7 @@ def get_fit_results(base_path, folder_name, label):
     ax_s.legend(loc='upper right')
     ax_s.set_xlim(fit_min, fit_max)
     
-    sanity_path = os.path.join(base_path, "fit_sanity_checks", f"{label}_Fit_Sanity.png")
+    sanity_path = os.path.join(output_dir, "fit_sanity_checks", f"{label}_Fit_Sanity.png")
     fig_s.savefig(sanity_path, bbox_inches='tight')
     plt.close(fig_s)
     
@@ -176,8 +236,11 @@ def get_fit_results(base_path, folder_name, label):
     return mean, mean_err, res, res_err, chi2/ndf
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    add_dqm_arguments(parser)
+    args = parser.parse_args()
+    base_dir = hlt_input_dir(args, parser)
     ROOT.gROOT.SetBatch(True)
-    base_dir = os.path.dirname(os.path.abspath(__file__))
     
     sources = {
         'HLT':    {'folder': 'HLT',    'color': '#5790fc', 'marker': 'o'},

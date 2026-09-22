@@ -1,5 +1,5 @@
 """
-zee_stability_per_fill.py
+Z_to_ee_fit_stability_per_fill.py
 
 Per-fill DSCB fit stability analyser.
 
@@ -12,8 +12,17 @@ For every fill found in the HLT / NGT / Prompt folders (by grouping runs):
 
 Usage
 -----
-  python zee_stability_per_fill.py
+  python Z_to_ee_fit_stability_per_fill.py --lumi-csv lumi_data.csv
+
+DQM inputs come from DQM_DEST_BASE/hlt in pipeline.cfg, with a fallback
+for older flat layouts. Use --pipeline-cfg for another config, or --local
+for HLT/NGT/Prompt folders in the current directory. Plots are saved in
+the current directory.
 """
+
+import argparse
+from pathlib import Path
+import subprocess
 
 import ROOT
 import os
@@ -27,6 +36,56 @@ plt.style.use(hep.style.CMS)
 # ─────────────────────────────────────────────────────────────────────────────
 # DCB + exponential background
 # ─────────────────────────────────────────────────────────────────────────────
+
+def dqm_input_dir(pipeline_cfg, recipe):
+    """Read the shell config using the same working directory as the pipeline."""
+    cfg = Path(pipeline_cfg).expanduser().resolve()
+    if not cfg.is_file():
+        raise ValueError(f"Pipeline config not found: {cfg}")
+    result = subprocess.run(
+        ["bash", "-c", 'set -e; source "$1" >&2; printf "%s" "${DQM_DEST_BASE:-}"',
+         "bash", str(cfg)],
+        cwd=cfg.parent, capture_output=True, text=True)
+    if result.returncode:
+        raise ValueError(f"Error reading {cfg}: {result.stderr.strip()}")
+    if not result.stdout.strip():
+        raise ValueError(f"DQM_DEST_BASE is empty or unset in {cfg}")
+    base = Path(result.stdout).expanduser()
+    if not base.is_absolute():
+        base = cfg.parent / base
+    # Prefer recipe-specific output; older pipelines wrote tags directly
+    # under DQM_DEST_BASE. Also accepts a base pointing at the recipe itself.
+    # On case-insensitive filesystems, the HLT tag also matches "hlt".
+    if recipe == "hlt" and all(
+            (base / tag).is_dir() for tag in ("HLT", "NGT", "Prompt")):
+        return base
+    recipe_dir = base / recipe
+    return recipe_dir if recipe_dir.is_dir() else base
+
+
+def add_dqm_arguments(parser):
+    parser.add_argument(
+        "--pipeline-cfg",
+        default=str(Path(__file__).resolve().parents[1] / "pipeline.cfg"),
+        help="pipeline.cfg defining DQM_DEST_BASE (ignored with --local)")
+    parser.add_argument(
+        "--local", action="store_true",
+        help="ignore pipeline.cfg and read HLT/NGT/Prompt under the current directory")
+
+
+def hlt_input_dir(args, parser):
+    try:
+        base = Path.cwd() if args.local else dqm_input_dir(args.pipeline_cfg, "hlt")
+        for tag in ("HLT", "NGT", "Prompt"):
+            if not (base / tag).is_dir():
+                raise ValueError(
+                    f"DQM input directory not found: {base / tag}. "
+                    "Check DQM_DEST_BASE in pipeline.cfg (or the current directory "
+                    "with --local).")
+        return base
+    except ValueError as exc:
+        parser.error(str(exc))
+
 
 def dcb_func(x, p):
     xx = x[0]
@@ -237,10 +296,11 @@ class PerFillFitAnalyzer:
         'Prompt': {'folder': 'Prompt', 'color': 'black',   'marker': 'v'},
     }
 
-    def __init__(self, base_path, lumi_csv):
+    def __init__(self, base_path, lumi_csv, output_dir="."):
         self.base_path  = base_path
+        self.output_dir = output_dir
         self.run_fill, self.run_lumi = load_lumi_info(lumi_csv)
-        self.sanity_dir = os.path.join(base_path, "fit_sanity_checks_per_fill")
+        self.sanity_dir = os.path.join(output_dir, "fit_sanity_checks_per_fill")
         os.makedirs(self.sanity_dir, exist_ok=True)
 
         # Group runs by fill
@@ -417,7 +477,7 @@ class PerFillFitAnalyzer:
             max_x = max(f['end'] for f in self.fill_info.values())
             ax_bot.set_xlim(0, max_x * 1.05) # 5% padding
 
-        out = os.path.join(self.base_path, output_file)
+        out = os.path.join(self.output_dir, output_file)
         plt.savefig(out, bbox_inches='tight')
         plt.close()
         print(f"\nSaved → {out}")
@@ -435,10 +495,20 @@ class PerFillFitAnalyzer:
                           f"{mu:7.3f}±{mu_e:.3f}  {res:6.3f}±{res_e:.3f}  {c2:8.2f}")
 
 
-if __name__ == "__main__":
-    BASE_DIR = "."
-    LUMI_CSV = "lumi_data.csv"
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    add_dqm_arguments(parser)
+    parser.add_argument("--lumi-csv", default="lumi_data.csv",
+                        help="brilcalc CSV (default: %(default)s, relative to the current directory)")
+    args = parser.parse_args()
+    base_dir = hlt_input_dir(args, parser)
+    if not os.path.isfile(args.lumi_csv):
+        parser.error(f"Luminosity CSV not found: {args.lumi_csv}. Set --lumi-csv.")
 
-    analyzer = PerFillFitAnalyzer(BASE_DIR, LUMI_CSV)
+    analyzer = PerFillFitAnalyzer(base_dir, args.lumi_csv)
     analyzer.summary_table()
     analyzer.plot_stability_vs_lumi()
+
+
+if __name__ == "__main__":
+    main()
