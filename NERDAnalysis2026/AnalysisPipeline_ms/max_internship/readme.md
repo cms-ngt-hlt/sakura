@@ -1,96 +1,195 @@
 # NGT offline Evaluation Pipeline
 
-This pipeline can be used to evaluate the performance of the NGT demonstrator.
+This pipeline evaluates the performance of the NGT demonstrator: produce HLT
+outputs for each calibration tag, check the batch jobs, run DQM, and compare the
+harvested scouting histograms.
 
 ![Schematic overview of the evaluation pipeline](docs/NGT_eval_pipeline.svg "NGT Evaluation Pipeline")
 
+## Getting started
 
-## Running the pipeline
-### Getting stared
-Make sure you have a compatible CMSSW version. We are using **CMSSW_16_0_9**:
+Run the production and DQM steps in a CMS environment with CMSSW, access to the
+mounted EOS filesystem, and HTCondor for production jobs. The release used here
+is **CMSSW_16_0_9**:
+
 ```bash
 git clone git@github.com:cms-ngt-hlt/sakura.git
 cd sakura/NERDAnalysis2026/AnalysisPipeline_ms/max_internship/
 cmsrel CMSSW_16_0_9
-cd CMSSW_16_0_9/src/ && cmsenv && cd ../../
+cd CMSSW_16_0_9/src/
+cmsenv
+cd ../../
 voms-proxy-init --voms cms -rfc --valid 168:00
-cp /tmp/x509up******* .
+cp "/tmp/x509up_u$(id -u)" .
+module load lxbatch/eossubmit
 ```
-This will have your environment set up.
 
-### Skip step 1 and 2 (less work, same output, higher trust in pipeline needed)
-To skip step 1 and 2 of the recipe below, the preparation and submission-file generation can be run for every tag with:
+Before running, edit [pipeline.cfg](pipeline.cfg). Its checked-in paths and
+dataset pattern are blank placeholders:
+
+| Setting | What to configure |
+| --- | --- |
+| `CMSSW_SRC` | Absolute path to the CMSSW release's `src` directory, accessible to workers. Also used by the HLT DQM recipe to locate its source-client config. |
+| `EOS_BASE` | Mounted EOS output directory for production; DQM reads `<EOS_BASE>/<tag>/run_<run>/`. |
+| `EOS_XRD` | XRootD endpoint for production stage-out, matching your EOS location. |
+| `DATASET_PATTERN` | Dataset regular expression for `generate_filelists.sh`; inspect the generated list before submission. |
+| `FILELIST` | Raw-data input list. Generate it or deliberately reuse an existing list. |
+| `RUNS`, `TAGS`, `GTAGS` | Runs and calibration tags to process; `TAGS` and `GTAGS` are parallel arrays in the same order. |
+| `DQM_DEST_BASE` | Destination for final DQM histograms. |
+| `DQM_CONFIGS` | Enabled recipes; currently both `dqm/scouting.sh` and `dqm/hlt.sh`. Use only `dqm/scouting.sh` if you only need scouting. |
+| `DQM_WORK_BASE`, `DQM_THREADS` | Attempt directories (default `DQM_work`) and scouting processing threads (default 24). |
+
+Keep `PROXY` consistent with the copied proxy filename. Check that the selected
+streams, menu, era, and batch resources suit your production. For NGT,
+`oms_runs.csv` must contain a snapshot time for every input run.
+
+Run the commands below from this pipeline directory unless stated otherwise.
+
+## Preparation and submission
+
+### Combined preparation
+
 ```bash
-bash ./00_run_pipeline.sh
+bash 00_run_pipeline.sh
 ```
-and if you want it to also do the job submission directly for you (having set up the proxy as described above), run:
+
+This regenerates `FILELIST` and `configs/hltDataDump.py` in parallel, then creates
+jobs and submission files for every tag. It **does not submit** them. Review the
+files and submit each tag, for example:
+
 ```bash
-bash ./00_run_pipeline.sh --fulltrust
+condor_submit condor_HLT.sub
+condor_submit condor_Prompt.sub
+condor_submit condor_NGT.sub
 ```
-`00_run_pipeline.sh` runs `generate_filelists.sh` and `01_make_config.sh` in parallel, waits for
-both to finish, and then runs `02_submit.py` for every tag in `pipeline.cfg`.
-Pass `--force` to replace existing `Jobs_<TAG>` directories. 
 
-And then you can follow the subsequent step 3 to 5, described below. 
+To prepare and submit in one invocation, use `bash 00_run_pipeline.sh --fulltrust`
+instead. Both modes require the configuration above; automatic submission also
+requires the proxy and `condor_submit` to be ready beforehand.
 
-### Run every step "by yourself" (more work, same output, less trust in pipeline needed)
-In case you want to run each step separately
+Existing `Jobs_<tag>` directories cause preparation to stop. `--force` deletes
+and regenerates those directories, including local logs, but leaves EOS outputs
+in place. Do not regenerate them while jobs or resubmissions still use them.
 
-0.  Run `cmsenv`.
+### Manual preparation
 
-1.  Run `bash ./01_make_config.sh`. Now you should have a `configs/hltDataDump.py` file.
+1. Activate CMSSW with `cmsenv` and generate the shared menu:
 
-2.  Run the following commands. Remember, you have to run them once for every <tag> (`HLT`, `Prompt`, `NGT`):
-    ```python3 02_submit.py --tag <tag>```
-    this should give you: 
-    ```condor_<tag>.sub```
-    Each tag has one shared CMSSW config, `Jobs_<tag>/run_cfg.py`, frozen from
-    `configs/hltDataDump.py` during preparation. Each small `job.sh` supplies its
-    input files and (for NGT) run snapshot time through `HLT_JOB_OPTIONS`.
-    `cmsRun` applies these values on the worker; no full configs are generated per job.
-    Workers copy the shared config into their temporary work directory, using the
-    same shared-filesystem access as before. Keep `Jobs_<tag>` unchanged until all
-    jobs and resubmissions finish. Job directories, logs, and `03_check.py` usage
-    are unchanged. Step 2 no longer imports CMSSW; step 1 and workers still require it.
+   ```bash
+   bash 01_make_config.sh
+   ```
 
-    You have to submit these files manually to HTCondor. But before: 
-    * run `voms-proxy-init --voms cms --valid 168:00`
-    * cp your proxy file in current directory
-    * run this command: `module load lxbatch/eossubmit`
-    Now run:
-    ```condor_submit condor_<tag>.sub```
-    You can view the status of your jobs with `condor_q`. Let them rest for a few hours until they are all marked as "Done".
+   This writes `configs/hltDataDump.py`.
 
-3.  Usually, not all jobs will finish without crashing right away. This is why the `03_check.py` script exists. Run: 
-    ```python3 03_check.py --tag <tag>```
-    This will give you for each <tag> a:
-    * `check_report_<tag>.md` - this will give you an overview about all the status of all jobs
-    * `resubmit_<tag>.txt` - filelist for all the paths for the jobs that have to be resubmitted
-    * `condor_resubmit_<tag>.sub` - HTCondor submission file for all the jobs that crashed
-    run:
-    ```condor_submit condor_resubmit_<tag>.sub```,
-    wait until the jobs are finished and repeat step 3. until all jobs are OK (or the number of crashes stays at least stable) 
+2. Generate the input list (or check that the existing `FILELIST` is the intended
+   one), then prepare and submit each tag:
 
-4.  Now we run the DQM. Since this takes a while, it is recommended to run it in tmux.
-    For this, you have to run `mtmux` (or equivalently, `systemctl --user start tmux.service`). 
-    Also make sure that you have set up the DQM package in the write way (see e.g. [here](https://github.com/jprendi/diff_Tags#physics-performance-via-dqm-client)). 
-    If no tags or streams (e.g. `DQMTestDataScouting `, or `LocalTestDataRaw`) are specified via the flags, all tags and streams are run. The command looks like this: 
-    ```tmux new -d -s DQM_scouting 'source /cvmfs/cms.cern.ch/cmsset_default.sh && cmsenv && bash 04_run_dqm.sh --stream DQMTestDataScouting 2>&1 | tee dqm_master.log;exec bash'```
-    When the DQM is finished, the output will be in the `$DQM_DEST_BASE` directory specified in the `pipeline.cfg` file. 
-    Two scripts might be useful here to sanity-check the output: 
-    `summarize_logs.py` creates a summary template of all log files, that you can then compare with the `compare.py` script.
-    Then you will see how many events/inputs files wer processed for each tag and if that number varies.
-    Furthermore, it shows you an overview of error messsages that do not occur in every log. This should make it easier to spot anomalies.
+   ```bash
+   bash generate_filelists.sh
+   python3 02_submit.py --tag HLT
+   condor_submit condor_HLT.sub
+   ```
 
-5.  Now you have all the event data that you need, next step is plotting. 
-    If you want, you can run `python3 sanitiy_check_event_counter.py` first - this shows you the Z -> ee event counts for the different calibration tags. 
-    The different plotting scripts are available in the `plotting` folder. They can be executed like simple python files: `python3 <script.py>`. 
+   Repeat the last two commands for `Prompt` and `NGT`. `02_submit.py` groups runs
+   from `FILELIST`; it does not filter an existing list against `RUNS`.
 
+   Each tag has one `Jobs_<tag>/run_cfg.py`, frozen from the generated menu.
+   Per-job scripts supply inputs and the NGT snapshot time through
+   `HLT_JOB_OPTIONS`; workers copy the shared config to their temporary directory.
+   Keep the job directories and shared configuration accessible and unchanged
+   until jobs and resubmissions finish. Preparation with `02_submit.py` does not
+   import CMSSW; menu generation and workers still require it.
 
-## Further Information
-For more details, espeically on the curation of the file list and the software architecture of the plotting scripts, see the [report](docs/report.pdf)
+## 3. Check production jobs
 
+Monitor jobs with `condor_q`. Once they have finished, run this for each tag:
 
+```bash
+python3 03_check.py --tag NGT
+```
 
+It produces `check_report_NGT.md`, `resubmit_NGT.txt`, and
+`condor_resubmit_NGT.sub`. Read the report and, if failures are listed, run:
 
+```bash
+condor_submit condor_resubmit_NGT.sub
+```
 
+Repeat after the resubmitted jobs finish. Reports made while jobs are active are
+provisional. `PENDING` jobs are not automatically resubmitted; check whether they
+are running or still need their original submission. Resolve missing outputs
+before DQM: step 4 discovers files on disk and does not check the production
+manifest for completeness.
+
+## 4. Run DQM
+
+To add a DQM workflow, place its Bash script in the `dqm/` folder and add its
+path to `DQM_CONFIGS` in `pipeline.cfg` (for example, `"dqm/my_dqm.sh"`). Use
+`dqm/scouting.sh` as a reference: the script receives its parameters from the
+wrapper and must leave its final histogram output as `result.root` in its working
+directory. See [DQM script instructions](dqm/README.md) for the available parameters.
+
+With `cmsenv` active, `EOS_BASE` and `DQM_DEST_BASE` configured, and production
+outputs available:
+
+```bash
+# All enabled recipes for one run and calibration tag:
+bash 04_run_dqm.sh --tag NGT --run 403863
+
+# All enabled recipes, tags, and runs:
+bash 04_run_dqm.sh
+```
+
+The checked-in configuration enables **scouting and HLT**, in that order. Both
+require CMSSW. Scouting runs multithreaded `cmsDriver.py` DQM and then harvesting;
+HLT uses the existing source-client config under `CMSSW_SRC`.
+
+Execution is sequential: recipe → tag → run. Choose recipes in `DQM_CONFIGS` in
+`pipeline.cfg`; every listed recipe runs. `--tag` and `--run` select configured entries;
+omitting a filter processes all entries for that loop. The first failure stops
+the wrapper. Each invocation retains its recipe, input list, configs, and logs
+in `DQM_WORK_BASE/<workflow>/<tag>/run_<run>/attempt_*/`.
+
+Final histograms are published as, for example:
+
+```text
+<DQM_DEST_BASE>/scouting/NGT/DQM_scouting_R000403863.root
+<DQM_DEST_BASE>/hlt/NGT/DQM_hlt_R000403863.root
+```
+
+A successful rerun replaces that workflow/tag/run's published file; existing
+results are not skipped. See [DQM instructions](dqm/README.md) for conditions,
+input patterns, troubleshooting, and adding recipes.
+
+## 5. Plot scouting results
+
+Set each `conditions[].path` in [plotting/config.yaml](plotting/config.yaml) to
+the corresponding **scouting** result directory, preferably as an absolute path:
+`<DQM_DEST_BASE>/scouting/Prompt`, `<DQM_DEST_BASE>/scouting/HLT`, and
+`<DQM_DEST_BASE>/scouting/NGT`. These paths are not read from `pipeline.cfg`.
+Review the luminosity, year, and histogram prefix in that YAML as well.
+
+The plotting environment needs `numpy`, `uproot`, `PyYAML`, `matplotlib`, and
+`mplhep`. Run the entry scripts from `plotting/`, because they load `config.yaml`
+from the current working directory:
+
+```bash
+cd plotting
+python3 invariantMass_ScoutingDielectron.py
+```
+
+The other plot entry scripts run the same way; `scouting_plot.py` is the shared
+framework. PDFs are written in the working directory and PNGs under the configured
+`output.png_dir`. Each condition aggregates all `*.root` files in its directory,
+so use matching run coverage across the compared tags.
+
+The optional `sanitiy_check_event_counter.py` still expects `HLT/`, `NGT/`, and
+`Prompt/` directories next to itself. To use it with the new layout, provide
+those directories as links to the scouting result directories (or copy the
+results there). It does not use `plotting/config.yaml` or `DQM_DEST_BASE`.
+
+## Further information
+
+See the [report](docs/report.pdf) for background on file-list curation and the
+plotting architecture. For current DQM commands and output layout, use the
+[DQM README](dqm/README.md).
