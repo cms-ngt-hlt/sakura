@@ -25,6 +25,7 @@ cmsDriver.py step2 -s DQM:onlinehlt4vector \
     --filein "$ALL_FILES" \
     --fileout file:step2.root \
     --nThreads "$DQM_THREADS" \
+    --customise_commands 'process.hltObjectMonitor.processName = cms.string("HLTX")' \
     --python_filename dqm.py \
     --no_exec
 
