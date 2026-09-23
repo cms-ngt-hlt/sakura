@@ -97,7 +97,7 @@ fi
 export ERA DQM_THREADS DQM_HARVEST_CONDITIONS CMSSW_SRC
 if [[ "$MODE" != local ]]; then
     BATCH=$(mktemp -d "$WORK_BASE/batch_XXXXXX")
-    # HTCondor quoted paths cannot contain quotes or newlines.
+    # Submit-file filename values are raw paths, not shell-quoted strings.
     [[ "$BATCH" != *\"* && "$BATCH" != *$'\n'* && "$BATCH" != *\\* ]] || { echo "ERROR: unsupported batch path $BATCH" >&2; exit 1; }
     printf 'job\tworkflow\ttag\trun\toutput\n' > "$BATCH/manifest.tsv"
 fi
@@ -168,10 +168,10 @@ done
 if [[ "$MODE" != local ]]; then
     cat > "$BATCH/condor_dqm.sub" <<EOF
 universe = vanilla
-executable = "$BATCH/job_\$(Process)/job.sh"
-output = "$BATCH/job_\$(Process)/dqm.stdout"
-error = "$BATCH/job_\$(Process)/dqm.stderr"
-log = "$BATCH/job_\$(Process)/dqm.condor.log"
+executable = $BATCH/job_\$(Process)/job.sh
+output = $BATCH/job_\$(Process)/dqm.stdout
+error = $BATCH/job_\$(Process)/dqm.stderr
+log = $BATCH/job_\$(Process)/dqm.condor.log
 should_transfer_files = NO
 request_cpus = $DQM_THREADS
 request_memory = $DQM_REQUEST_MEMORY_MB
