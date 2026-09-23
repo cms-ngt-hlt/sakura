@@ -93,7 +93,7 @@ in place. Do not regenerate them while jobs or resubmissions still use them.
 5.  Now you have all the event data that you need, next step is plotting. 
     If you want, you can run `python3 sanitiy_check_event_counter.py` first - this shows you the Z -> ee event counts for the different calibration tags. 
     The different plotting scripts are available in the `plotting` folder. They can be executed like simple python files: `python3 <script.py>`. 
-    To compare *all* 1D histograms of the DQM files at once (instead of the hand-picked ones of the dedicated scripts), use `python3 all_1D_ScoutingDQM.py`; it supports `--include/--exclude` regex filters and `--list`, see [plotting/README_all_1D_ScoutingDQM.md](plotting/README_all_1D_ScoutingDQM.md). 
+    To compare *all* 1D histograms of the DQM files at once (instead of the hand-picked ones of the dedicated scripts), use `python3 all_1D_ScoutingDQM.py`; it supports `--include/--exclude` regex filters and `--list`, see [plotting/README.md](plotting/README.md). 
 
    Each tag has one `Jobs_<tag>/run_cfg.py`, frozen from the generated menu.
    Per-job scripts supply inputs and the NGT snapshot time through
@@ -150,7 +150,7 @@ paths are resolved from the working directory, absolute paths are used directly,
 and `--pipeline-cfg` is ignored. This mode also works on LXPLUS. Omit `--no-png`
 to write PNGs in addition to PDFs.
 
-See the [all-1D plotting guide](plotting/README_all_1D_ScoutingDQM.md) for
+See the [all-1D plotting guide](plotting/README.md) for
 environment troubleshooting, input layouts and the full list of options.
 
 ## Further Information
