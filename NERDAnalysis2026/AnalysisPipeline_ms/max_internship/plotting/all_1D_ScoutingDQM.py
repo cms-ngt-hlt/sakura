@@ -34,7 +34,7 @@ Histograms that are empty in every condition are skipped by default
 (in a typical file more than half of them are); --keep-empty plots them
 anyway.  Use --list to see what would be plotted without plotting.
 
-Usage: see README_all_1D_ScoutingDQM.md, or `python3 all_1D_ScoutingDQM.py -h`.
+Usage: see README.md in this folder, or `python3 all_1D_ScoutingDQM.py -h`.
 """
 
 import argparse
