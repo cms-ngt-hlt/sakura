@@ -1,4 +1,11 @@
-# `all_1D_ScoutingDQM.py` — compare *all* 1D histograms of the Scouting DQM
+# Plotting scripts
+
+This directory contains the [Scouting DQM comparison plotter](#scouting-dqm-comparison)
+and the [HLT Z-to-ee fit plotters](#hlt-z-to-ee-fit-plotters).
+
+## Scouting DQM comparison
+
+`all_1D_ScoutingDQM.py` compares *all* 1D histograms of the Scouting DQM.
 
 The hand-tuned entry scripts (`variables_ScoutingECALRecHits.py`,
 `invariantMass_ScoutingDielectron.py`, ...) each compare a short, hardcoded
@@ -39,7 +46,7 @@ uncertainty band of the reference.
   to the current working directory; absolute paths and `~` paths also work.
   This flag controls input lookup, so it can also be used on LXPLUS.
 
-## Python environment (LXPLUS or laptop)
+## Python environment for Scouting plots (LXPLUS or laptop)
 
 For LXPLUS, first connect with `ssh YOUR_CERN_USERNAME@lxplus.cern.ch`.
 Run the following setup on the machine where you will plot. Use a fresh shell
@@ -259,3 +266,96 @@ their histograms (hand-tuned ranges and labels, rebinning for the dilepton
 masses). `all_1D_ScoutingDQM.py` is meant for the broad survey: spotting
 *where* the conditions differ across the full DQM content before zooming in
 with a dedicated script.
+
+## HLT Z-to-ee fit plotters
+
+The two `Z_to_ee*.py` scripts compare the **HLT**, **NGT**, and **Prompt**
+conditions using the HLT DQM `di-Electron_Mass` histogram. Both fit a
+double-sided Crystal Ball signal plus an exponential background.
+
+* `Z_to_ee_fit.py` combines the runs for each condition, fits the mass
+  distribution, and writes `Zee_Comparison_Final.png`, with fit sanity checks
+  in `fit_sanity_checks/`.
+* `Z_to_ee_fit_stability_per_fill.py` combines runs within each LHC fill and
+  fits each condition per fill. It plots the fitted peak position and relative
+  resolution (`sigma / mu`) versus cumulative recorded luminosity in
+  `Zee_Stability_Lumi_PerFillFit.png`, writes individual fit checks in
+  `fit_sanity_checks_per_fill/`, and prints a fit summary table.
+
+### Environment and inputs
+
+These scripts require **ROOT with PyROOT** (`import ROOT`), plus `numpy`,
+`matplotlib`, `mplhep`, and `uproot`. Use a Python environment with these
+packages and a compatible ROOT installation; the uproot-only Scouting
+environment above is not sufficient. Check it with:
+
+```bash
+python -c "import ROOT, numpy, matplotlib, mplhep, uproot; print('HLT plotting environment ready')"
+```
+
+By default, both scripts read `DQM_DEST_BASE` from the pipeline's
+`pipeline.cfg` and use the HLT recipe output:
+
+```text
+DQM_DEST_BASE/
+  hlt/
+    HLT/*.root
+    NGT/*.root
+    Prompt/*.root
+```
+
+They also accept older layouts with `HLT/`, `NGT/`, and `Prompt/` directly
+under `DQM_DEST_BASE`, or a base pointing at the recipe directory itself.
+Relative `DQM_DEST_BASE` paths are resolved from the directory containing
+`pipeline.cfg`. All three condition folders must exist and contain the HLT
+DQM inputs. Filenames must end in `_R<run>.root` so the scripts can extract
+the run number. The histogram path is:
+
+```text
+DQMData/Run <run>/HLT/Run summary/ObjectMonitor/MainShifter/di-Electron_Mass
+```
+
+These scripts do not read `config.yaml`; condition names, fit settings, and
+plot labels are defined in the scripts.
+
+### Get the luminosity CSV with brilcalc
+
+For the per-fill stability plot, generate the run-to-fill mapping and recorded
+luminosity on LXPLUS (or a machine with the CERN BRIL CVMFS setup available).
+Run these commands from `max_internship/plotting/` to save the CSV beside the
+plotters:
+
+```bash
+export PATH=$HOME/.local/bin:/cvmfs/cms-bril.cern.ch/brilconda/bin:$PATH
+brilcalc lumi --begin 401623 --end 403937 -u /pb --output-style csv > lumi_data.csv
+```
+
+Adjust the run range when plotting a different dataset, keeping the output
+units as `/pb`. The per-fill script reads the fill and recorded luminosity
+for each run from this CSV. Its cumulative luminosity axis starts at the
+first input run with luminosity metadata and ends at the last, retaining
+luminosity from intervening CSV runs even if their DQM files are absent.
+
+### Run the HLT plots
+
+From the checkout's `plotting/` directory, with the ROOT-enabled environment
+active and `DQM_DEST_BASE` configured:
+
+```bash
+cd /path/to/max_internship/plotting
+python Z_to_ee_fit.py
+python Z_to_ee_fit_stability_per_fill.py --lumi-csv lumi_data.csv
+```
+
+Both scripts accept `--pipeline-cfg /path/to/pipeline.cfg` to select another
+pipeline configuration. To use `HLT/`, `NGT/`, and `Prompt/` folders directly
+under the current directory instead, bypass the pipeline config with `--local`:
+
+```bash
+python Z_to_ee_fit.py --local
+python Z_to_ee_fit_stability_per_fill.py --local --lumi-csv lumi_data.csv
+```
+
+All plots are saved under the current working directory. `--lumi-csv` also
+accepts an absolute path; its default is `lumi_data.csv` in the current
+directory. The combined-run plotter does not require a luminosity CSV.
