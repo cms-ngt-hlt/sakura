@@ -38,6 +38,8 @@ dataset pattern are blank placeholders:
 | `DQM_DEST_BASE` | Destination for final DQM histograms. |
 | `DQM_CONFIGS` | Enabled recipes; currently both `dqm/scouting.sh` and `dqm/hlt.sh`. Use only `dqm/scouting.sh` if you only need scouting. |
 | `DQM_WORK_BASE`, `DQM_THREADS` | Attempt directories (default `DQM_work`) and scouting processing threads (default 24). |
+| `DQM_BACKEND`, `DQM_SUBMIT` | `condor` (one HTCondor job per recipe/tag/run, the default) or `local` (sequential), and whether the generated jobs are submitted right away. |
+| `DQM_JOBS_BASE`, `DQM_JOB_FLAVOUR`, `DQM_REQUEST_CPUS`, `DQM_REQUEST_MEMORY_MB`, `DQM_REQUEST_DISK_KB`, `DQM_KEEP_ROOT` | DQM job directories, per-job Condor resources, and whether intermediate ROOT files are copied back. |
 
 Keep `PROXY` consistent with the copied proxy filename. Check that the selected
 streams, menu, era, and batch resources suit your production. For NGT,
@@ -184,7 +186,7 @@ path to `DQM_CONFIGS` in `pipeline.cfg` (for example, `"dqm/my_dqm.sh"`). Use
 wrapper and must leave its final histogram output as `result.root` in its working
 directory. See [DQM script instructions](dqm/README.md) for the available parameters.
 
-With `cmsenv` active, `EOS_BASE` and `DQM_DEST_BASE` configured, and production
+With `EOS_BASE`, `DQM_DEST_BASE` and `CMSSW_SRC` configured and production
 outputs available:
 
 ```bash
@@ -199,11 +201,38 @@ The checked-in configuration enables **scouting and HLT**, in that order. Both
 require CMSSW. Scouting runs multithreaded `cmsDriver.py` DQM and then harvesting;
 HLT uses the existing source-client config under `CMSSW_SRC`.
 
-Execution is sequential: recipe → tag → run. Choose recipes in `DQM_CONFIGS` in
-`pipeline.cfg`; every listed recipe runs. `--tag` and `--run` select configured entries;
-omitting a filter processes all entries for that loop. The first failure stops
-the wrapper. Each invocation retains its recipe, input list, configs, and logs
-in `DQM_WORK_BASE/<workflow>/<tag>/run_<run>/attempt_*/`.
+Choose recipes in `DQM_CONFIGS` in `pipeline.cfg`; every listed recipe runs.
+`--tag` and `--run` select configured entries; omitting a filter processes all
+entries for that loop.
+
+`DQM_BACKEND` in `pipeline.cfg` decides how the selected recipe/tag/run
+combinations run:
+
+- **`condor` (default):** one HTCondor job per combination, so all of them run
+  in parallel, with the per-job resources from `pipeline.cfg`. The wrapper
+  writes `DQM_JOBS_BASE/<recipe>/<tag>/run_<run>/` with the frozen recipe, the
+  generated `job.sh` and the Condor logs, plus `dqm_jobs_to_run.txt` and
+  `condor_dqm.sub`, and submits them unless `DQM_SUBMIT=false` or
+  `--no-submit` is given. Each job sets up `CMSSW_SRC` itself, reads the mounted
+  `EOS_BASE`, publishes its own histogram file, and copies its work directory
+  back into `artifacts/`. Once `condor_q` is empty, collect the outcome with
+
+  ```bash
+  bash 04_run_dqm.sh --status
+  ```
+
+  which writes `check_report_dqm.md`, `dqm_resubmit.txt` and
+  `condor_dqm_resubmit.sub`; submit the latter to redo the flagged jobs.
+  Regenerating over job directories that already hold output needs `--force`.
+
+- **`local` (or `--local`):** the previous sequential behaviour, recipe → tag →
+  run, stopping at the first failure. It needs `cmsenv` in the calling shell and
+  keeps each attempt in `DQM_WORK_BASE/<recipe>/<tag>/run_<run>/attempt_*/`.
+
+Both backends give the recipes the same environment and publish the same files,
+so the choice only affects where and how many run at once. See the
+[DQM README](dqm/README.md#batch-execution) for the job layout, the exit codes,
+and the full list of statuses.
 
 Final histograms are published as, for example:
 
