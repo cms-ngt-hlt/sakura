@@ -39,12 +39,8 @@ jobs:
         run: pytest tests -q
 
   shellcheck:
-    name: ShellCheck (advisory)
+    name: ShellCheck
     runs-on: ubuntu-latest
-    # The tracked scripts still have a handful of ShellCheck errors, so this
-    # job only reports them. Drop the line below to make it blocking once the
-    # scripts are clean (`shellcheck -S error -e SC2148 $(git ls-files '*.sh')`).
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 

@@ -3,7 +3,7 @@
 tags=("NGT" "HLT" "Prompt")
 gtags=("150X_dataRun3_NGT_v2" "150X_dataRun3_HLT_v1" "150X_dataRun3_Prompt_v3")
 
-for i in ${!tags[@]}; do
+for i in "${!tags[@]}"; do
     tag=${tags[$i]}
     gt=${gtags[$i]}
 
