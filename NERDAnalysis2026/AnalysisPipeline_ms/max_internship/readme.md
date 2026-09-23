@@ -29,7 +29,7 @@ dataset pattern are blank placeholders:
 
 | Setting | What to configure |
 | --- | --- |
-| `CMSSW_SRC` | Absolute path to the CMSSW release's `src` directory, accessible to workers. Also used by the HLT DQM recipe to locate its source-client config. |
+| `CMSSW_SRC` | Absolute path to the CMSSW release's `src` directory, accessible to workers. |
 | `EOS_BASE` | Mounted EOS output directory for production; DQM reads `<EOS_BASE>/<tag>/run_<run>/`. |
 | `EOS_XRD` | XRootD endpoint for production stage-out, matching your EOS location. |
 | `DATASET_PATTERN` | Dataset regular expression for `generate_filelists.sh`; inspect the generated list before submission. |
@@ -37,7 +37,7 @@ dataset pattern are blank placeholders:
 | `RUNS`, `TAGS`, `GTAGS` | Runs and calibration tags to process; `TAGS` and `GTAGS` are parallel arrays in the same order. |
 | `DQM_DEST_BASE` | Destination for final DQM histograms. |
 | `DQM_CONFIGS` | Enabled recipes; currently both `dqm/scouting.sh` and `dqm/hlt.sh`. Use only `dqm/scouting.sh` if you only need scouting. |
-| `DQM_WORK_BASE`, `DQM_THREADS` | Attempt directories (default `DQM_work`) and scouting processing threads (default 24). |
+| `DQM_WORK_BASE`, `DQM_THREADS` | Attempt directories (default `DQM_work`) and DQM processing threads (default 24). |
 
 Keep `PROXY` consistent with the copied proxy filename. Check that the selected
 streams, menu, era, and batch resources suit your production. For NGT,
@@ -197,13 +197,48 @@ bash 04_run_dqm.sh
 
 The checked-in configuration enables **scouting and HLT**, in that order. Both
 require CMSSW. Scouting runs multithreaded `cmsDriver.py` DQM and then harvesting;
-HLT uses the existing source-client config under `CMSSW_SRC`.
+HLT runs `DQM:onlinehlt4vector` and then harvesting.
 
-Execution is sequential: recipe → tag → run. Choose recipes in `DQM_CONFIGS` in
+Local execution is sequential: recipe → tag → run. Choose recipes in `DQM_CONFIGS` in
 `pipeline.cfg`; every listed recipe runs. `--tag` and `--run` select configured entries;
 omitting a filter processes all entries for that loop. The first failure stops
 the wrapper. Each invocation retains its recipe, input list, configs, and logs
 in `DQM_WORK_BASE/<workflow>/<tag>/run_<run>/attempt_*/`.
+
+### Submit DQM to HTCondor
+
+```bash
+# Prepare one job per workflow × tag × run, without submitting:
+bash 04_run_dqm.sh --prepare
+# Or prepare and submit in one command:
+bash 04_run_dqm.sh --submit
+# Submit just one combination (also useful for retries):
+bash 04_run_dqm.sh --submit --workflow scouting --tag NGT --run 403863
+```
+
+The default configuration creates **13 × 3 × 2 = 78 jobs**. Adding recipes to
+`DQM_CONFIGS` automatically adds jobs. All three filters also work locally.
+`--prepare` prints the `condor_submit` command for its generated submission file.
+Each invocation creates a fresh `DQM_WORK_BASE/batch_*/` with a manifest and
+`job_<index>/` directories containing frozen recipes and job scripts with their settings and output
+publication commands. Later config/recipe edits do not change those jobs. Workers initialize
+CMSSW using `scramv1 runtime -sh` in `CMSSW_SRC` (or the active release's `src`
+when that setting is blank).
+
+Batch execution uses a **shared filesystem**: workers must be able to read the
+CMSSW release and configured `PROXY`, read mounted `EOS_BASE`, and write
+`DQM_WORK_BASE` and `DQM_DEST_BASE`. Keep these paths available until jobs finish;
+this mode does not transfer inputs or ship CMSSW. Prepare on the CERN submission
+host with the same EOS access used for local DQM. Each job requests `DQM_THREADS`
+CPUs, `DQM_REQUEST_MEMORY_MB` MB of memory, and `DQM_JOB_FLAVOUR` runtime. The
+latter two default to the HLT batch settings; adjust them for your DQM workload.
+
+Monitor with `condor_q`; each job retains `dqm.stdout`, `dqm.stderr`,
+`dqm.condor.log` (scheduler events), and recipe logs. Successful publication prints
+`DQM_JOB_DONE_OK`. Failed jobs exit nonzero and retain their working files.
+Use the manifest to identify failed combinations and submit them again with the
+filters above. `03_check.py` checks HLT production only. Avoid overlapping
+submissions for the same combination: successful jobs replace the same output.
 
 Final histograms are published as, for example:
 

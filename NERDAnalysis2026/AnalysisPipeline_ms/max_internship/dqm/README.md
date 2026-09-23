@@ -1,8 +1,10 @@
 # DQM workflows
 
 Run DQM through [`04_run_dqm.sh`](../04_run_dqm.sh) after checking production
-outputs with `03_check.py`. Each recipe is a shell script executed locally in its
-own working directory; step 4 does not submit HTCondor jobs.
+outputs with `03_check.py`. Each recipe is a shell script executed in its own working directory, locally
+by default or in an HTCondor job with `--submit`. Use `--prepare` to generate
+submission files without submitting. See the [batch guide](../readme.md#submit-dqm-to-htcondor)
+for shared-filesystem requirements, resources, logs, and retries.
 
 ## Configure and run
 
@@ -20,10 +22,10 @@ DQM_CONFIGS=("dqm/scouting.sh" "dqm/hlt.sh")
 | `EOS_BASE` | Required mounted input directory; inputs live under `<EOS_BASE>/<tag>/run_<run>`. No XRootD input URLs are used by these recipes. |
 | `DQM_DEST_BASE` | Required destination for published histogram files. |
 | `DQM_WORK_BASE` | Attempt storage; defaults to `DQM_work`. Intermediate ROOT files remain here, so allow sufficient disk space. |
-| `CMSSW_SRC` | Required for HLT: release `src` directory containing `DQM/Integration/python/clients/hlt_dqm_sourceclient-live_cfg.py`. |
-| `DQM_THREADS` | Positive integer, currently 24; controls scouting DQM processing, not harvesting or the HLT client. |
-| `ERA` | Currently `Run3_2026`; used for scouting processing and harvesting. |
-| `TAGS`, `GTAGS` | Matching arrays; scouting processing uses the global tag at the selected tag's index. |
+| `CMSSW_SRC` | CMSSW release `src` directory used to initialize batch workers; defaults to the active release when blank in batch mode. |
+| `DQM_THREADS` | Positive integer, currently 24; controls both recipes' DQM processing and the batch CPU request. |
+| `ERA` | Currently `Run3_2026`; used for DQM processing and harvesting. |
+| `TAGS`, `GTAGS` | Matching arrays; DQM processing uses the global tag at the selected tag's index. |
 | `RUNS` | Runs available to the wrapper, including when using `--run`. |
 
 `EOS_BASE`, `DQM_DEST_BASE`, and `CMSSW_SRC` are blank placeholders in the
@@ -41,12 +43,12 @@ bash 04_run_dqm.sh --tag NGT
 bash 04_run_dqm.sh
 ```
 
-Choose recipes only through `DQM_CONFIGS` in `pipeline.cfg`; every listed recipe
-runs. `--tag` and `--run` must match configured entries. Each filter accepts a
+Choose enabled recipes through `DQM_CONFIGS` in `pipeline.cfg`; every listed recipe
+runs unless filtered with `--workflow <basename>`. `--tag` and `--run` must match configured entries. Each filter accepts a
 single value, and omitted filters select all entries in that loop. Use `--help`
 to display usage.
 
-The wrapper runs recipes in `DQM_CONFIGS` order, then tags in `TAGS` order, then
+Locally, the wrapper runs recipes in `DQM_CONFIGS` order, then tags in `TAGS` order, then
 runs in `RUNS` order. It stops at the first failure. All relative paths in its
 configuration are resolved from the pipeline directory. A nonblank `CMSSW_SRC`
 must point to an existing directory even when selecting scouting only.
@@ -58,7 +60,7 @@ Both recipes discover files directly in `EOS_BASE/<tag>/run_<run>`:
 | Recipe | Exact input filename pattern | Processing |
 | --- | --- | --- |
 | `scouting` | `<tag>_run<run>_job*_DQMTestDataScouting.root` | `DQM:hltDqmOnlyScouting`, then `HARVESTING:@standardDQM`. |
-| `hlt` | `<tag>_run<run>_job*_LocalTestDataRaw.root` | Existing HLT source client copied from `CMSSW_SRC`. |
+| `hlt` | `<tag>_run<run>_job*_LocalTestDataRaw.root` | `DQM:onlinehlt4vector`, then `HARVESTING:@standardDQM`. |
 
 They require at least one matching file and reject zero-byte inputs. They do
 not consult `manifest_<tag>.tsv`, verify that every production job is represented,
@@ -79,12 +81,11 @@ Its four customizations are appended to `dqm.py`: use `hltOnlineMetaDataDigis`,
 enable `onlyScouting`, and set the collection and track monitors' beam spots to
 `hltOnlineBeamSpotFromDB`.
 
-**Scouting harvesting is fixed to `160X_dataRun3_HLT_v1` in `scouting.sh`.**
+**Both recipes fix harvesting conditions to `160X_dataRun3_HLT_v1`.**
 `DQM_HARVEST_CONDITIONS` is mentioned in the wrapper's exports, but is not defined
 in the checked-in config or read by either supplied recipe. Setting it does not
-change harvesting conditions. The HLT recipe passes only `inputFiles` to its
-source client; conditions and thread settings come from that client, not from
-`GTAGS` or `DQM_THREADS`.
+change harvesting conditions. Both recipes use `GTAGS` and `DQM_THREADS` for
+the processing step.
 
 ## Outputs and reruns
 
@@ -94,18 +95,21 @@ Each invocation creates a fresh directory:
 <DQM_WORK_BASE>/<recipe>/<tag>/run_<run>/attempt_XXXXXX/
 ```
 
+Batch attempts instead live in `<DQM_WORK_BASE>/batch_*/job_<index>/`, with
+combinations recorded in `manifest.tsv`.
+
 The wrapper prints its location and copies the executed script to `recipe.sh`.
 Artifacts depend on the recipe:
 
 | Recipe | Files retained in the attempt directory |
 | --- | --- |
-| `scouting` | `recipe.sh`, `inputs.txt`, `dqm.py`, `dqm.log`, `step2.root` (DQMIO), `harvesting.py`, `harvesting.log`, the harvested `DQM*.root`, and `result.root`. |
-| `hlt` | `recipe.sh`, `inputs.txt`, `client.py`, `dqm.log`, `upload/*.root`, and `result.root`. |
+| Both | `recipe.sh`, `inputs.txt`, `dqm.py`, `dqm.log`, `harvesting.py`, `harvesting.log`, the harvested `DQM*.root`, and `result.root`. |
 
 Failed attempts retain whatever was created before the failure. `cmsRun` output
-is redirected to the listed logs; `cmsDriver.py` output goes to the terminal.
-Scouting requires exactly one harvested `DQM*.root`; HLT requires exactly one
-`upload/*.root`. The recipe copies that file to `result.root`.
+is redirected to the listed logs; `cmsDriver.py` output goes to the terminal
+(or `dqm.stdout` in batch mode). Both recipes require exactly one harvested
+`DQM*.root`, copy it to `result.root`, and delete intermediate `step2.root`
+after successful harvesting.
 
 After checking that `result.root` is nonempty, the wrapper copies it to a temporary
 file in the destination directory and renames it to the final path:
@@ -124,15 +128,13 @@ all earlier combinations.
 ## Troubleshooting and plotting
 
 - **Environment or path error:** activate `cmsenv`, fill the required paths, and
-  check mounted EOS access. For HLT, verify that the source-client config exists
-  under `CMSSW_SRC`.
+  check mounted EOS access and the configured CMSSW release.
 - **No matching or empty inputs:** check the selected tag/run directory and the
   filename patterns above against production outputs and the step 3 report.
 - **Recipe failure:** inspect `dqm.log`; for scouting harvesting failures also
   inspect `harvesting.log`. If config generation failed, inspect the terminal
   output and any generated config in the attempt directory.
-- **Missing or multiple final outputs:** inspect the harvested `DQM*.root` or HLT
-  `upload/` directory and the corresponding log. `step2.root` is intermediate
+- **Missing or multiple final outputs:** inspect the harvested `DQM*.root` files and the corresponding log. `step2.root` is intermediate
   DQMIO, not the final histogram file for plotting.
 
 Point `conditions[].path` in [`plotting/config.yaml`](../plotting/config.yaml) at
