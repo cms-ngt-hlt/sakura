@@ -35,18 +35,38 @@ def cfg_array(cfg, name):
     return [l for l in out.split("\n") if l]
 
 
-def write_shared_config(path, dump_path, globaltag):
-    """Freeze the menu once per tag; apply job-specific values inside cmsRun."""
+def write_shared_config(path, dump_path, globaltag, snapshot_records=()):
+    """Freeze the menu once per tag; apply job-specific values inside cmsRun.
+
+    The run snapshot time (NGT only) is applied per record when
+    `snapshot_records` (SNAPSHOT_RECORDS in pipeline.cfg) is non-empty:
+    one GlobalTag.toGet entry per record with only `snapshotTime` set, so
+    the GT's own tag for that record is kept and just its IOV snapshot is
+    moved (CondDBESSource keeps the GT tag when the toGet `tag` is empty).
+    All other records keep the GT's snapshot.  With an empty list the
+    snapshot is applied globally (GlobalTag.snapshotTime) as before.
+    """
     overrides = f'''
 
 # Job parameters are supplied by job.sh on the worker node.
 import json as _job_json
 import os as _job_os
+import FWCore.ParameterSet.Config as _job_cms
 _job_options = _job_json.loads(_job_os.environ["HLT_JOB_OPTIONS"])
 process.GlobalTag.globaltag = {globaltag!r}
 process.source.fileNames = _job_options["input_files"]
+_snapshot_records = {list(snapshot_records)!r}
 if _job_options["snapshot_time"] is not None:
-    process.GlobalTag.snapshotTime = _job_options["snapshot_time"]
+    if _snapshot_records:
+        # per-record snapshot: empty 'tag' keeps the GT tag of the record
+        if not hasattr(process.GlobalTag, "toGet"):
+            process.GlobalTag.toGet = _job_cms.VPSet()
+        for _rcd in _snapshot_records:
+            process.GlobalTag.toGet.append(_job_cms.PSet(
+                record=_job_cms.string(_rcd),
+                snapshotTime=_job_cms.string(_job_options["snapshot_time"])))
+    else:
+        process.GlobalTag.snapshotTime = _job_options["snapshot_time"]
 '''
     path.write_text(dump_path.read_text() + overrides)
 
@@ -106,6 +126,8 @@ def main():
         sys.exit(f"ERROR: tag {tag!r} not in TAGS={tags}")
     gtags = cfg_array(cfg, "GTAGS")
     gt = gtags[tags.index(tag)] # looking up the globaltag for the globaltag (sic)
+    # records that get the run snapshot time (NGT); empty -> global snapshot
+    snapshot_records = cfg_array(cfg, "SNAPSHOT_RECORDS")
 
 
     filelist = Path(cfg_scalar(cfg, "FILELIST"))
@@ -165,9 +187,17 @@ def main():
 
     jobs_root.mkdir(parents=True)
     shared_config = jobs_root / "run_cfg.py"
-    write_shared_config(shared_config, dump, gt)
+    write_shared_config(shared_config, dump, gt, snapshot_records)
     print(f"Shared CMSSW configuration: {shared_config} (GlobalTag {gt}).",
           flush=True)
+    if tag == "NGT":
+        if snapshot_records:
+            print(f"Run snapshot time applied per record to: "
+                  f"{', '.join(snapshot_records)} (other records keep the "
+                  f"GT snapshot).", flush=True)
+        else:
+            print("Run snapshot time applied globally (SNAPSHOT_RECORDS "
+                  "is empty).", flush=True)
 
     manifest_rows, job_scripts = [], []
     n_files_total = 0
