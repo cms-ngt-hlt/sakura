@@ -155,7 +155,6 @@ environment troubleshooting, input layouts and the full list of options.
 
 ## Further Information
 For more details, espeically on the curation of the file list and the software architecture of the plotting scripts, see the [report](docs/report.pdf)
->>>>>>> fc458db (Add local input mode and document plotting setup)
 
 Monitor jobs with `condor_q`. Once they have finished, run this for each tag:
 
