@@ -98,6 +98,9 @@ in place. Do not regenerate them while jobs or resubmissions still use them.
    Each tag has one `Jobs_<tag>/run_cfg.py`, frozen from the generated menu.
    Per-job scripts supply inputs and the NGT snapshot time through
    `HLT_JOB_OPTIONS`; workers copy the shared config to their temporary directory.
+   The snapshot time is applied only to the records listed in `SNAPSHOT_RECORDS`
+   in `pipeline.cfg` (per-record `GlobalTag.toGet` entries; the GT's tags are kept),
+   or globally via `GlobalTag.snapshotTime` if that list is empty.
    Keep the job directories and shared configuration accessible and unchanged
    until jobs and resubmissions finish. Preparation with `02_submit.py` does not
    import CMSSW; menu generation and workers still require it.
