@@ -39,7 +39,7 @@ while true; do
     NEWFILES=$(ls -t "$NEWEST_DIR"/*.dat 2>/dev/null)
     for f in $NEWFILES; do
       fname=$(basename "$f")
-      if [[ ! " ${seenfiles[@]} " =~ (^|[[:space:]])"$fname"($|[[:space:]]) && "$fname" == *.dat ]]; then
+      if [[ ! " ${seenfiles[*]} " =~ (^|[[:space:]])"$fname"($|[[:space:]]) && "$fname" == *.dat ]]; then
 
         until is_file_stable "$f"; do
           sleep 1

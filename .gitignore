@@ -37,3 +37,8 @@
 *.root
 *RAW*
 *.DS_Store
+
+# Python / pytest leftovers
+__pycache__/
+*.pyc
+.pytest_cache/

@@ -33,6 +33,6 @@ echo "cmsRun hlt_dqm_sourceclient-live_cfg.py"
 cmsRun hlt_dqm_sourceclient-live_cfg.py inputFiles=$INPUT_FILES
 
 echo "Content of working dir is "`ls -lh upload` 
-for RootOutputFile in $(ls upload/*root ); do xrdcp -f ${RootOutputFile} root://eoscms/${OUT_DIR}/${RootOutputFile} ; done 
+for RootOutputFile in upload/*root; do [ -e "${RootOutputFile}" ] || continue; xrdcp -f "${RootOutputFile}" "root://eoscms/${OUT_DIR}/${RootOutputFile}" ; done
 echo  "Job ended at " `date` 
 exit 0 

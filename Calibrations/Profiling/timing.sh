@@ -37,8 +37,8 @@ if [[ "$ENABLE_GPU_MONITORING" = true ]]; then
 fi
 
 # Benchmark execution
-echo "Starting HLT benchmark for configurations: ${hlt_config_names[@]}"
-echo "With jobs,threads,streams presets: ${jobs_threads_streams_presets[@]}"
+echo "Starting HLT benchmark for configurations: ${hlt_config_names[*]}"
+echo "With jobs,threads,streams presets: ${jobs_threads_streams_presets[*]}"
 echo "GPU Memory Monitoring is: ${ENABLE_GPU_MONITORING}"
 echo "----------------------------------------------------"
 
