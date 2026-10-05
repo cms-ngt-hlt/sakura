@@ -359,3 +359,81 @@ python Z_to_ee_fit_stability_per_fill.py --local --lumi-csv lumi_data.csv
 All plots are saved under the current working directory. `--lumi-csv` also
 accepts an absolute path; its default is `lumi_data.csv` in the current
 directory. The combined-run plotter does not require a luminosity CSV.
+
+## Muon 2D difference maps
+
+Two entry scripts adapt the muon plots from
+`ApprovedPlots/CMS-DP-2026/028/Muon/FinalPlots`:
+
+* `muon_cms_comparison.py`: Scouting tracker-layer profiles versus muon eta/phi,
+  for `MuonNoVtx`, `MuonVtx`, and a pooled `Combined` profile.
+* `eta_phi_diffs.py`: HLT eta/phi occupancy, summed over runs and PDG IDs
+  +13 and -13 for each matching histogram in the selected filter folder.
+
+Both use the same uproot-only Python environment described above (no PyROOT).
+From `plotting/`, with `DQM_DEST_BASE` set in `../pipeline.cfg`, run:
+
+```bash
+python muon_cms_comparison.py --list
+python muon_cms_comparison.py
+python eta_phi_diffs.py --list
+python eta_phi_diffs.py
+```
+
+The Scouting script uses `$DQM_DEST_BASE/scouting/`; the HLT script uses
+`$DQM_DEST_BASE/hlt/`. Both append the condition paths from `config.yaml`,
+usually `Prompt`, `HLT`, and `NGT`. Older layouts with condition folders directly
+under the base are supported. Absolute condition paths override the base;
+make sure they refer to the correct recipe's ROOT files. If necessary, use
+separate configs with `--config scouting.yaml` and `--config hlt.yaml`.
+Relative `DQM_DEST_BASE` paths are resolved relative to `pipeline.cfg`.
+`--pipeline-cfg PATH` selects another trusted shell config.
+
+For the quick path fix in `config.yaml`, bypass the pipeline config entirely:
+
+```bash
+python muon_cms_comparison.py --local
+python eta_phi_diffs.py --local
+```
+
+With `--local`, condition paths are relative to the current working directory;
+absolute and `~` paths also work. Every required condition folder must contain
+`*.root` files directly. The run number is discovered inside each file.
+
+By default the comparisons are **NGT - Prompt** and **NGT - HLT**, matching the
+approved scripts. These scripts do not use the ECAL `diff_pairs` setting.
+Override the comparisons with repeatable `--pair A B`, for example:
+
+```bash
+python muon_cms_comparison.py --pair HLT Prompt --pair NGT Prompt
+```
+
+Scouting reads `Muons/Properties/` under `ScoutingOffline`, falling back to
+`ScoutingOnline` for each missing target. To explicitly select the original
+approved plot location, use `--scouting-prefix ScoutingOnline`. Targets are
+`MuonNoVtx_nTrackerLayersWithMeasurement_vs_eta_phi_prof` and
+`MuonVtx_nTrackerLayersWithMeasurement_vs_eta_phi_prof`.
+These must be `TProfile2D` objects: the script pools bin means with their
+`fBinEntries` sums of weights across runs, and for `Combined` across collections.
+Thus `Combined` differs intentionally from the old script's sum of two means;
+it is not a deduplicated muon sample. Bins with zero total weight in either
+condition are masked in differences. The colourbar describes tracker **layers
+with measurements**, matching the histogram variable.
+
+HLT defaults to
+`FourVectorHLT/hltL3crIsoL1sSingleMu22L1f0L2f10QL3f24QL3trkIsoFiltered`
+relative to `HLT/Run summary`. Use `--target-folder PATH` for another filter.
+It selects TH2 names containing `etaphi` and a PDG ID of +13 or -13, combines
+charges, and plots raw entry differences without luminosity normalization.
+
+Scouting uses a linear colour scale from -4 to +4; HLT uses a symmetric range
+shared by the comparisons of each histogram. `--z-limit 2` overrides either.
+Mismatching bin edges raise an error instead of merging incompatible maps.
+Missing targets are reported; plotting fails if no comparable maps exist.
+
+Outputs are PNGs and one multi-page PDF per script, under
+`output.png_dir` (normally `png/`), shared by both muon plotters.
+Use `--output-dir PATH` to override. Histogram names are included in PNG
+filenames to avoid the old HLT script's overwriting of different histograms.
+CMS year, luminosity, and collision energy come from `config.yaml`; the label
+is `Private Work (CMS data)`.
