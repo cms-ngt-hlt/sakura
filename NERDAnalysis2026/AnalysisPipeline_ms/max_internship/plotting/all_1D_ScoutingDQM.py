@@ -104,7 +104,7 @@ class All1DPlot(ComparisonPlot1D):
                  group_by="top", single_pdf=False, yscale="auto",
                  keep_empty=False, limit=None, jobs=1, save_png=True,
                  pipeline_cfg=Path(__file__).resolve().parents[1] / "pipeline.cfg",
-                 local=False, per_run=False):
+                 local=False, per_run=False, runs=(), exclude_runs=()):
         super().__init__(config_path=config_path)
         # Local mode must not read or source pipeline.cfg at all.
         input_dir = Path.cwd() if local else scouting_input_dir(pipeline_cfg)
@@ -129,7 +129,15 @@ class All1DPlot(ComparisonPlot1D):
         self.limit = limit
         self.jobs = 1 if single_pdf else max(1, jobs)
         self.save_png = save_png
-        self.per_run = per_run
+        # bool preserves the all-runs/default modes; an integer selects one run.
+        self.per_run = per_run is not False
+        self.requested_run = None if isinstance(per_run, bool) else per_run
+        if self.requested_run is not None and self.requested_run <= 0:
+            raise ValueError("--per-run RUN must be a positive run number")
+        self.include_runs = set(runs)
+        self.exclude_runs = set(exclude_runs)
+        if any(run <= 0 for run in self.include_runs | self.exclude_runs):
+            raise ValueError("--runs and --exclude-runs require positive run numbers")
         self.active_run = None
         self._run_files = None
         self._targets = None
@@ -137,13 +145,14 @@ class All1DPlot(ComparisonPlot1D):
 
     # ---- discovery ---------------------------------------------------
 
-    def _dqm_root(self, file_handle):
+    def _dqm_root(self, file_handle, run=None):
         """Directory handle of DQMData/{Run XXXXXX}/{dqm_prefix}, or None
         (same resolution logic as HistogramSource._resolve_dir)."""
         if "DQMData" not in file_handle:
             return None
-        if self.active_run is not None:
-            full_path = (f"DQMData/Run {self.active_run}/"
+        run = self.active_run if run is None else run
+        if run is not None:
+            full_path = (f"DQMData/Run {run}/"
                          f"{self.source.dqm_prefix}")
             return file_handle[full_path] if full_path in file_handle else None
         run_folder = next(
@@ -186,7 +195,26 @@ class All1DPlot(ComparisonPlot1D):
                                 print(f"   [Warning] No matching DQM runs in {fname}")
                     except Exception as exc:
                         print(f"   [Warning] Error indexing {fname}: {exc}")
-        return sorted(self._run_files)
+        available = sorted(self._run_files)
+        requested = self.include_runs.copy()
+        if self.requested_run is not None:
+            requested.add(self.requested_run)
+        missing = requested - set(available)
+        if missing:
+            choices = ", ".join(map(str, available)) or "none"
+            raise ValueError(
+                f"Requested runs not found: {', '.join(map(str, sorted(missing)))}. "
+                f"Available runs: {choices}")
+        selected = set(available)
+        if self.include_runs:
+            selected &= self.include_runs
+        if self.requested_run is not None:
+            selected &= {self.requested_run}
+        selected -= self.exclude_runs
+        if not selected:
+            raise ValueError("No DQM runs remain after run selection "
+                             "(check inputs, dqm_prefix and run filters)")
+        return sorted(selected)
 
     def _select_run(self, run):
         self.active_run = run
@@ -198,15 +226,30 @@ class All1DPlot(ComparisonPlot1D):
         if missing:
             print(f"   [Warning] Run {run}: no files for {', '.join(missing)}")
 
+    def _file_runs(self, cond, representative=False):
+        """Yield file/run pairs, restricting ROOT directories as well as files."""
+        if self.active_run is not None:
+            runs = [self.active_run]
+        elif self.include_runs or self.exclude_runs:
+            runs = self.runs()
+        else:
+            files = self._files(cond)
+            for fname in files[:1] if representative else files:
+                yield fname, None
+            return
+        for run in runs:
+            files = self._run_files[run].get(cond.label, [])
+            for fname in files[:1] if representative else files:
+                yield fname, run
+
     def _first_files(self):
         """One representative *.root file per condition, reference
         first, so the discovered set is the union over all conditions."""
         ordered = [self.reference] + [c for c in self.conditions
                                       if c is not self.reference]
         for cond in ordered:
-            files = self._files(cond)
-            if files:
-                yield cond, files[0]
+            for fname, run in self._file_runs(cond, representative=True):
+                yield cond, fname, run
 
     def _selected(self, full_name):
         if self.include and not any(p.search(full_name) for p in self.include):
@@ -230,10 +273,10 @@ class All1DPlot(ComparisonPlot1D):
             return self._targets
 
         found = {}
-        for cond, fname in self._first_files():
+        for cond, fname, run in self._first_files():
             try:
                 with uproot.open(fname) as f:
-                    root = self._dqm_root(f)
+                    root = self._dqm_root(f, run)
                     if root is None:
                         print(f"   [Warning] DQM path not found in {fname}")
                         continue
@@ -273,10 +316,10 @@ class All1DPlot(ComparisonPlot1D):
         t0 = time.time()
         n_files = 0
         for cond in self.conditions:
-            for fname in self._files(cond):
+            for fname, run in self._file_runs(cond):
                 try:
                     with uproot.open(fname) as f:
-                        root = self._dqm_root(f)
+                        root = self._dqm_root(f, run)
                         if root is None:
                             print(f"   [Warning] DQM path not found in "
                                   f"{fname}; file skipped")
@@ -454,6 +497,8 @@ class All1DPlot(ComparisonPlot1D):
                 self._select_run(run)
                 self._run_selected()
         else:
+            if self.include_runs or self.exclude_runs:
+                print("Summing runs: " + ", ".join(map(str, self.runs())))
             self._run_selected()
 
     def _run_selected(self):
@@ -522,9 +567,17 @@ def _parse_args():
                         "(repeatable)")
     p.add_argument("--list", action="store_true",
                    help="print the selected histograms and exit")
-    p.add_argument("--per-run", action="store_true",
-                   help="compare conditions separately for each DQM run; "
+    p.add_argument("--per-run", nargs="?", const=True, default=False,
+                   type=int, metavar="RUN",
+                   help="compare conditions separately for all DQM runs, "
+                        "or only RUN if supplied; "
                         "include run numbers in PDF and PNG filenames")
+    p.add_argument("--runs", nargs="+", type=int, default=[], metavar="RUN",
+                   help="use only these runs (space-separated); sum them unless "
+                        "--per-run is also set")
+    p.add_argument("--exclude-runs", nargs="+", type=int, default=[], metavar="RUN",
+                   help="omit these runs (space-separated), also with --per-run; "
+                        "exclusions take precedence over --runs")
     p.add_argument("--group-by", choices=["top", "subdir"], default="top",
                    help="one PDF per top-level DQM folder (default) or per "
                         "sub-folder (smaller PDFs, better parallelism)")
@@ -556,8 +609,11 @@ if __name__ == "__main__":
                      keep_empty=args.keep_empty, limit=args.limit,
                      jobs=args.jobs, save_png=not args.no_png,
                      pipeline_cfg=args.pipeline_cfg, local=args.local,
-                     per_run=args.per_run)
+                     per_run=args.per_run, runs=args.runs,
+                     exclude_runs=args.exclude_runs)
         if args.list:
+            if not plot.per_run and (plot.include_runs or plot.exclude_runs):
+                print("Summing runs: " + ", ".join(map(str, plot.runs())))
             runs = plot.runs() if args.per_run else [None]
             if not runs:
                 raise ValueError("No DQM runs found (check inputs and dqm_prefix)")

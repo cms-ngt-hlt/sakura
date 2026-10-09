@@ -182,6 +182,15 @@ To compare Prompt, HLT and NGT **separately for each run**, add `--per-run`:
 python all_1D_ScoutingDQM.py --local --per-run --jobs 1
 ```
 
+Supply a run number to plot only that run (also works with `--list`):
+
+```bash
+python all_1D_ScoutingDQM.py --include "^Dilepton/" --per-run 403894 --jobs 1
+```
+
+If the requested run is unavailable, the script reports an error and lists
+the available runs. Bare `--per-run` continues to process all available runs.
+
 For the public EGamma inputs, set the three condition paths in `config.yaml`
 to `/afs/cern.ch/user/t/tomei/public/forSakura/EGamma/scouting/Prompt`,
 `/afs/cern.ch/user/t/tomei/public/forSakura/EGamma/scouting/HLT`, and
@@ -200,7 +209,29 @@ and omitted from the overlay. If Prompt (or the configured reference) is
 missing, the ratio panel has no ratios. Empty histograms are still skipped
 unless `--keep-empty` is set. The CMS year/luminosity label still comes from
 `config.yaml`; the script does not calculate luminosity per run.
-Without `--per-run`, the existing sum over all runs is unchanged.
+Without `--per-run`, histograms are summed across runs within each condition.
+Use `--runs` or `--exclude-runs` to control which runs enter that sum:
+
+```bash
+# Sum all available runs except 403894
+python all_1D_ScoutingDQM.py --exclude-runs 403894 --jobs 1
+
+# Sum only these three runs
+python all_1D_ScoutingDQM.py --runs 403775 403894 403895 --jobs 1
+
+# Plot those runs separately instead
+python all_1D_ScoutingDQM.py --runs 403775 403894 403895 --per-run --jobs 1
+```
+
+Both filters accept space-separated run numbers and work with `--list` and
+histogram filters such as `--include "^Dilepton/"`. Exclusions take precedence;
+`--per-run RUN` further restricts the selection to that one run. Unknown
+included runs or an empty final selection produce an error. Excluding a run
+that is already absent has no effect. Filtered summed plots retain the usual
+summed-output filenames (so a later selection overwrites the previous plots);
+the selected runs are printed in the terminal. The luminosity label remains
+the configured value and is not recalculated for the selected runs.
+With neither run filter nor `--per-run`, the existing behavior is unchanged.
 
 ```
 python3 all_1D_ScoutingDQM.py -h
@@ -210,7 +241,9 @@ python3 all_1D_ScoutingDQM.py -h
 |---|---|
 | `--config PATH` | alternative `config.yaml` (default `config.yaml`) |
 | `--local` | bypass `pipeline.cfg`; use condition paths relative to the current working directory (absolute paths also work) |
-| `--per-run` | compare conditions separately per run, with run numbers in output names and plots |
+| `--per-run [RUN]` | compare conditions separately for all runs, or only RUN if supplied, with run numbers in output names and plots |
+| `--runs RUN [RUN ...]` | use only the listed runs; sum them unless `--per-run` is set |
+| `--exclude-runs RUN [RUN ...]` | omit the listed runs from summed or per-run plots |
 | `--pipeline-cfg PATH` | alternative pipeline config (default: `pipeline.cfg` beside the pipeline scripts); ignored with `--local` |
 | `--include REGEX` | only histograms whose `sub/folder/name` matches; repeatable (OR-ed) |
 | `--exclude REGEX` | drop histograms whose `sub/folder/name` matches; repeatable |
