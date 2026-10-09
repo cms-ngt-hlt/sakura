@@ -176,6 +176,32 @@ filters below to run only what you need.
 
 ## Options
 
+To compare Prompt, HLT and NGT **separately for each run**, add `--per-run`:
+
+```bash
+python all_1D_ScoutingDQM.py --local --per-run --jobs 1
+```
+
+For the public EGamma inputs, set the three condition paths in `config.yaml`
+to `/afs/cern.ch/user/t/tomei/public/forSakura/EGamma/scouting/Prompt`,
+`/afs/cern.ch/user/t/tomei/public/forSakura/EGamma/scouting/HLT`, and
+`/afs/cern.ch/user/t/tomei/public/forSakura/EGamma/scouting/NGT`, respectively.
+
+Run numbers are read from the `DQMData/Run <number>` directories inside the
+ROOT files. Files for the same run and condition are summed; different runs
+are never combined. Each run has its own histogram discovery and empty-plot
+filtering. Outputs include the run number, for example
+`Comparison_All1D_Run403775_EGamma.pdf` and
+`png/Comparison_Run403775_EGamma_<histogram>.png`, with the run also labelled
+on each plot. `--single-pdf` writes one PDF **per run**;
+`--limit N` applies separately to each run, and `--list` lists histograms per run.
+Runs available in any condition are included; missing conditions are reported
+and omitted from the overlay. If Prompt (or the configured reference) is
+missing, the ratio panel has no ratios. Empty histograms are still skipped
+unless `--keep-empty` is set. The CMS year/luminosity label still comes from
+`config.yaml`; the script does not calculate luminosity per run.
+Without `--per-run`, the existing sum over all runs is unchanged.
+
 ```
 python3 all_1D_ScoutingDQM.py -h
 ```
@@ -184,6 +210,7 @@ python3 all_1D_ScoutingDQM.py -h
 |---|---|
 | `--config PATH` | alternative `config.yaml` (default `config.yaml`) |
 | `--local` | bypass `pipeline.cfg`; use condition paths relative to the current working directory (absolute paths also work) |
+| `--per-run` | compare conditions separately per run, with run numbers in output names and plots |
 | `--pipeline-cfg PATH` | alternative pipeline config (default: `pipeline.cfg` beside the pipeline scripts); ignored with `--local` |
 | `--include REGEX` | only histograms whose `sub/folder/name` matches; repeatable (OR-ed) |
 | `--exclude REGEX` | drop histograms whose `sub/folder/name` matches; repeatable |

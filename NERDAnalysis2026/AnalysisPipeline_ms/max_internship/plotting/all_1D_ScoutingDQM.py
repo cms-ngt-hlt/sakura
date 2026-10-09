@@ -104,7 +104,7 @@ class All1DPlot(ComparisonPlot1D):
                  group_by="top", single_pdf=False, yscale="auto",
                  keep_empty=False, limit=None, jobs=1, save_png=True,
                  pipeline_cfg=Path(__file__).resolve().parents[1] / "pipeline.cfg",
-                 local=False):
+                 local=False, per_run=False):
         super().__init__(config_path=config_path)
         # Local mode must not read or source pipeline.cfg at all.
         input_dir = Path.cwd() if local else scouting_input_dir(pipeline_cfg)
@@ -129,6 +129,9 @@ class All1DPlot(ComparisonPlot1D):
         self.limit = limit
         self.jobs = 1 if single_pdf else max(1, jobs)
         self.save_png = save_png
+        self.per_run = per_run
+        self.active_run = None
+        self._run_files = None
         self._targets = None
         self._cache = {}        # (condition label, "sub/path/name") -> (values, edges)
 
@@ -139,6 +142,10 @@ class All1DPlot(ComparisonPlot1D):
         (same resolution logic as HistogramSource._resolve_dir)."""
         if "DQMData" not in file_handle:
             return None
+        if self.active_run is not None:
+            full_path = (f"DQMData/Run {self.active_run}/"
+                         f"{self.source.dqm_prefix}")
+            return file_handle[full_path] if full_path in file_handle else None
         run_folder = next(
             (k for k in file_handle["DQMData"].keys(recursive=False, cycle=False)
              if "Run " in k), None)
@@ -148,11 +155,48 @@ class All1DPlot(ComparisonPlot1D):
         return file_handle[full_path] if full_path in file_handle else None
 
     def _files(self, cond):
+        if self.active_run is not None:
+            return self._run_files[self.active_run].get(cond.label, [])
         files = sorted(glob.glob(os.path.join(cond.path, "*.root")))
         if not files:
             print(f"   [Warning] No .root files found in {cond.path} "
                   f"({cond.label})")
         return files
+
+    def runs(self):
+        """Index actual DQM run directories, including multi-run ROOT files."""
+        if self._run_files is None:
+            self._run_files = {}
+            for cond in self.conditions:
+                for fname in self._files(cond):
+                    try:
+                        with uproot.open(fname) as f:
+                            keys = (f["DQMData"].keys(recursive=False, cycle=False)
+                                    if "DQMData" in f else [])
+                            matched = False
+                            for key in keys:
+                                match = re.fullmatch(r"Run (\d+)", key)
+                                if match and (f"DQMData/{key}/"
+                                              f"{self.source.dqm_prefix}") in f:
+                                    run = int(match.group(1))
+                                    self._run_files.setdefault(run, {}).setdefault(
+                                        cond.label, []).append(fname)
+                                    matched = True
+                            if not matched:
+                                print(f"   [Warning] No matching DQM runs in {fname}")
+                    except Exception as exc:
+                        print(f"   [Warning] Error indexing {fname}: {exc}")
+        return sorted(self._run_files)
+
+    def _select_run(self, run):
+        self.active_run = run
+        self._targets = None
+        self._cache = {}
+        missing = [c.label for c in self.conditions
+                   if not self._run_files[run].get(c.label)]
+        print(f"=== Run {run} ===")
+        if missing:
+            print(f"   [Warning] Run {run}: no files for {', '.join(missing)}")
 
     def _first_files(self):
         """One representative *.root file per condition, reference
@@ -289,6 +333,9 @@ class All1DPlot(ComparisonPlot1D):
             self._sci_notation(ax_main)
 
     def decorate(self, ax_main, ax_ratio, target):
+        if self.active_run is not None:
+            ax_main.text(0.02, 0.04, f"Run {self.active_run}",
+                         transform=ax_main.transAxes, fontsize=16)
         ax_main.set_ylabel(self._label(target["ytitle"], "Entries"),
                            fontsize=20)
         ax_ratio.set_xlabel(self._label(target["xtitle"], target["hist_name"]),
@@ -336,10 +383,12 @@ class All1DPlot(ComparisonPlot1D):
         return f"{target['subpath']}/{target['hist_name']}"
 
     def pdf_title(self, target):
-        return self._full_name(target)
+        prefix = "" if self.active_run is None else f"Run {self.active_run}: "
+        return prefix + self._full_name(target)
 
     def png_name(self, target):
-        return f"Comparison_{self._full_name(target).replace('/', '_')}.png"
+        run = "" if self.active_run is None else f"Run{self.active_run}_"
+        return f"Comparison_{run}{self._full_name(target).replace('/', '_')}.png"
 
     def _group(self, target):
         if self.single_pdf:
@@ -349,8 +398,9 @@ class All1DPlot(ComparisonPlot1D):
         return target["subpath"].split("/")[0]
 
     def _pdf_name(self, group):
-        return ("Comparison_All1D.pdf" if self.single_pdf
-                else f"Comparison_All1D_{group}.pdf")
+        run = "" if self.active_run is None else f"_Run{self.active_run}"
+        return (f"Comparison_All1D{run}.pdf" if self.single_pdf
+                else f"Comparison_All1D{run}_{group}.pdf")
 
     # ---- saving ------------------------------------------------------
 
@@ -396,6 +446,17 @@ class All1DPlot(ComparisonPlot1D):
         return n_plotted, n_skipped
 
     def run(self):
+        if self.per_run:
+            runs = self.runs()
+            if not runs:
+                raise ValueError("No DQM runs found (check inputs and dqm_prefix)")
+            for run in runs:
+                self._select_run(run)
+                self._run_selected()
+        else:
+            self._run_selected()
+
+    def _run_selected(self):
         """Discover -> preload all data -> render each group (optionally
         in parallel processes) -> summary."""
         t0 = time.time()
@@ -461,6 +522,9 @@ def _parse_args():
                         "(repeatable)")
     p.add_argument("--list", action="store_true",
                    help="print the selected histograms and exit")
+    p.add_argument("--per-run", action="store_true",
+                   help="compare conditions separately for each DQM run; "
+                        "include run numbers in PDF and PNG filenames")
     p.add_argument("--group-by", choices=["top", "subdir"], default="top",
                    help="one PDF per top-level DQM folder (default) or per "
                         "sub-folder (smaller PDFs, better parallelism)")
@@ -491,12 +555,19 @@ if __name__ == "__main__":
                      single_pdf=args.single_pdf, yscale=args.yscale,
                      keep_empty=args.keep_empty, limit=args.limit,
                      jobs=args.jobs, save_png=not args.no_png,
-                     pipeline_cfg=args.pipeline_cfg, local=args.local)
+                     pipeline_cfg=args.pipeline_cfg, local=args.local,
+                     per_run=args.per_run)
+        if args.list:
+            runs = plot.runs() if args.per_run else [None]
+            if not runs:
+                raise ValueError("No DQM runs found (check inputs and dqm_prefix)")
+            for run in runs:
+                if run is not None:
+                    plot._select_run(run)
+                for t in plot.targets():
+                    print(f"{t['subpath']}/{t['hist_name']}")
+                print(f"{len(plot.targets())} histograms selected")
+        else:
+            plot.run()
     except ValueError as exc:
         raise SystemExit(f"ERROR: {exc}") from exc
-    if args.list:
-        for t in plot.targets():
-            print(f"{t['subpath']}/{t['hist_name']}")
-        print(f"{len(plot.targets())} histograms selected")
-    else:
-        plot.run()
