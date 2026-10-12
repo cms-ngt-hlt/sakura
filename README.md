@@ -16,7 +16,7 @@ Repository for Task 3.4 of the CMS-NGT-HLT project (**S**peedy **A**lignment & *
 
 6. **Spannring, M.** et al. *NGT: Physics performance evaluation of continuous real-time calibrations within the CMS High-Level Trigger system*, Zenodo (2026). [DOI](https://doi.org/10.5281/zenodo.22301446)
 
-7. **Prendi, J** (2026) *Conceptual Design and Operation of the Calibration Loop for the Next Generation Triggers in the CMS Experiment*, CMS Note CMS-CR-2026-139 (12 Oct 2026) [CDS](https://cds.cern.ch/record/2972659)
+7. **Prendi, J.** (2026) *Conceptual Design and Operation of the Calibration Loop for the Next Generation Triggers in the CMS Experiment*, CMS Note CMS-CR-2026-139 (12 Oct 2026). [CDS](https://cds.cern.ch/record/2972659)
 ## Public Presentations
 
 - **Musich, M.** et al. (2025) *Task 3.4: Optimal Calibrations for the CMS High-Level Trigger*. Next Generation Triggers 2nd Technical Workshop, CERN, 21 November 2025. [DOI](https://doi.org/10.17181/gzvw9-t3379).
