@@ -19,11 +19,15 @@ Repository for Task 3.4 of the CMS-NGT-HLT project (**S**peedy **A**lignment & *
 7. **Prendi, J.** (2026) *Conceptual Design and Operation of the Calibration Loop for the Next Generation Triggers in the CMS Experiment*, CMS Note CMS-CR-2026-139 (12 Oct 2026). [CDS](https://cds.cern.ch/record/2972659)
 ## Public Presentations
 
+- **Tomei, T.** et al. (2026)  *Task 3.4: Optimal Calibrations for the CMS High-Level Trigger*. Next Generation Triggers 1st Technical Workshop, CERN, 27 November 2024. [DOI](https://doi.org/10.17181/0n182-6dk77).
+
 - **Musich, M.** et al. (2025) *Task 3.4: Optimal Calibrations for the CMS High-Level Trigger*. Next Generation Triggers 2nd Technical Workshop, CERN, 21 November 2025. [DOI](https://doi.org/10.17181/gzvw9-t3379).
 
-- **Zarucki, M.** (2026). *Demonstrating the Processing Chain for the Next Generation Triggers in the CMS Experiment*. 28th Conference on Computing in High Energy and Nuclear Physics (CHEP 2026), CMS, CERN. [DOI](https://doi.org/10.17181/txk7r-fsd29).
+- **Zarucki, M.** (2026) *Demonstrating the Processing Chain for the Next Generation Triggers in the CMS Experiment*. 28th Conference on Computing in High Energy and Nuclear Physics (CHEP 2026), CMS, CERN. [DOI](https://doi.org/10.17181/txk7r-fsd29).
 
 - **Prendi, J.** (2026). *Conceptual Design and Operation of the Calibration Loop for the Next Generation Triggers in the CMS Experiment*. 28th Conference on Computing in High Energy and Nuclear Physics (CHEP 2026), CERN, 28 May 2026. [DOI](https://doi.org/10.17181/rv6ad-zpy87).
+
+- **Zarucki, M.** (2026) *Demonstrating Real-Time Reconstruction and Calibration in the High-Level Trigger for the Next Generation Triggers Project in the CMS Experiment*. 43rd International Conference on High Energy Physics (ICHEP 2026), CERN, 1 Aug 2026. [DOI](https://doi.org/10.17181/st9g0-js365).  
 
 ## Conceptual Design for Phase 2
 
