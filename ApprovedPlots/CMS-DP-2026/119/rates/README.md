@@ -42,10 +42,10 @@ installed first. For most users, `pip install omsapi` will suffice.
 
 ### NGT JSON (from F3Mon)
 
-Export from F3Mon, run from the P5 CMS internal network:
+Export from F3Mon, run from the P5 CMS internal network, replacing the run number and lumi-section range:
 
 ```bash
-curl -g 'http://es-cdaq.cms:4000/oms/api/v1/streams?sysName=ngtdemonstrator&filter[run_number][EQ]=398802' | python -m json.tool | less > streamRates_F3Mon_ngtdemonstrator_398802.json
+curl -g 'http://es-vm-cdaq-run3.cern.ch/oms/api/v1/streams?sysName=ngtdemonstrator&filter[run_number][EQ]=398802&filter[lumisection_number][GE]=1&filter[lumisection_number][LE]=892' | python -m json.tool | less > streamRates_F3Mon_ngtdemonstrator_398802.json
 ```
 
 Then convert it with the included `convertRatesF3MonToOMS.py`, which
