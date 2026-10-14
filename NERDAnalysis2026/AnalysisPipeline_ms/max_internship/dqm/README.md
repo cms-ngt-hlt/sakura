@@ -33,7 +33,7 @@ DQM_CONFIGS=("dqm/scouting.sh" "dqm/hlt.sh")
 | `DQM_SUBMIT` | `condor`: submit immediately, or only write the submission files. |
 | `DQM_JOBS_BASE` | Job scripts, Condor logs, and copied-back artifacts; defaults to `DQM_jobs`. |
 | `DQM_JOB_FLAVOUR`, `DQM_REQUEST_CPUS`, `DQM_REQUEST_MEMORY_MB`, `DQM_REQUEST_DISK_KB` | Per-job Condor resources. `DQM_REQUEST_CPUS` defaults to `DQM_THREADS`; a large request queues for longer, so lower it (and `DQM_THREADS` with it) if the jobs wait. |
-| `DQM_KEEP_ROOT` | `true` also copies the intermediate ROOT files back into the job directory. |
+| `DQM_ARTIFACT_EXCLUDE` | Glob patterns kept out of the artifacts copied back from a worker; currently `*.root` and `dqm.log`, which are the large ones. An empty array copies the whole work directory. |
 
 `EOS_BASE`, `DQM_DEST_BASE`, and `CMSSW_SRC` are blank placeholders in the
 checked-in config. The local backend requires an active CMSSW environment: run
@@ -76,7 +76,7 @@ With `DQM_BACKEND="condor"` the wrapper writes, per selected recipe/tag/run:
     recipe.sh      the frozen recipe, copied by the worker into its scratch area
     job.sh         generated from pipeline.cfg: environment, run, publication
     dqm.stdout, dqm.stderr, dqm.log    written by Condor when the job ends
-    artifacts/     the work directory copied back, minus *.root by default
+    artifacts/     the work directory copied back, minus DQM_ARTIFACT_EXCLUDE
 ```
 
 It then writes `dqm_jobs_to_run.txt` and `condor_dqm.sub`, and submits them when
@@ -161,13 +161,22 @@ The local backend runs each recipe in a fresh directory:
 
 The wrapper prints its location and copies the executed script to `recipe.sh`.
 A Condor job runs in the worker's own scratch area instead and copies that
-directory back to `<DQM_JOBS_BASE>/<recipe>/<tag>/run_<run>/artifacts/`,
-excluding `*.root` unless `DQM_KEEP_ROOT=true`. Artifacts depend on the recipe:
+directory back to `<DQM_JOBS_BASE>/<recipe>/<tag>/run_<run>/artifacts/`, leaving
+out everything matching `DQM_ARTIFACT_EXCLUDE`. Artifacts depend on the recipe:
 
 | Recipe | Files retained in the attempt directory |
 | --- | --- |
 | `scouting` | `recipe.sh`, `inputs.txt`, `dqm.py`, `dqm.log`, `step2.root` (DQMIO), `harvesting.py`, `harvesting.log`, the harvested `DQM*.root`, and `result.root`. |
 | `hlt` | `recipe.sh`, `inputs.txt`, `client.py`, `dqm.log`, `upload/*.root`, and `result.root`. |
+
+With the checked-in `DQM_ARTIFACT_EXCLUDE`, a Condor job keeps the generated
+configs, `inputs.txt` and `harvesting.log`, but not `dqm.log` or any ROOT file:
+the patterns match at every level, so `upload/*.root` goes too. Because the
+recipes redirect `cmsRun` into `dqm.log`, that output is gone once the job ends
+— `dqm.stdout` holds only the wrapper's own markers and its listing of the work
+directory. To debug a DQM step, drop `dqm.log` from the list and resubmit, or
+rerun that combination with `--local`, which leaves the whole attempt directory
+on disk.
 
 Failed attempts retain whatever was created before the failure. `cmsRun` output
 is redirected to the listed logs; `cmsDriver.py` output goes to the terminal.
@@ -204,7 +213,9 @@ exactly the jobs the last report flagged.
   filename patterns above against production outputs and the step 3 report.
 - **Recipe failure:** inspect `dqm.log`; for scouting harvesting failures also
   inspect `harvesting.log`. If config generation failed, inspect the terminal
-  output and any generated config in the attempt directory.
+  output and any generated config in the attempt directory. On the HTCondor
+  backend, `dqm.log` is left behind by `DQM_ARTIFACT_EXCLUDE`: see
+  [Outputs and reruns](#outputs-and-reruns) for how to get it back.
 - **Missing or multiple final outputs:** inspect the harvested `DQM*.root` or HLT
   `upload/` directory and the corresponding log. `step2.root` is intermediate
   DQMIO, not the final histogram file for plotting.
