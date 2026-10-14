@@ -81,15 +81,16 @@ if [[ "$BACKEND" == "local" ]]; then
     [[ -n "${CMSSW_BASE:-}" ]] || { echo "ERROR: run cmsenv first" >&2; exit 1; }
 else
     for name in DQM_JOBS_BASE DQM_JOB_FLAVOUR DQM_REQUEST_CPUS DQM_REQUEST_MEMORY_MB \
-                DQM_REQUEST_DISK_KB DQM_KEEP_ROOT; do
+                DQM_REQUEST_DISK_KB; do
         [[ -n "${!name:-}" ]] || { echo "ERROR: set $name in pipeline.cfg" >&2; exit 1; }
     done
     for name in DQM_REQUEST_CPUS DQM_REQUEST_MEMORY_MB DQM_REQUEST_DISK_KB; do
         [[ "${!name}" =~ ^[1-9][0-9]*$ ]] || {
             echo "ERROR: $name must be a positive integer" >&2; exit 1; }
     done
-    [[ "$DQM_KEEP_ROOT" == true || "$DQM_KEEP_ROOT" == false ]] || {
-        echo "ERROR: DQM_KEEP_ROOT must be true or false" >&2; exit 1; }
+    # May be empty, but it has to be declared: the jobs expand it unquoted-safe.
+    [[ "$(declare -p DQM_ARTIFACT_EXCLUDE 2>/dev/null)" == "declare -a"* ]] || {
+        echo "ERROR: set DQM_ARTIFACT_EXCLUDE to an array in pipeline.cfg" >&2; exit 1; }
     # Workers set up CMSSW themselves, so the release is not optional there.
     [[ -n "${CMSSW_SRC//[[:space:]]/}" ]] || {
         echo "ERROR: the HTCondor backend needs CMSSW_SRC in pipeline.cfg" >&2; exit 1; }
@@ -192,8 +193,10 @@ write_job_sh() {  # job.sh path, job dir, recipe name, tag, gtag, run, input dir
         printf 'export DQM_THREADS=%q\n' "$DQM_THREADS"
         printf 'export CMSSW_SRC=%q\n' "$CMSSW_SRC"
         printf 'export DQM_HARVEST_CONDITIONS=%q\n' "${DQM_HARVEST_CONDITIONS:-}"
-        printf 'KEEP_ROOT=%q\n' "$DQM_KEEP_ROOT"
         printf 'PROXY_PATH=%q\n' "$HERE/$PROXY"
+        printf 'ARTIFACT_EXCLUDE=('
+        printf '%q ' ${DQM_ARTIFACT_EXCLUDE[@]+"${DQM_ARTIFACT_EXCLUDE[@]}"}
+        printf ')\n'
         cat <<'WORKER'
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/dqm_XXXXXX") ||
@@ -223,18 +226,18 @@ rc=$?
 echo "--- recipe exit $rc; files in $WORK ---"
 ls -la
 
-# Keep logs and generated configs next to the job whatever the outcome; the
-# worker's scratch directory is gone by the time anyone reads the report. A
-# resubmitted job replaces them, so the directory always holds one attempt.
+# Keep the generated configs and the smaller logs next to the job whatever the
+# outcome; the worker's scratch directory is gone by the time anyone reads the
+# report. A resubmitted job replaces them, so the directory holds one attempt.
 rm -rf "$JOBDIR/artifacts"
 mkdir -p "$JOBDIR/artifacts"
-if [ "$KEEP_ROOT" = true ]; then
-    tar cf - . | (cd "$JOBDIR/artifacts" && tar xf -) ||
-        echo "WARNING: could not copy the work directory back"
-else
-    tar cf - --exclude='*.root' . | (cd "$JOBDIR/artifacts" && tar xf -) ||
-        echo "WARNING: could not copy the work directory back"
-fi
+TAR_EXCLUDE=()
+for pattern in ${ARTIFACT_EXCLUDE[@]+"${ARTIFACT_EXCLUDE[@]}"}; do
+    TAR_EXCLUDE+=("--exclude=$pattern")
+done
+tar cf - ${TAR_EXCLUDE[@]+"${TAR_EXCLUDE[@]}"} . |
+    (cd "$JOBDIR/artifacts" && tar xf -) ||
+    echo "WARNING: could not copy the work directory back"
 
 [ "$rc" -eq 0 ] || { echo "RECIPE FAILED (exit $rc)"; exit 1; }
 [ -s result.root ] || { echo "MISSING result.root"; exit 2; }

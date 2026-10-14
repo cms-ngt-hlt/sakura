@@ -39,7 +39,8 @@ dataset pattern are blank placeholders:
 | `DQM_CONFIGS` | Enabled recipes; currently both `dqm/scouting.sh` and `dqm/hlt.sh`. Use only `dqm/scouting.sh` if you only need scouting. |
 | `DQM_WORK_BASE`, `DQM_THREADS` | Attempt directories (default `DQM_work`) and scouting processing threads (default 24). |
 | `DQM_BACKEND`, `DQM_SUBMIT` | `condor` (one HTCondor job per recipe/tag/run, the default) or `local` (sequential), and whether the generated jobs are submitted right away. |
-| `DQM_JOBS_BASE`, `DQM_JOB_FLAVOUR`, `DQM_REQUEST_CPUS`, `DQM_REQUEST_MEMORY_MB`, `DQM_REQUEST_DISK_KB`, `DQM_KEEP_ROOT` | DQM job directories, per-job Condor resources, and whether intermediate ROOT files are copied back. |
+| `DQM_JOBS_BASE`, `DQM_JOB_FLAVOUR`, `DQM_REQUEST_CPUS`, `DQM_REQUEST_MEMORY_MB`, `DQM_REQUEST_DISK_KB` | DQM job directories and per-job Condor resources. |
+| `DQM_ARTIFACT_EXCLUDE` | Patterns left out of the artifacts a DQM job copies back; by default the ROOT files and `dqm.log`. |
 
 Keep `PROXY` consistent with the copied proxy filename. Check that the selected
 streams, menu, era, and batch resources suit your production. For NGT,
@@ -217,7 +218,8 @@ combinations run:
   `condor_dqm.sub`, and submits them unless `DQM_SUBMIT=false` or
   `--no-submit` is given. Each job sets up `CMSSW_SRC` itself, reads the mounted
   `EOS_BASE`, publishes its own histogram file, and copies its work directory
-  back into `artifacts/`. Once `condor_q` is empty, collect the outcome with
+  back into `artifacts/` except for `DQM_ARTIFACT_EXCLUDE` (the ROOT files and
+  `dqm.log`). Once `condor_q` is empty, collect the outcome with
 
   ```bash
   bash 04_run_dqm.sh --status
