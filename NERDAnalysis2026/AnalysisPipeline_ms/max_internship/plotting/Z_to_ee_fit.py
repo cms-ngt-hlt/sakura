@@ -4,6 +4,8 @@ Use --pipeline-cfg for another config, or --local for HLT/NGT/Prompt
 folders in the current directory. Plots are saved in the current directory.
 """
 
+from dqm_runs import DQMRunSelection, add_run_arguments
+
 import argparse
 from pathlib import Path
 import subprocess
@@ -46,6 +48,7 @@ def dqm_input_dir(pipeline_cfg, recipe):
 
 
 def add_dqm_arguments(parser):
+    add_run_arguments(parser)
     parser.add_argument(
         "--pipeline-cfg",
         default=str(Path(__file__).resolve().parents[1] / "pipeline.cfg"),
@@ -59,7 +62,7 @@ def hlt_input_dir(args, parser):
     try:
         base = Path.cwd() if args.local else dqm_input_dir(args.pipeline_cfg, "hlt")
         for tag in ("HLT", "NGT", "Prompt"):
-            if not (base / tag).is_dir():
+            if not (base / tag).is_dir() and not (args.per_run is not False or args.runs or args.exclude_runs):
                 raise ValueError(
                     f"DQM input directory not found: {base / tag}. "
                     "Check DQM_DEST_BASE in pipeline.cfg (or the current directory "
@@ -90,27 +93,34 @@ def dcb_func(x, p):
         B = nH / aH - aH
         return p[2] * A * (B + t)**(-nH) + bkg
 
-def get_fit_results(base_path, folder_name, label, output_dir="."):
+def get_fit_results(base_path, folder_name, label, output_dir=".",
+                    run_selection=None, run=None):
     folder_path = os.path.join(base_path, folder_name)
-    files = [f for f in os.listdir(folder_path) if f.endswith(".root")]
+    file_runs = (run_selection.file_runs(folder_name) if run_selection else
+                 ((os.path.join(folder_path, f), extract_run_number(f))
+                  for f in os.listdir(folder_path) if f.endswith(".root")))
+    suffix = "" if run is None else f"_Run{run}"
     combined_hist = None
     
-    for item in files:
-        run_num = extract_run_number(item)
+    for path, run_num in file_runs:
         if not run_num: continue
-        f = ROOT.TFile.Open(os.path.join(folder_path, item))
+        f = ROOT.TFile.Open(path)
         h = f.Get(f"DQMData/Run {run_num}/HLT/Run summary/ObjectMonitor/MainShifter/di-Electron_Mass")
         if not h: 
             f.Close(); continue
         if combined_hist is None:
-            combined_hist = h.Clone(f"h_fit_{label}")
+            combined_hist = h.Clone(f"h_fit_{label}{suffix}")
             combined_hist.SetDirectory(0)
         else:
             combined_hist.Add(h)
         f.Close()
     
+    if run_selection and combined_hist is None:
+        print(f"Warning: no histogram for {label}{suffix}; skipping")
+        return None
+
     fit_min, fit_max = 60, 120
-    fit_func = ROOT.TF1(f"f_{label}", dcb_func, fit_min, fit_max, 9)
+    fit_func = ROOT.TF1(f"f_{label}{suffix}", dcb_func, fit_min, fit_max, 9)
     peak_val = combined_hist.GetMaximum()
     peak_x = combined_hist.GetXaxis().GetBinCenter(combined_hist.GetMaximumBin())
     
@@ -137,7 +147,7 @@ def get_fit_results(base_path, folder_name, label, output_dir="."):
         sharex=True,
         gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.05}
     )
-    hep.cms.label(ax=ax_s, data=True, label=f"Sanity Check | {label}", year=2025)
+    hep.cms.label(ax=ax_s, data=True, label=f"Sanity Check | {label}" + ("" if run is None else f" | Run {run}"), year=2025)
     
     # Plot data
     hep.histplot(combined_hist, ax=ax_s, label=f"{label} Data", color='black', histtype='errorbar', marker='o')
@@ -226,7 +236,7 @@ def get_fit_results(base_path, folder_name, label, output_dir="."):
     ax_s.legend(loc='upper right')
     ax_s.set_xlim(fit_min, fit_max)
     
-    sanity_path = os.path.join(output_dir, "fit_sanity_checks", f"{label}_Fit_Sanity.png")
+    sanity_path = os.path.join(output_dir, "fit_sanity_checks", f"{label}{suffix}_Fit_Sanity.png")
     fig_s.savefig(sanity_path, bbox_inches='tight')
     plt.close(fig_s)
     
@@ -235,13 +245,7 @@ def get_fit_results(base_path, folder_name, label, output_dir="."):
     
     return mean, mean_err, res, res_err, chi2/ndf
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    add_dqm_arguments(parser)
-    args = parser.parse_args()
-    base_dir = hlt_input_dir(args, parser)
-    ROOT.gROOT.SetBatch(True)
-    
+def plot_comparison(base_dir, run_selection=None, run=None):
     sources = {
         'HLT':    {'folder': 'HLT',    'color': '#5790fc', 'marker': 'o'},
         'NGT':    {'folder': 'NGT',    'color': '#f89c20', 'marker': 'D'},
@@ -255,13 +259,19 @@ def main():
     print("Loading data and fitting...")
     for label, info in sources.items():
         folder_path = os.path.join(base_dir, info['folder'])
-        files = sorted([f for f in os.listdir(folder_path) if f.endswith(".root")])
-        
-        for item in files:
-            run_num = extract_run_number(item)
+        file_runs = (run_selection.file_runs(label) if run_selection else
+                     ((os.path.join(folder_path, f), extract_run_number(f))
+                      for f in sorted(os.listdir(folder_path)) if f.endswith(".root")))
+
+        for path, run_num in file_runs:
             if not run_num: continue
-            with uproot.open(os.path.join(folder_path, item)) as f:
-                keys = [k for k in f.keys() if "di-Electron_Mass" in k]
+            with uproot.open(path) as f:
+                if run_selection:
+                    hist_path = (f"DQMData/Run {run_num}/HLT/Run summary/"
+                                 "ObjectMonitor/MainShifter/di-Electron_Mass")
+                    keys = [hist_path] if hist_path in f else []
+                else:
+                    keys = [k for k in f.keys() if "di-Electron_Mass" in k]
                 if not keys: continue
                 h = f[keys[0]]
                 if common_bins is None: common_bins = h.axis().edges()
@@ -269,9 +279,17 @@ def main():
                 if global_histos[label] is None: global_histos[label] = np.zeros_like(counts)
                 global_histos[label] += counts
         
-        mu, mu_err, res, res_err, chi2_ndf = get_fit_results(base_dir, info['folder'], label)
+        result = get_fit_results(base_dir, info['folder'], label,
+                                 run_selection=run_selection, run=run)
+        if result is None:
+            global_histos[label] = None
+            continue
+        mu, mu_err, res, res_err, chi2_ndf = result
         fit_params[label] = (mu, mu_err, res, res_err)
         print(f"Finished {label} - chi2/ndf: {chi2_ndf:.2f}")
+
+    if run_selection and not fit_params:
+        return
 
     fig, (ax_main, ax_ratio) = plt.subplots(
         2, 1, 
@@ -282,6 +300,9 @@ def main():
 
     # --- Top Plot: Distributions ---
     hep.cms.label(ax=ax_main, data=True, label="Preliminary", year=2025, lumi=2.09, com=13.6, fontsize=22)
+
+    if run is not None:
+        ax_main.text(0.02, 0.04, f"Run {run}", transform=ax_main.transAxes)
 
     prompt_counts = global_histos.get('Prompt')
 
@@ -379,8 +400,35 @@ def main():
 
     ax_ratio.grid(True, alpha=0.3)
     
-    plt.savefig("Zee_Comparison_Final.png", bbox_inches='tight')
-    print("Saved Zee_Comparison_Final.png")
+    suffix = "" if run is None else f"_Run{run}"
+    output = f"Zee_Comparison_Final{suffix}.png"
+    plt.savefig(output, bbox_inches='tight')
+    plt.close(fig)
+    print(f"Saved {output}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    add_dqm_arguments(parser)
+    args = parser.parse_args()
+    base_dir = hlt_input_dir(args, parser)
+    ROOT.gROOT.SetBatch(True)
+    try:
+        selection = None
+        if args.per_run is not False or args.runs or args.exclude_runs:
+            selection = DQMRunSelection(
+                {label: str(base_dir / label) for label in ("HLT", "NGT", "Prompt")},
+                "HLT/Run summary", args.per_run, args.runs, args.exclude_runs)
+            runs = selection.runs()
+            print("Selected runs: " + ", ".join(map(str, runs)))
+        if selection and selection.per_run:
+            for run in runs:
+                selection.active_run = run
+                plot_comparison(base_dir, selection, run)
+        else:
+            plot_comparison(base_dir, selection)
+    except ValueError as exc:
+        parser.error(str(exc))
 
 
 if __name__ == "__main__":

@@ -38,7 +38,6 @@ Usage: see README.md in this folder, or `python3 all_1D_ScoutingDQM.py -h`.
 """
 
 import argparse
-import glob
 import multiprocessing
 import os
 import re
@@ -55,6 +54,8 @@ import uproot
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.mathtext import MathTextParser
+
+from dqm_runs import DQMRunSelection, add_run_arguments
 
 from scouting_plot import (ComparisonPlot1D, PDF_TITLE_FONTSIZE,
                            PDF_TITLE_PAD)
@@ -129,17 +130,13 @@ class All1DPlot(ComparisonPlot1D):
         self.limit = limit
         self.jobs = 1 if single_pdf else max(1, jobs)
         self.save_png = save_png
-        # bool preserves the all-runs/default modes; an integer selects one run.
-        self.per_run = per_run is not False
-        self.requested_run = None if isinstance(per_run, bool) else per_run
-        if self.requested_run is not None and self.requested_run <= 0:
-            raise ValueError("--per-run RUN must be a positive run number")
-        self.include_runs = set(runs)
-        self.exclude_runs = set(exclude_runs)
-        if any(run <= 0 for run in self.include_runs | self.exclude_runs):
-            raise ValueError("--runs and --exclude-runs require positive run numbers")
+        self.run_selection = DQMRunSelection(
+            {c.label: c.path for c in self.conditions}, self.source.dqm_prefix,
+            per_run=per_run, runs=runs, exclude_runs=exclude_runs)
+        self.per_run = self.run_selection.per_run
+        self.include_runs = self.run_selection.include_runs
+        self.exclude_runs = self.run_selection.exclude_runs
         self.active_run = None
-        self._run_files = None
         self._targets = None
         self._cache = {}        # (condition label, "sub/path/name") -> (values, edges)
 
@@ -163,84 +160,22 @@ class All1DPlot(ComparisonPlot1D):
         full_path = f"DQMData/{run_folder}/{self.source.dqm_prefix}"
         return file_handle[full_path] if full_path in file_handle else None
 
-    def _files(self, cond):
-        if self.active_run is not None:
-            return self._run_files[self.active_run].get(cond.label, [])
-        files = sorted(glob.glob(os.path.join(cond.path, "*.root")))
-        if not files:
-            print(f"   [Warning] No .root files found in {cond.path} "
-                  f"({cond.label})")
-        return files
-
     def runs(self):
-        """Index actual DQM run directories, including multi-run ROOT files."""
-        if self._run_files is None:
-            self._run_files = {}
-            for cond in self.conditions:
-                for fname in self._files(cond):
-                    try:
-                        with uproot.open(fname) as f:
-                            keys = (f["DQMData"].keys(recursive=False, cycle=False)
-                                    if "DQMData" in f else [])
-                            matched = False
-                            for key in keys:
-                                match = re.fullmatch(r"Run (\d+)", key)
-                                if match and (f"DQMData/{key}/"
-                                              f"{self.source.dqm_prefix}") in f:
-                                    run = int(match.group(1))
-                                    self._run_files.setdefault(run, {}).setdefault(
-                                        cond.label, []).append(fname)
-                                    matched = True
-                            if not matched:
-                                print(f"   [Warning] No matching DQM runs in {fname}")
-                    except Exception as exc:
-                        print(f"   [Warning] Error indexing {fname}: {exc}")
-        available = sorted(self._run_files)
-        requested = self.include_runs.copy()
-        if self.requested_run is not None:
-            requested.add(self.requested_run)
-        missing = requested - set(available)
-        if missing:
-            choices = ", ".join(map(str, available)) or "none"
-            raise ValueError(
-                f"Requested runs not found: {', '.join(map(str, sorted(missing)))}. "
-                f"Available runs: {choices}")
-        selected = set(available)
-        if self.include_runs:
-            selected &= self.include_runs
-        if self.requested_run is not None:
-            selected &= {self.requested_run}
-        selected -= self.exclude_runs
-        if not selected:
-            raise ValueError("No DQM runs remain after run selection "
-                             "(check inputs, dqm_prefix and run filters)")
-        return sorted(selected)
+        return self.run_selection.runs()
 
     def _select_run(self, run):
         self.active_run = run
+        self.run_selection.active_run = run
         self._targets = None
         self._cache = {}
         missing = [c.label for c in self.conditions
-                   if not self._run_files[run].get(c.label)]
+                   if not self.run_selection._run_files[run].get(c.label)]
         print(f"=== Run {run} ===")
         if missing:
             print(f"   [Warning] Run {run}: no files for {', '.join(missing)}")
 
     def _file_runs(self, cond, representative=False):
-        """Yield file/run pairs, restricting ROOT directories as well as files."""
-        if self.active_run is not None:
-            runs = [self.active_run]
-        elif self.include_runs or self.exclude_runs:
-            runs = self.runs()
-        else:
-            files = self._files(cond)
-            for fname in files[:1] if representative else files:
-                yield fname, None
-            return
-        for run in runs:
-            files = self._run_files[run].get(cond.label, [])
-            for fname in files[:1] if representative else files:
-                yield fname, run
+        yield from self.run_selection.file_runs(cond.label, representative)
 
     def _first_files(self):
         """One representative *.root file per condition, reference
@@ -567,17 +502,7 @@ def _parse_args():
                         "(repeatable)")
     p.add_argument("--list", action="store_true",
                    help="print the selected histograms and exit")
-    p.add_argument("--per-run", nargs="?", const=True, default=False,
-                   type=int, metavar="RUN",
-                   help="compare conditions separately for all DQM runs, "
-                        "or only RUN if supplied; "
-                        "include run numbers in PDF and PNG filenames")
-    p.add_argument("--runs", nargs="+", type=int, default=[], metavar="RUN",
-                   help="use only these runs (space-separated); sum them unless "
-                        "--per-run is also set")
-    p.add_argument("--exclude-runs", nargs="+", type=int, default=[], metavar="RUN",
-                   help="omit these runs (space-separated), also with --per-run; "
-                        "exclusions take precedence over --runs")
+    add_run_arguments(p)
     p.add_argument("--group-by", choices=["top", "subdir"], default="top",
                    help="one PDF per top-level DQM folder (default) or per "
                         "sub-folder (smaller PDFs, better parallelism)")
