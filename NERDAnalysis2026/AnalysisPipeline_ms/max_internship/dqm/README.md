@@ -129,7 +129,9 @@ They require at least one matching file and reject zero-byte inputs. They do
 not consult `manifest_<tag>.tsv`, verify that every production job is represented,
 or validate ROOT contents before execution. Missing jobs or leftover files from
 an older production can therefore affect the result; check production completion
-and input-directory contents first. The discovered paths are saved in `inputs.txt`.
+and input-directory contents first. The discovered paths are saved in `inputs.txt`,
+which `cmsDriver.py` reads through `--filein filelist:inputs.txt` (a comma-joined
+list hits the kernel's 128 kB limit on one argument for runs with many files).
 
 Scouting processes all events with the selected `GTAGS` entry. The current mapping
 is:

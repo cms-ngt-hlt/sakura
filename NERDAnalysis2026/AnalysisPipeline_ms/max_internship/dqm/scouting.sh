@@ -5,15 +5,13 @@ shopt -s nullglob
 
 FILES=("${LOCALPATH}/${TAG}_run${RUN}_job"*_DQMTestDataScouting.root)
 (( ${#FILES[@]} )) || { echo "ERROR: no scouting files in $LOCALPATH" >&2; exit 1; }
-ALL_FILES=""
 for f in "${FILES[@]}"; do
     [[ -s "$f" ]] || { echo "ERROR: empty input $f" >&2; exit 1; }
-    ALL_FILES+="file:${f},"
 done
-ALL_FILES="${ALL_FILES%,}"
-echo "Input source: $LOCALPATH"
-echo "Discovered files: $ALL_FILES"
-printf '%s\n' "${FILES[@]}" > inputs.txt
+echo "Input source: $LOCALPATH (${#FILES[@]} files, listed in inputs.txt)"
+# cmsDriver reads the list from the file: a comma-joined --filein exceeds the
+# kernel's 128 kB limit on a single argument for runs with many input files.
+printf 'file:%s\n' "${FILES[@]}" > inputs.txt
 
 cmsDriver.py step2 -s DQM:hltDqmOnlyScouting \
     --conditions "$GTAG" \
@@ -22,7 +20,7 @@ cmsDriver.py step2 -s DQM:hltDqmOnlyScouting \
     --eventcontent DQMIO \
     --geometry DB:Extended \
     --era "$ERA" \
-    --filein "$ALL_FILES" \
+    --filein filelist:inputs.txt \
     --fileout file:step2.root \
     --nThreads "$DQM_THREADS" \
     --python_filename dqm.py \
