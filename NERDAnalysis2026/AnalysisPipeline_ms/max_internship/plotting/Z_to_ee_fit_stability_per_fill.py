@@ -22,6 +22,8 @@ for HLT/NGT/Prompt folders in the current directory. Plots are saved in
 the current directory.
 """
 
+from dqm_runs import DQMRunSelection, add_run_arguments
+
 import argparse
 from pathlib import Path
 import subprocess
@@ -66,6 +68,7 @@ def dqm_input_dir(pipeline_cfg, recipe):
 
 
 def add_dqm_arguments(parser):
+    add_run_arguments(parser)
     parser.add_argument(
         "--pipeline-cfg",
         default=str(Path(__file__).resolve().parents[1] / "pipeline.cfg"),
@@ -79,7 +82,7 @@ def hlt_input_dir(args, parser):
     try:
         base = Path.cwd() if args.local else dqm_input_dir(args.pipeline_cfg, "hlt")
         for tag in ("HLT", "NGT", "Prompt"):
-            if not (base / tag).is_dir():
+            if not (base / tag).is_dir() and not (args.per_run is not False or args.runs or args.exclude_runs):
                 raise ValueError(
                     f"DQM input directory not found: {base / tag}. "
                     "Check DQM_DEST_BASE in pipeline.cfg (or the current directory "
@@ -166,7 +169,7 @@ def extract_run_number(filename):
 # Per-fill fit + sanity-check plot
 # ─────────────────────────────────────────────────────────────────────────────
 
-def fit_fill(root_hist, label, fill_id, sanity_dir):
+def fit_fill(root_hist, label, fill_id, sanity_dir, unit="Fill"):
     """
     Fit root_hist with DCB + exp background.
     """
@@ -176,10 +179,10 @@ def fit_fill(root_hist, label, fill_id, sanity_dir):
     peak_x   = root_hist.GetXaxis().GetBinCenter(root_hist.GetMaximumBin())
 
     if peak_val <= 0 or root_hist.GetEntries() < 10:
-        print(f"  [{label} Fill {fill_id}] Too few entries, skipping.")
+        print(f"  [{label} {unit} {fill_id}] Too few entries, skipping.")
         return None
 
-    fname    = f"f_{label}_Fill{fill_id}"
+    fname    = f"f_{label}_{unit}{fill_id}"
     fit_func = ROOT.TF1(fname, dcb_func, fit_min, fit_max, 9)
 
     fit_func.SetParameters(
@@ -210,7 +213,7 @@ def fit_fill(root_hist, label, fill_id, sanity_dir):
     chi2_ndf  = chi2 / ndf if ndf > 0 else 0.0
 
     if not (80 < mean < 95):
-        print(f"  [{label} Fill {fill_id}] Unphysical mean={mean:.2f}, skipping.")
+        print(f"  [{label} {unit} {fill_id}] Unphysical mean={mean:.2f}, skipping.")
         return None
 
     res     = (sigma / mean) * 100.0
@@ -240,11 +243,11 @@ def fit_fill(root_hist, label, fill_id, sanity_dir):
         gridspec_kw={'height_ratios': [3, 2], 'hspace': 0.05}
     )
     hep.cms.label(ax=ax_s, data=True,
-                  label=f"Sanity Check | {label} | Fill {fill_id}",
+                  label=f"Sanity Check | {label} | {unit} {fill_id}",
                   year=2025, fontsize=16)
 
     hep.histplot(root_hist, ax=ax_s,
-                 label=f"{label} Fill {fill_id}",
+                 label=f"{label} {unit} {fill_id}",
                  color='black', histtype='errorbar', marker='o')
 
     ax_s.plot(x_plot, y_total, color='red',   lw=3,         label='Total Fit (DCB + Exp)')
@@ -279,7 +282,7 @@ def fit_fill(root_hist, label, fill_id, sanity_dir):
         ax_p.set_ylim(-mp * 1.3, mp * 1.3)
     ax_p.grid(True, alpha=0.3)
 
-    out_png = os.path.join(sanity_dir, f"{label}_Fill{fill_id}_Fit_Sanity.png")
+    out_png = os.path.join(sanity_dir, f"{label}_{unit}{fill_id}_Fit_Sanity.png")
     fig_s.savefig(out_png, bbox_inches='tight')
     plt.close(fig_s)
 
@@ -298,26 +301,36 @@ class PerFillFitAnalyzer:
         'Prompt': {'folder': 'Prompt', 'color': 'black',   'marker': 'v'},
     }
 
-    def __init__(self, base_path, lumi_csv, output_dir="."):
+    def __init__(self, base_path, lumi_csv, output_dir=".", run_selection=None):
+        self.run_selection = run_selection
+        self.unit = "Run" if run_selection and run_selection.per_run else "Fill"
         self.base_path  = base_path
         self.output_dir = output_dir
         self.run_fill, self.run_lumi = load_lumi_info(lumi_csv)
-        self.sanity_dir = os.path.join(output_dir, "fit_sanity_checks_per_fill")
+        self.sanity_dir = os.path.join(output_dir, f"fit_sanity_checks_per_{self.unit.lower()}")
         os.makedirs(self.sanity_dir, exist_ok=True)
 
         # Use one common luminosity origin for all sources, based on input
         # runs with luminosity metadata. Reuse this inventory for fitting.
-        self.source_files = {}
-        for label, info in self.SOURCES.items():
-            folder = Path(self.base_path) / info['folder']
-            if not folder.is_dir():
-                print(f"Warning: {folder} not found, skipping {label}.")
-                continue
-            self.source_files[label] = {
-                extract_run_number(path.name): str(path)
-                for path in sorted(folder.glob('*.root'))
-                if path.is_file() and extract_run_number(path.name) is not None
+        if run_selection:
+            selected = run_selection.runs()
+            self.source_files = {
+                label: {run: run_selection._run_files[run].get(label, [])
+                        for run in selected}
+                for label in self.SOURCES
             }
+        else:
+            self.source_files = {}
+            for label, info in self.SOURCES.items():
+                folder = Path(self.base_path) / info['folder']
+                if not folder.is_dir():
+                    print(f"Warning: {folder} not found, skipping {label}.")
+                    continue
+                self.source_files[label] = {
+                    extract_run_number(path.name): [str(path)]
+                    for path in sorted(folder.glob('*.root'))
+                    if path.is_file() and extract_run_number(path.name) is not None
+                }
         available_runs = sorted({
             run for files in self.source_files.values() for run in files
             if run in self.run_lumi and run in self.run_fill
@@ -334,7 +347,9 @@ class PerFillFitAnalyzer:
         # clips a partially available first/last fill at the selected runs.
         self.fill_to_runs = {}
         for run in self.all_runs:
-            fill = self.run_fill[run]
+            if run_selection and run not in selected:
+                continue
+            fill = run if self.unit == "Run" else self.run_fill[run]
             if fill not in self.fill_to_runs:
                 self.fill_to_runs[fill] = []
             self.fill_to_runs[fill].append(run)
@@ -375,7 +390,7 @@ class PerFillFitAnalyzer:
                     f"ObjectMonitor/MainShifter/di-Electron_Mass")
         h = rf.Get(dqm_path)
 
-        if not h:
+        if not h and not self.run_selection:
             for key in rf.GetListOfKeys():
                 if "di-Electron_Mass" in key.GetName():
                     h = key.ReadObj()
@@ -395,7 +410,7 @@ class PerFillFitAnalyzer:
 
         for label, run_to_file in self.source_files.items():
             
-            print(f"\n=== Fitting {label} per fill ===")
+            print(f"\n=== Fitting {label} per {self.unit.lower()} ===")
 
             for fill in sorted(self.fill_to_runs.keys()):
                 runs_in_fill = self.fill_to_runs[fill]
@@ -403,20 +418,20 @@ class PerFillFitAnalyzer:
                 
                 for run_num in runs_in_fill:
                     if run_num in run_to_file:
-                        fpath = run_to_file[run_num]
-                        h = self._open_histogram(fpath, run_num)
-                        if h:
-                            if h_sum is None:
-                                h_sum = h.Clone(f"h_sum_{label}_Fill{fill}")
-                                h_sum.SetDirectory(0)
-                            else:
-                                h_sum.Add(h)
+                        for fpath in run_to_file[run_num]:
+                            h = self._open_histogram(fpath, run_num)
+                            if h:
+                                if h_sum is None:
+                                    h_sum = h.Clone(f"h_sum_{label}_{self.unit}{fill}")
+                                    h_sum.SetDirectory(0)
+                                else:
+                                    h_sum.Add(h)
 
                 if h_sum is None:
                     continue
 
-                print(f"  Fitting Fill {fill} ({len(runs_in_fill)} runs)...")
-                result = fit_fill(h_sum, label, fill, self.sanity_dir)
+                print(f"  Fitting {self.unit} {fill} ({len(runs_in_fill)} runs)...")
+                result = fit_fill(h_sum, label, fill, self.sanity_dir, unit=self.unit)
 
                 if fill not in self.fit_results:
                     self.fit_results[fill] = {src: None for src in self.SOURCES}
@@ -424,10 +439,12 @@ class PerFillFitAnalyzer:
 
                 if result:
                     mu, mu_e, res, res_e, c2 = result
-                    print(f"    Fill {fill}  μ={mu:.3f}±{mu_e:.3f} GeV  "
+                    print(f"    {self.unit} {fill}  μ={mu:.3f}±{mu_e:.3f} GeV  "
                           f"σ/μ={res:.2f}±{res_e:.2f}%  χ²/ndf={c2:.2f}")
 
-    def plot_stability_vs_lumi(self, output_file="Zee_Stability_Lumi_PerFillFit.png"):
+    def plot_stability_vs_lumi(self, output_file=None):
+        if output_file is None:
+            output_file = f"Zee_Stability_Lumi_Per{self.unit}Fit.png"
         fills_to_plot = sorted(f for f in self.fit_results if f in self.fill_info)
         if not fills_to_plot:
             print("No fills with results and lumi info.")
@@ -479,7 +496,7 @@ class PerFillFitAnalyzer:
                         ax.axvline(finfo['end'], color='grey', ls='--', alpha=0.6, lw=1.5)
 
             if finfo['lumi'] > LUMI_THRESHOLD:
-                ax_top.text(finfo['x'], y_text, f"Fill {fill}",
+                ax_top.text(finfo['x'], y_text, f"{self.unit} {fill}",
                             ha='center', va='bottom', color='grey',
                             fontsize=13, fontweight='bold')
 
@@ -501,7 +518,7 @@ class PerFillFitAnalyzer:
         print(f"\nSaved → {out}")
 
     def summary_table(self):
-        print(f"\n{'Fill':>10}  {'Source':>8}  "
+        print(f"\n{self.unit:>10}  {'Source':>8}  "
               f"{'μ [GeV]':>12}  {'σ/μ [%]':>12}  {'χ²/ndf':>8}")
         print("─" * 60)
         for fill in sorted(self.fit_results):
@@ -523,7 +540,16 @@ def main():
     if not os.path.isfile(args.lumi_csv):
         parser.error(f"Luminosity CSV not found: {args.lumi_csv}. Set --lumi-csv.")
 
-    analyzer = PerFillFitAnalyzer(base_dir, args.lumi_csv)
+    try:
+        selection = None
+        if args.per_run is not False or args.runs or args.exclude_runs:
+            selection = DQMRunSelection(
+                {label: str(base_dir / label) for label in ("HLT", "NGT", "Prompt")},
+                "HLT/Run summary", args.per_run, args.runs, args.exclude_runs)
+            print("Selected runs: " + ", ".join(map(str, selection.runs())))
+        analyzer = PerFillFitAnalyzer(base_dir, args.lumi_csv, run_selection=selection)
+    except ValueError as exc:
+        parser.error(str(exc))
     analyzer.summary_table()
     analyzer.plot_stability_vs_lumi()
 
