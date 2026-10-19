@@ -153,7 +153,6 @@ def main():
         if not a.force:
             sys.exit(f"ERROR: {jobs_root} exists. Use --force to regenerate "
                      f"(this deletes local job dirs and logs, NOT EOS outputs).")
-        shutil.rmtree(jobs_root)
 
     # Flat filelist -> grouped by run, parsed from the LFN's /000/RRR/RRR/ segment
     if not filelist.exists():
@@ -177,13 +176,32 @@ def main():
           flush=True)
 
     snapshots = {}
-    if tag == "NGT":
-        oms_csv = HERE / "oms_runs.csv"
-        if not oms_csv.exists():
-            sys.exit(f"ERROR: {oms_csv} not found :( (needed for NGT Snapshot time)")
-        for line in oms_csv.read_text().splitlines()[1:]:
-            f = line.split(",")
-            snapshots[int(f[0])] = f[5].strip()
+    # Use the same OMS eligibility check for every tag so comparisons retain
+    # matching runs, including when tags are prepared separately.
+    oms_csv = HERE / "oms_runs.csv"
+    if not oms_csv.exists():
+        sys.exit(f"ERROR: {oms_csv} not found (needed to select runs for all tags)")
+    for line in oms_csv.read_text().splitlines()[1:]:
+        f = line.split(",")
+        snapshots[int(f[0])] = f[5].strip()
+
+    skipped_runs = sorted(run for run in run_lists if run not in snapshots)
+    if skipped_runs:
+        skipped_text = ", ".join(map(str, skipped_runs))
+        print("\n" + "!" * 78 + "\n"
+              "WARNING: RUNS MISSING FROM oms_runs.csv — SKIPPING FOR ALL TAGS\n"
+              f"Runs: {skipped_text}\n"
+              "No HLT, Prompt, or NGT jobs will be generated for these runs.\n"
+              + "!" * 78 + "\n", file=sys.stderr, flush=True)
+        for run in skipped_runs:
+            del run_lists[run]
+    if not run_lists:
+        sys.exit("ERROR: no eligible runs remain after the OMS check; "
+                 "no submission files were generated.")
+
+    # Validate eligibility before --force removes an existing job tree.
+    if jobs_root.exists():
+        shutil.rmtree(jobs_root)
 
     jobs_root.mkdir(parents=True)
     shared_config = jobs_root / "run_cfg.py"
@@ -207,9 +225,6 @@ def main():
         jobs_before_run = len(job_scripts)
         eos_run_dir = f"{eos_base}/{tag}/run_{run}"
         os.makedirs(eos_run_dir, exist_ok=True)
-        if tag == "NGT":
-            if run not in snapshots:
-                sys.exit(f"ERROR: no snapshot time for run {run} in oms_runs.csv")
         for k, chunk in chunks(files, n_per_job):
             jobdir = jobs_root / f"run_{run}" / f"job_{k}"
             jobdir.mkdir(parents=True)
@@ -250,6 +265,9 @@ def main():
 
     print(f"[{tag}] {len(run_lists)} runs, {n_files_total} files -> "
           f"{len(job_scripts)} jobs ({len(manifest_rows)} expected output files).")
+    if skipped_runs:
+        print(f"[{tag}] WARNING: skipped {len(skipped_runs)} runs missing from "
+              f"oms_runs.csv (excluded for all tags): {skipped_text}", flush=True)
     print(f"Manifest: manifest_{tag}.tsv")
     print(f"Check proxy first:  voms-proxy-info -timeleft   (proxy: {proxy})")
     print(f"Submit with:        condor_submit condor_{tag}.sub")

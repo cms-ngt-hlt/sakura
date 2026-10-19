@@ -93,6 +93,13 @@ in place. Do not regenerate them while jobs or resubmissions still use them.
    condor_submit condor_HLT.sub
    ```
 
+   All tags (HLT, Prompt, and NGT) exclude runs absent from `oms_runs.csv`,
+   keeping their run selections aligned. Job preparation prints a prominent
+   warning and lists skipped runs again in its final summary. Only runs in the
+   input file list are checked. If none remain, or `oms_runs.csv` is missing,
+   preparation fails before replacing existing job directories, even with
+   `--force`. The pipeline wrapper then stops before submission.
+
 5.  Now you have all the event data that you need, next step is plotting. 
     If you want, you can run `python3 sanitiy_check_event_counter.py` first - this shows you the Z -> ee event counts for the different calibration tags. 
     The different plotting scripts are available in the `plotting` folder. They can be executed like simple python files: `python3 <script.py>`. 
