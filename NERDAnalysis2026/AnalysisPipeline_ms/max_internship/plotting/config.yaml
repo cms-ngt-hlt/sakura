@@ -39,16 +39,15 @@ reference: "Prompt"
 
 # ---------------------------------------------------------------------
 # CMS label (hep.cms.label) parameters.  Single source of truth --
-# updating lumi/year here updates all eight plots at once.
-# (This also brings the four old 1D scripts, which still said
-# year=2025 / lumi=2.09, up to date.)
+# Year and collision energy are configured here. Luminosity is computed
+# from contributing runs using lumi_csv below.
 # NOTE: the fontsize is NOT here on purpose: it differs between scripts
 # (22 vs 20) and is part of the pixel-for-pixel output, so it stays in
 # the subclasses.
 # ---------------------------------------------------------------------
 cms_label:
   year: 2026
-  lumi: 3.88        # fb^-1
+
   com: 13.6         # sqrt(s) in TeV
 
 # ---------------------------------------------------------------------
@@ -76,3 +75,6 @@ diff_pairs:
 # ---------------------------------------------------------------------
 output:
   png_dir: "png"
+
+# Run-level brilcalc CSV in /pb, relative to the working directory.
+lumi_csv: "lumi_data.csv"

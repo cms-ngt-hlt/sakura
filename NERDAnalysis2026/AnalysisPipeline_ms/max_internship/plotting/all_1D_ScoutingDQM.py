@@ -37,6 +37,8 @@ anyway.  Use --list to see what would be plotted without plotting.
 Usage: see README.md in this folder, or `python3 all_1D_ScoutingDQM.py -h`.
 """
 
+from luminosity import directory_run
+
 import argparse
 import multiprocessing
 import os
@@ -247,6 +249,7 @@ class All1DPlot(ComparisonPlot1D):
         Replaces the per-histogram file re-opening of the base class,
         which for ~2500 histograms x N files is the dominant cost.
         """
+        self.source.contributing_runs.clear()
         wanted = [self._full_name(t) for t in targets]
         t0 = time.time()
         n_files = 0
@@ -275,6 +278,10 @@ class All1DPlot(ComparisonPlot1D):
                                       f"'{key}' in {fname}: {values.shape} "
                                       f"vs {entry[0].shape}; file skipped "
                                       f"for this histogram")
+                                continue
+                            subpath, _, hist_name = key.rpartition("/")
+                            self.source.contributing_runs.setdefault(
+                                (cond.label, subpath, hist_name), set()).add(directory_run(root))
                     n_files += 1
                 except Exception as e:
                     print(f"   [Warning] Error reading {fname}: {e}")
