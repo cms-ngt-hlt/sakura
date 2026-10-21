@@ -113,6 +113,6 @@ def cms_lumi_label(ax, runs_by_condition, lumi_csv, **kwargs):
     com = kwargs.pop("com", 13.6)
     kwargs.pop("lumi", None)
     year = kwargs.get("year")
-    prefix = f"{year}, " if year else ""
+    suffix = f", {year}" if year else ""
     return hep.cms.label(ax=ax, lumi=None,
-                         rlabel=f"{prefix}{text} ({com:g} TeV)", **kwargs)
+                         rlabel=f"{text}{suffix} ({com:g} TeV)", **kwargs)
