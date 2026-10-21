@@ -26,6 +26,7 @@ from dqm_runs import DQMRunSelection, add_run_arguments
 from luminosity import add_lumi_arguments, cms_lumi_label, cumulative_luminosity
 
 import argparse
+import yaml
 from pathlib import Path
 import subprocess
 
@@ -146,7 +147,7 @@ def extract_run_number(filename):
 # Per-fill fit + sanity-check plot
 # ─────────────────────────────────────────────────────────────────────────────
 
-def fit_fill(root_hist, label, fill_id, sanity_dir, runs, lumi_csv, unit="Fill"):
+def fit_fill(root_hist, label, fill_id, sanity_dir, runs, lumi_csv, unit="Fill", *, year):
     """
     Fit root_hist with DCB + exp background.
     """
@@ -221,7 +222,7 @@ def fit_fill(root_hist, label, fill_id, sanity_dir, runs, lumi_csv, unit="Fill")
     )
     cms_lumi_label(ax_s, {label: runs}, lumi_csv, data=True,
                   label=f"Sanity Check | {label} | {unit} {fill_id}",
-                  year=2025, fontsize=16)
+                  year=year, fontsize=16)
 
     hep.histplot(root_hist, ax=ax_s,
                  label=f"{label} {unit} {fill_id}",
@@ -278,7 +279,9 @@ class PerFillFitAnalyzer:
         'Prompt': {'folder': 'Prompt', 'color': 'black',   'marker': 'v'},
     }
 
-    def __init__(self, base_path, lumi_csv, output_dir=".", run_selection=None):
+    def __init__(self, base_path, lumi_csv, output_dir=".", run_selection=None, config_path="config.yaml"):
+        with open(config_path) as stream:
+            self.year = yaml.safe_load(stream)["cms_label"]["year"]
         self.run_selection = run_selection
         self.unit = "Run" if run_selection and run_selection.per_run else "Fill"
         self.base_path  = base_path
@@ -374,7 +377,8 @@ class PerFillFitAnalyzer:
 
                 print(f"  Fitting {self.unit} {fill} ({len(runs_in_fill)} runs)...")
                 result = fit_fill(h_sum, label, fill, self.sanity_dir,
-                                  contributing, self.lumi_csv, unit=self.unit)
+                                  contributing, self.lumi_csv, unit=self.unit,
+                                  year=self.year)
 
                 if fill not in self.fit_results:
                     self.fit_results[fill] = {src: None for src in self.SOURCES}
@@ -402,7 +406,7 @@ class PerFillFitAnalyzer:
         )
         cms_lumi_label(ax_top, {label: runs for label, runs in self.fitted_runs.items()
                                 if runs}, self.lumi_csv, data=True, label="Preliminary",
-                       year=2025, com=13.6, fontsize=22)
+                       year=self.year, com=13.6, fontsize=22)
 
         for label, info in self.SOURCES.items():
             x_pts, mu_pts, mu_err_pts, res_pts, res_err_pts = [], [], [], [], []
@@ -479,6 +483,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_dqm_arguments(parser)
     add_lumi_arguments(parser)
+    parser.add_argument("--config", default="config.yaml",
+                        help="plotting YAML containing cms_label.year (default: %(default)s)")
     args = parser.parse_args()
     base_dir = hlt_input_dir(args, parser)
     if not os.path.isfile(args.lumi_csv):
@@ -491,7 +497,8 @@ def main():
                 {label: str(base_dir / label) for label in ("HLT", "NGT", "Prompt")},
                 "HLT/Run summary", args.per_run, args.runs, args.exclude_runs)
             print("Selected runs: " + ", ".join(map(str, selection.runs())))
-        analyzer = PerFillFitAnalyzer(base_dir, args.lumi_csv, run_selection=selection)
+        analyzer = PerFillFitAnalyzer(base_dir, args.lumi_csv, run_selection=selection,
+                                      config_path=args.config)
     except ValueError as exc:
         parser.error(str(exc))
     analyzer.summary_table()
