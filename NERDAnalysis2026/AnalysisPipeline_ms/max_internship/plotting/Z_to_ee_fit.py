@@ -8,6 +8,7 @@ from dqm_runs import DQMRunSelection, add_run_arguments
 from luminosity import add_lumi_arguments, cms_lumi_label
 
 import argparse
+import yaml
 from pathlib import Path
 import subprocess
 
@@ -95,7 +96,7 @@ def dcb_func(x, p):
         return p[2] * A * (B + t)**(-nH) + bkg
 
 def get_fit_results(base_path, folder_name, label, output_dir=".",
-                    run_selection=None, run=None, lumi_csv="lumi_data.csv"):
+                    run_selection=None, run=None, lumi_csv="lumi_data.csv", *, year):
     folder_path = os.path.join(base_path, folder_name)
     file_runs = (run_selection.file_runs(folder_name) if run_selection else
                  ((os.path.join(folder_path, f), extract_run_number(f))
@@ -150,7 +151,7 @@ def get_fit_results(base_path, folder_name, label, output_dir=".",
         sharex=True,
         gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.05}
     )
-    cms_lumi_label(ax_s, {label: contributing_runs}, lumi_csv, data=True, label=f"Sanity Check | {label}" + ("" if run is None else f" | Run {run}"), year=2025)
+    cms_lumi_label(ax_s, {label: contributing_runs}, lumi_csv, data=True, label=f"Sanity Check | {label}" + ("" if run is None else f" | Run {run}"), year=year)
     
     # Plot data
     hep.histplot(combined_hist, ax=ax_s, label=f"{label} Data", color='black', histtype='errorbar', marker='o')
@@ -248,7 +249,9 @@ def get_fit_results(base_path, folder_name, label, output_dir=".",
     
     return mean, mean_err, res, res_err, chi2/ndf
 
-def plot_comparison(base_dir, run_selection=None, run=None, lumi_csv="lumi_data.csv"):
+def plot_comparison(base_dir, run_selection=None, run=None, lumi_csv="lumi_data.csv", config_path="config.yaml"):
+    with open(config_path) as stream:
+        year = yaml.safe_load(stream)["cms_label"]["year"]
     sources = {
         'HLT':    {'folder': 'HLT',    'color': '#5790fc', 'marker': 'o'},
         'NGT':    {'folder': 'NGT',    'color': '#f89c20', 'marker': 'D'},
@@ -285,7 +288,7 @@ def plot_comparison(base_dir, run_selection=None, run=None, lumi_csv="lumi_data.
                 contributing_runs[label].add(run_num)
         
         result = get_fit_results(base_dir, info['folder'], label,
-                                 run_selection=run_selection, run=run, lumi_csv=lumi_csv)
+                                 run_selection=run_selection, run=run, lumi_csv=lumi_csv, year=year)
         if result is None:
             global_histos[label] = None
             contributing_runs[label].clear()
@@ -307,7 +310,7 @@ def plot_comparison(base_dir, run_selection=None, run=None, lumi_csv="lumi_data.
     # --- Top Plot: Distributions ---
     cms_lumi_label(ax_main, {label: runs for label, runs in contributing_runs.items()
                             if runs}, lumi_csv, data=True, label="Preliminary",
-                   year=2025, com=13.6, fontsize=22)
+                   year=year, com=13.6, fontsize=22)
 
     if run is not None:
         ax_main.text(0.02, 0.04, f"Run {run}", transform=ax_main.transAxes)
@@ -419,6 +422,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_dqm_arguments(parser)
     add_lumi_arguments(parser)
+    parser.add_argument("--config", default="config.yaml",
+                        help="plotting YAML containing cms_label.year (default: %(default)s)")
     args = parser.parse_args()
     base_dir = hlt_input_dir(args, parser)
     ROOT.gROOT.SetBatch(True)
@@ -433,9 +438,9 @@ def main():
         if selection and selection.per_run:
             for run in runs:
                 selection.active_run = run
-                plot_comparison(base_dir, selection, run, lumi_csv=args.lumi_csv)
+                plot_comparison(base_dir, selection, run, lumi_csv=args.lumi_csv, config_path=args.config)
         else:
-            plot_comparison(base_dir, selection, lumi_csv=args.lumi_csv)
+            plot_comparison(base_dir, selection, lumi_csv=args.lumi_csv, config_path=args.config)
     except ValueError as exc:
         parser.error(str(exc))
 
