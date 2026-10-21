@@ -5,6 +5,7 @@ folders in the current directory. Plots are saved in the current directory.
 """
 
 from dqm_runs import DQMRunSelection, add_run_arguments
+from luminosity import add_lumi_arguments, cms_lumi_label
 
 import argparse
 from pathlib import Path
@@ -94,13 +95,14 @@ def dcb_func(x, p):
         return p[2] * A * (B + t)**(-nH) + bkg
 
 def get_fit_results(base_path, folder_name, label, output_dir=".",
-                    run_selection=None, run=None):
+                    run_selection=None, run=None, lumi_csv="lumi_data.csv"):
     folder_path = os.path.join(base_path, folder_name)
     file_runs = (run_selection.file_runs(folder_name) if run_selection else
                  ((os.path.join(folder_path, f), extract_run_number(f))
                   for f in os.listdir(folder_path) if f.endswith(".root")))
     suffix = "" if run is None else f"_Run{run}"
     combined_hist = None
+    contributing_runs = set()
     
     for path, run_num in file_runs:
         if not run_num: continue
@@ -113,6 +115,7 @@ def get_fit_results(base_path, folder_name, label, output_dir=".",
             combined_hist.SetDirectory(0)
         else:
             combined_hist.Add(h)
+        contributing_runs.add(run_num)
         f.Close()
     
     if run_selection and combined_hist is None:
@@ -147,7 +150,7 @@ def get_fit_results(base_path, folder_name, label, output_dir=".",
         sharex=True,
         gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.05}
     )
-    hep.cms.label(ax=ax_s, data=True, label=f"Sanity Check | {label}" + ("" if run is None else f" | Run {run}"), year=2025)
+    cms_lumi_label(ax_s, {label: contributing_runs}, lumi_csv, data=True, label=f"Sanity Check | {label}" + ("" if run is None else f" | Run {run}"), year=2025)
     
     # Plot data
     hep.histplot(combined_hist, ax=ax_s, label=f"{label} Data", color='black', histtype='errorbar', marker='o')
@@ -245,7 +248,7 @@ def get_fit_results(base_path, folder_name, label, output_dir=".",
     
     return mean, mean_err, res, res_err, chi2/ndf
 
-def plot_comparison(base_dir, run_selection=None, run=None):
+def plot_comparison(base_dir, run_selection=None, run=None, lumi_csv="lumi_data.csv"):
     sources = {
         'HLT':    {'folder': 'HLT',    'color': '#5790fc', 'marker': 'o'},
         'NGT':    {'folder': 'NGT',    'color': '#f89c20', 'marker': 'D'},
@@ -253,6 +256,7 @@ def plot_comparison(base_dir, run_selection=None, run=None):
     }
     
     global_histos = {src: None for src in sources}
+    contributing_runs = {label: set() for label in sources}
     common_bins = None
     fit_params = {}
 
@@ -278,11 +282,13 @@ def plot_comparison(base_dir, run_selection=None, run=None):
                 counts = h.values()
                 if global_histos[label] is None: global_histos[label] = np.zeros_like(counts)
                 global_histos[label] += counts
+                contributing_runs[label].add(run_num)
         
         result = get_fit_results(base_dir, info['folder'], label,
-                                 run_selection=run_selection, run=run)
+                                 run_selection=run_selection, run=run, lumi_csv=lumi_csv)
         if result is None:
             global_histos[label] = None
+            contributing_runs[label].clear()
             continue
         mu, mu_err, res, res_err, chi2_ndf = result
         fit_params[label] = (mu, mu_err, res, res_err)
@@ -299,7 +305,9 @@ def plot_comparison(base_dir, run_selection=None, run=None):
     )
 
     # --- Top Plot: Distributions ---
-    hep.cms.label(ax=ax_main, data=True, label="Preliminary", year=2025, lumi=2.09, com=13.6, fontsize=22)
+    cms_lumi_label(ax_main, {label: runs for label, runs in contributing_runs.items()
+                            if runs}, lumi_csv, data=True, label="Preliminary",
+                   year=2025, com=13.6, fontsize=22)
 
     if run is not None:
         ax_main.text(0.02, 0.04, f"Run {run}", transform=ax_main.transAxes)
@@ -410,6 +418,7 @@ def plot_comparison(base_dir, run_selection=None, run=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_dqm_arguments(parser)
+    add_lumi_arguments(parser)
     args = parser.parse_args()
     base_dir = hlt_input_dir(args, parser)
     ROOT.gROOT.SetBatch(True)
@@ -424,9 +433,9 @@ def main():
         if selection and selection.per_run:
             for run in runs:
                 selection.active_run = run
-                plot_comparison(base_dir, selection, run)
+                plot_comparison(base_dir, selection, run, lumi_csv=args.lumi_csv)
         else:
-            plot_comparison(base_dir, selection)
+            plot_comparison(base_dir, selection, lumi_csv=args.lumi_csv)
     except ValueError as exc:
         parser.error(str(exc))
 
