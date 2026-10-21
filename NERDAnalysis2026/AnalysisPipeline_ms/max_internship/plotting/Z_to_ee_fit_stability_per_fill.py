@@ -23,6 +23,7 @@ the current directory.
 """
 
 from dqm_runs import DQMRunSelection, add_run_arguments
+from luminosity import add_lumi_arguments, cms_lumi_label, cumulative_luminosity
 
 import argparse
 from pathlib import Path
@@ -136,30 +137,6 @@ def sig_only(x, p):
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def load_lumi_info(lumi_csv):
-    """Parse brilcalc-style CSV → {run: fill}, {run: recorded_lumi_pb}."""
-    run_fill, run_lumi = {}, {}
-    if not os.path.exists(lumi_csv):
-        print(f"Warning: {lumi_csv} not found – fill/lumi info will be missing.")
-        return run_fill, run_lumi
-
-    with open(lumi_csv) as f:
-        for line in f:
-            if line.startswith('#') or not line.strip():
-                continue
-            parts = line.split(',')
-            if ':' not in parts[0]:
-                continue
-            rf   = parts[0].split(':')
-            run  = int(rf[0])
-            fill = int(rf[1])
-            lumi = float(parts[5])   # recorded (/pb)
-            run_fill[run] = fill
-            run_lumi[run] = lumi
-
-    return run_fill, run_lumi
-
-
 def extract_run_number(filename):
     match = re.search(r'_R(\d+)\.root', filename)
     return int(match.group(1)) if match else None
@@ -169,7 +146,7 @@ def extract_run_number(filename):
 # Per-fill fit + sanity-check plot
 # ─────────────────────────────────────────────────────────────────────────────
 
-def fit_fill(root_hist, label, fill_id, sanity_dir, unit="Fill"):
+def fit_fill(root_hist, label, fill_id, sanity_dir, runs, lumi_csv, unit="Fill"):
     """
     Fit root_hist with DCB + exp background.
     """
@@ -242,7 +219,7 @@ def fit_fill(root_hist, label, fill_id, sanity_dir, unit="Fill"):
         2, 1, figsize=(10, 12), sharex=True,
         gridspec_kw={'height_ratios': [3, 2], 'hspace': 0.05}
     )
-    hep.cms.label(ax=ax_s, data=True,
+    cms_lumi_label(ax_s, {label: runs}, lumi_csv, data=True,
                   label=f"Sanity Check | {label} | {unit} {fill_id}",
                   year=2025, fontsize=16)
 
@@ -306,7 +283,8 @@ class PerFillFitAnalyzer:
         self.unit = "Run" if run_selection and run_selection.per_run else "Fill"
         self.base_path  = base_path
         self.output_dir = output_dir
-        self.run_fill, self.run_lumi = load_lumi_info(lumi_csv)
+        self.lumi_csv = lumi_csv
+        self.fitted_runs = {label: set() for label in self.SOURCES}
         self.sanity_dir = os.path.join(output_dir, f"fit_sanity_checks_per_{self.unit.lower()}")
         os.makedirs(self.sanity_dir, exist_ok=True)
 
@@ -331,51 +309,13 @@ class PerFillFitAnalyzer:
                     for path in sorted(folder.glob('*.root'))
                     if path.is_file() and extract_run_number(path.name) is not None
                 }
-        available_runs = sorted({
-            run for files in self.source_files.values() for run in files
-            if run in self.run_lumi and run in self.run_fill
-        })
-        # Keep luminosity from intervening runs even if their DQM files are
-        # missing, but exclude everything before/after the available data.
-        self.all_runs = (
-            sorted(run for run in self.run_lumi
-                   if available_runs[0] <= run <= available_runs[-1])
-            if available_runs else []
-        )
-
-        # Group only runs in the selected luminosity range by fill. This also
-        # clips a partially available first/last fill at the selected runs.
-        self.fill_to_runs = {}
-        for run in self.all_runs:
-            if run_selection and run not in selected:
-                continue
-            fill = run if self.unit == "Run" else self.run_fill[run]
-            if fill not in self.fill_to_runs:
-                self.fill_to_runs[fill] = []
-            self.fill_to_runs[fill].append(run)
-
-        # Calculate lumi ranges for fills
-        # We need a consistent run order to define "start" and "end" of each fill in cumulative lumi
-        self.run_to_cum_end = {}
-        curr = 0.0
-        for r in self.all_runs:
-            curr += self.run_lumi[r]
-            self.run_to_cum_end[r] = curr
-        
-        self.fill_info = {} # fill -> {'x': midpoint_fb, 'start': start_fb, 'end': end_fb, 'lumi': total_pb}
-        for fill, runs in self.fill_to_runs.items():
-            starts = [self.run_to_cum_end[r] - self.run_lumi[r] for r in runs if r in self.run_to_cum_end]
-            ends   = [self.run_to_cum_end[r] for r in runs if r in self.run_to_cum_end]
-            if not starts: continue
-            
-            f_start = min(starts)
-            f_end   = max(ends)
-            self.fill_info[fill] = {
-                'x':     (f_start + f_end) / 2.0 / 1000.0, # midpoint in fb-1
-                'start': f_start / 1000.0,
-                'end':   f_end / 1000.0,
-                'lumi':  sum(self.run_lumi[r] for r in runs if r in self.run_lumi)
-            }
+        available_runs = {
+            run for files in self.source_files.values()
+            for run, paths in files.items() if paths
+        }
+        self.fill_to_runs, self.fill_info = cumulative_luminosity(
+            available_runs, lumi_csv, per_run=self.unit == "Run",
+            selected_runs=selected if run_selection else None)
 
         # fit_results[fill][source] = (mean, mean_err, res, res_err, chi2_ndf)
         self.fit_results = {}
@@ -415,12 +355,14 @@ class PerFillFitAnalyzer:
             for fill in sorted(self.fill_to_runs.keys()):
                 runs_in_fill = self.fill_to_runs[fill]
                 h_sum = None
+                contributing = set()
                 
                 for run_num in runs_in_fill:
                     if run_num in run_to_file:
                         for fpath in run_to_file[run_num]:
                             h = self._open_histogram(fpath, run_num)
                             if h:
+                                contributing.add(run_num)
                                 if h_sum is None:
                                     h_sum = h.Clone(f"h_sum_{label}_{self.unit}{fill}")
                                     h_sum.SetDirectory(0)
@@ -431,13 +373,15 @@ class PerFillFitAnalyzer:
                     continue
 
                 print(f"  Fitting {self.unit} {fill} ({len(runs_in_fill)} runs)...")
-                result = fit_fill(h_sum, label, fill, self.sanity_dir, unit=self.unit)
+                result = fit_fill(h_sum, label, fill, self.sanity_dir,
+                                  contributing, self.lumi_csv, unit=self.unit)
 
                 if fill not in self.fit_results:
                     self.fit_results[fill] = {src: None for src in self.SOURCES}
                 self.fit_results[fill][label] = result
 
                 if result:
+                    self.fitted_runs[label].update(contributing)
                     mu, mu_e, res, res_e, c2 = result
                     print(f"    {self.unit} {fill}  μ={mu:.3f}±{mu_e:.3f} GeV  "
                           f"σ/μ={res:.2f}±{res_e:.2f}%  χ²/ndf={c2:.2f}")
@@ -456,8 +400,9 @@ class PerFillFitAnalyzer:
             2, 1, figsize=(10, 12), sharex=True,
             gridspec_kw={'height_ratios': [3, 2], 'hspace': 0.05}
         )
-        hep.cms.label(ax=ax_top, data=True, label="Preliminary",
-                      year=2025, lumi=2.09, com=13.6, fontsize=22)
+        cms_lumi_label(ax_top, {label: runs for label, runs in self.fitted_runs.items()
+                                if runs}, self.lumi_csv, data=True, label="Preliminary",
+                       year=2025, com=13.6, fontsize=22)
 
         for label, info in self.SOURCES.items():
             x_pts, mu_pts, mu_err_pts, res_pts, res_err_pts = [], [], [], [], []
@@ -533,8 +478,7 @@ class PerFillFitAnalyzer:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_dqm_arguments(parser)
-    parser.add_argument("--lumi-csv", default="lumi_data.csv",
-                        help="brilcalc CSV (default: %(default)s, relative to the current directory)")
+    add_lumi_arguments(parser)
     args = parser.parse_args()
     base_dir = hlt_input_dir(args, parser)
     if not os.path.isfile(args.lumi_csv):

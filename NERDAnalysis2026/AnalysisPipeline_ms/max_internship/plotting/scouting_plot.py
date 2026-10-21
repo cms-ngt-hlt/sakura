@@ -30,6 +30,8 @@ The following changes were made when refactoring the code:
 * Dead code (unused `global_max_abs`, marker-size debug print) not ported.
 """
 
+from luminosity import cms_lumi_label, directory_run
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import glob
@@ -130,6 +132,7 @@ class HistogramSource:
     def __init__(self, dqm_prefix):
         # e.g. "HLT/Run summary/ScoutingOnline" (from config.yaml)
         self.dqm_prefix = dqm_prefix
+        self.contributing_runs = {}
 
     def _resolve_dir(self, file_handle, subpath):
         """
@@ -172,6 +175,7 @@ class HistogramSource:
         Changed: shape mismatches and per-file errors now print a
         warning instead of being swallowed silently.
         """
+        run_set = self.contributing_runs[(condition.label, subpath, hist_name)] = set()
         files = glob.glob(os.path.join(condition.path, "*.root"))
         if not files:
             print(f"   [Warning] No .root files found in {condition.path}")
@@ -196,6 +200,8 @@ class HistogramSource:
                               f"'{hist_name}' in {fname}: "
                               f"{data[0].shape} vs {sum_values.shape}; "
                               f"file skipped for this histogram")
+                        continue
+                    run_set.add(directory_run(d))
             except Exception as e:
                 print(f"   [Warning] Error reading {fname}: {e}")
 
@@ -261,13 +267,14 @@ class ScoutingPlot(ABC):
 
         plt.style.use(hep.style.CMS)
 
-    def cms_label(self, ax, fontsize):
-        """The experiment label; year/lumi/com come from config.yaml (single source of truth for all eight plots)."""
+    def cms_label(self, ax, fontsize, target, labels):
         cl = self.config["cms_label"]
-        label_key = "text" if int(hep.__version__.split(".")[0]) >= 1 else "label"
-        hep.cms.label(ax=ax, data=True, **{label_key: "Private Work (CMS data)"},
-                      year=cl["year"], lumi=cl["lumi"], com=cl["com"],
-                      fontsize=fontsize)
+        runs = {label: self.source.contributing_runs.get(
+            (label, target["subpath"], target["hist_name"]), set())
+            for label in labels}
+        cms_lumi_label(ax, runs, self.config.get("lumi_csv", "lumi_data.csv"),
+                       data=True, label="Private Work (CMS data)",
+                       year=cl["year"], com=cl["com"], fontsize=fontsize)
 
     # ---- hooks -------------------------------------------------------
 
@@ -424,7 +431,9 @@ class ComparisonPlot1D(ScoutingPlot):
         fig, (ax_main, ax_ratio) = plt.subplots(
             2, 1, figsize=(10, 10), sharex=True,
             gridspec_kw={"height_ratios": [3, 1], "hspace": 0.05})
-        self.cms_label(ax_main, fontsize=22)
+        self.cms_label(ax_main, fontsize=22, target=target,
+                       labels=[i["condition"].label for i in fetched
+                               if i["data"] is not None])
 
         # -- reference (gray band) ------------------------------------
         ref_item = next(
@@ -654,7 +663,8 @@ class DifferenceMap2D(ScoutingPlot):
             print(f"   >> Plotting {self.pair_description(label_a, label_b)}")
 
             fig, ax, proj_axes = self._make_layout()
-            self.cms_label(ax, fontsize=self.cms_fontsize)
+            self.cms_label(ax, fontsize=self.cms_fontsize, target=target,
+                           labels=[label_a, label_b])
 
             # 2D map + explicit colorbar via make_axes_locatable
             hep.hist2dplot(diff_vals, xbins=xedges, ybins=yedges, ax=ax,

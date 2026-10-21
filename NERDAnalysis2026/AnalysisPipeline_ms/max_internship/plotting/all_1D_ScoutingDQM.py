@@ -37,6 +37,8 @@ anyway.  Use --list to see what would be plotted without plotting.
 Usage: see README.md in this folder, or `python3 all_1D_ScoutingDQM.py -h`.
 """
 
+from luminosity import add_lumi_arguments, directory_run
+
 import argparse
 import multiprocessing
 import os
@@ -105,8 +107,10 @@ class All1DPlot(ComparisonPlot1D):
                  group_by="top", single_pdf=False, yscale="auto",
                  keep_empty=False, limit=None, jobs=1, save_png=True,
                  pipeline_cfg=Path(__file__).resolve().parents[1] / "pipeline.cfg",
-                 local=False, per_run=False, runs=(), exclude_runs=()):
+                 local=False, per_run=False, runs=(), exclude_runs=(), lumi_csv=None):
         super().__init__(config_path=config_path)
+        if lumi_csv is not None:
+            self.config["lumi_csv"] = lumi_csv
         # Local mode must not read or source pipeline.cfg at all.
         input_dir = Path.cwd() if local else scouting_input_dir(pipeline_cfg)
         for cond in self.conditions:
@@ -247,6 +251,7 @@ class All1DPlot(ComparisonPlot1D):
         Replaces the per-histogram file re-opening of the base class,
         which for ~2500 histograms x N files is the dominant cost.
         """
+        self.source.contributing_runs.clear()
         wanted = [self._full_name(t) for t in targets]
         t0 = time.time()
         n_files = 0
@@ -275,6 +280,10 @@ class All1DPlot(ComparisonPlot1D):
                                       f"'{key}' in {fname}: {values.shape} "
                                       f"vs {entry[0].shape}; file skipped "
                                       f"for this histogram")
+                                continue
+                            subpath, _, hist_name = key.rpartition("/")
+                            self.source.contributing_runs.setdefault(
+                                (cond.label, subpath, hist_name), set()).add(directory_run(root))
                     n_files += 1
                 except Exception as e:
                     print(f"   [Warning] Error reading {fname}: {e}")
@@ -503,6 +512,7 @@ def _parse_args():
     p.add_argument("--list", action="store_true",
                    help="print the selected histograms and exit")
     add_run_arguments(p)
+    add_lumi_arguments(p, default=None)
     p.add_argument("--group-by", choices=["top", "subdir"], default="top",
                    help="one PDF per top-level DQM folder (default) or per "
                         "sub-folder (smaller PDFs, better parallelism)")
@@ -535,7 +545,7 @@ if __name__ == "__main__":
                      jobs=args.jobs, save_png=not args.no_png,
                      pipeline_cfg=args.pipeline_cfg, local=args.local,
                      per_run=args.per_run, runs=args.runs,
-                     exclude_runs=args.exclude_runs)
+                     exclude_runs=args.exclude_runs, lumi_csv=args.lumi_csv)
         if args.list:
             if not plot.per_run and (plot.include_runs or plot.exclude_runs):
                 print("Summing runs: " + ", ".join(map(str, plot.runs())))
