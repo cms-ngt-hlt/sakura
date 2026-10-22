@@ -62,35 +62,44 @@ python3 convertRatesF3MonToOMS.py streamRates_F3Mon_<label>_<run>.json
 Missing metadata on the NGT side (timing, luminosity, pileup, deadtime) is
 borrowed from the HLT/OMS record at the same LS at run time.
 
-## 3. Edit the config block at the top of the script
+## 3. Register the run in the `RUNS` dictionary
+
+Per-run settings live in the `RUNS` dictionary at the top of the script, keyed
+by run number:
 
 ```python
-RUN = "398802"
-HLT_JSON_PATH = "data/run_398802.json"
-NGT_JSON_PATH = "data/streamRates_F3Mon_ngtdemonstrator_398802_F3MonToOMS.json"
-
-FILL_FIG  = "run398802"                 # output subfolder / filename stem
-FILL_TEXT = "Fill 11237, November 2025" # annotation shown on every plot
-DEFAULT_OUTDIR = "/eos/user/.../comparisons"  # where plots get written
-
-LUMI_LABEL   = 0.43   # integrated luminosity shown in the CMS label [fb^-1]
-NGT_PRESCALE = 110    # NGT Demonstrator's prescale factor vs. the full HLT menu
+RUNS = {
+    "398802": dict(fill_text="Fill 11237, November 2025", year=2025, lumi_label=0.43),
+    ...
+}
 ```
 
-Update at least `RUN`, `HLT_JSON_PATH`, `NGT_JSON_PATH`, `FILL_FIG`,
-`FILL_TEXT`, and `DEFAULT_OUTDIR` for a new run. `PRESCALE_LSES` /
-`IGNORE_LSES` / `LS_CUT` can be used to mark a prescale-change LS or drop
-bad LS ranges.
+- `year`: year shown in the CMS label
+- `fill_text`: annotation shown on every plot (falls back to `Run <run>`)
+- `lumi_label`: integrated luminosity [fb^-1] in the CMS label (omitted if unset)
+- `description`: free-text note, listed by `--help`
+- optional: `prescale_lses` / `ignore_lses` / `ls_cut` to mark a
+  prescale-change LS or drop bad LS ranges
+
+`python3 compareStreamRates.py --help` lists all registered runs.
+
+The output stem `FILL_FIG` is derived as `run<run>`. `NGT_PRESCALE` (110)
+remains a global setting.
 
 ## 4. Run it
 
 ```bash
-python3 compareStreamRates.py
+python3 compareStreamRates.py --run 398802 [--outdir /eos/user/.../comparisons]
 ```
+
+`--hlt-json` / `--ngt-json` set the input paths (`{run}` is replaced by the
+run number; defaults `data/run_{run}.json` and
+`data/streamRates_F3Mon_ngtdemonstrator_{run}_F3MonToOMS.json`). See `--help`
+for all defaults.
 
 ## 5. Output
 
-Under `<DEFAULT_OUTDIR>/<FILL_FIG>/{rates,bandwidths}/`, per split:
+Under `<outdir>/<FILL_FIG>/{rates,bandwidths}/`, per split:
 
 | Type | Filename pattern | Contents |
 |---|---|---|

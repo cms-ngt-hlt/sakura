@@ -14,6 +14,7 @@ NGT_JSON_PATH: F3Mon-derived per-LS records for the NGT Demonstrator, with only 
 Outputs in form of stream rates and bandwidths (per run, per split, per quantity the split supports).
 """
 
+import argparse
 import os
 import re
 import json
@@ -31,15 +32,55 @@ from matplotlib.ticker import MultipleLocator, FuncFormatter
 # Configuration (mirrors 2025_NGT.ipynb)
 # -----------------------------------------------------------------------------
 
-RUN = "398802"
+# Per-run configuration, selected with --run. Optional keys (defaults in brackets):
+#   description [""], fill_text ["Run <run>"], lumi_label [None: omitted from CMS label],
+#   prescale_lses [[]], ignore_lses [[]], ls_cut [1]
+RUNS = {
+    "398675": dict(year=2025, fill_text="Fill 11230, October 2025",  lumi_label=0.09),   # 87.06 pb^-1
+    "398680": dict(year=2025, fill_text="Fill 11230, October 2025",  lumi_label=0.38),   # 381.26 pb^-1
+    "398681": dict(year=2025, fill_text="Fill 11230, October 2025",  lumi_label=0.08),   # 84.65 pb^-1
+    "398802": dict(year=2025, fill_text="Fill 11237, November 2025", lumi_label=0.43),   # 428.56 pb^-1
+    "403751": dict(year=2026, fill_text="Fill 11723, May 2026",      lumi_label=0.37,   # 369.23 pb^-1
+                   description="stable ~ 800 LS run"),
+    "403774": dict(year=2026, fill_text="Fill 11724, May 2026",      lumi_label=0.05,   # 50.63 pb^-1
+                   description="short 100 LS run"),
+    "403775": dict(year=2026, fill_text="Fill 11724, May 2026",      lumi_label=0.89,   # 891.50 pb^-1
+                   description="very long ~ 2k LS run with start of lumi decay"),
+    "403811": dict(year=2026, fill_text="Fill 11725, May 2026",      lumi_label=0.20,   # 196.19 pb^-1
+                   description="500 LS run"),
+    "403818": dict(year=2026, fill_text="Fill 11726, May 2026",      lumi_label=0.94,   # 941.18 pb^-1
+                   description="very long ~ 2k LS run with start of lumi decay"),
+    "403866": dict(year=2026, fill_text="Fill 11733, May 2026",      lumi_label=0.09,   # 94.88 pb^-1
+                   description="long low PU run"),
+    "403867": dict(year=2026, fill_text="Fill 11733, May 2026",      lumi_label=0.46,   # 459.86 pb^-1
+                   description="high PU run (PS change from low PU column)"),
+    "403894": dict(year=2026, fill_text="Fill 11737, May 2026",      lumi_label=0.34,   # 337.48 pb^-1
+                   description="standard run with emittance scan at the start"),
+    "403895": dict(year=2026, fill_text="Fill 11737, May 2026",      lumi_label=0.05,   # 45.86 pb^-1
+                   description="short run dominated by emittance scan"),
+    "403937": dict(year=2026, fill_text="Fill 11745, May 2026",      lumi_label=0.34,   # 342.18 pb^-1
+                   description="stable ~ 700 LS run"),
+}
 
-HLT_JSON_PATH = "data/run_398802.json"
-NGT_JSON_PATH  = "data/streamRates_F3Mon_ngtdemonstrator_398802_F3MonToOMS.json"
 
-FILL_FIG  = "run398802"
-FILL_TEXT = "Fill 11237, November 2025"
-DEFAULT_OUTDIR = "/eos/user/m/mzarucki/www/2026/NGT/SAKURA/NERD/rates/comparisons"
-os.makedirs(DEFAULT_OUTDIR + "/" + FILL_FIG, exist_ok=True)
+def configure_run(run, outdir, hlt_json, ngt_json):
+    """Set the run-dependent globals from the RUNS dictionary.
+    hlt_json/ngt_json may contain a '{run}' placeholder."""
+    global RUN, HLT_JSON_PATH, NGT_JSON_PATH, FILL_FIG, FILL_TEXT, YEAR, LUMI_LABEL
+    global PRESCALE_LSES, IGNORE_LSES, LS_CUT, OUTDIR
+    cfg = RUNS[run]
+    RUN           = run
+    HLT_JSON_PATH = hlt_json.format(run=run)
+    NGT_JSON_PATH = ngt_json.format(run=run)
+    FILL_FIG      = f"run{run}"
+    FILL_TEXT     = cfg.get("fill_text", f"Run {run}")
+    YEAR          = cfg["year"]
+    LUMI_LABEL    = cfg.get("lumi_label")
+    PRESCALE_LSES = cfg.get("prescale_lses", [])
+    IGNORE_LSES   = cfg.get("ignore_lses", [])
+    LS_CUT        = cfg.get("ls_cut", 1)
+    OUTDIR        = outdir
+    os.makedirs(f"{OUTDIR}/{FILL_FIG}", exist_ok=True)
 
 QUANTITY_SUBDIR = {"rate": "rates", "bandwidth": "bandwidths"}
 
@@ -47,22 +88,15 @@ QUANTITY_SUBDIR = {"rate": "rates", "bandwidth": "bandwidths"}
 def output_dir(quantity):
     """Output directory for a given quantity -- rate plots go under 'rates/',
     bandwidth plots go under 'bandwidth/', both created on first use."""
-    d = f"{DEFAULT_OUTDIR}/{FILL_FIG}/{QUANTITY_SUBDIR[quantity]}"
+    d = f"{OUTDIR}/{FILL_FIG}/{QUANTITY_SUBDIR[quantity]}"
     os.makedirs(d, exist_ok=True)
     return d
 
 SMOOTH_WINDOW = 5
-YEAR       = 2025
-LUMI_LABEL = 0.43  # 428.56 pb^-1 = 0.42856 fb^-1
 
 CMS_ENERGY = 13.6
 
 FIGSIZE = (16, 10)
-
-# 398802
-PRESCALE_LSES = []
-IGNORE_LSES   = []
-LS_CUT        = 1
 
 HLT_LABEL = "HLT"
 NGT_LABEL  = "NGT Demonstrator"
@@ -336,10 +370,12 @@ def load_run(path, run):
     return run_data
 
 
-def extract_meta_by_ls(run_data, ls_cut=LS_CUT):
+def extract_meta_by_ls(run_data, ls_cut=None):
     """{ ls -> metadata dict }, from the first entry seen for that LS across
     any stream (metadata is identical across streams for a given LS).
     Excludes the instance-specific fields (rate/size/bandwidth)."""
+    if ls_cut is None:
+        ls_cut = LS_CUT
     meta_by_ls = {}
     for entries in run_data.values():
         for e in entries:
@@ -879,7 +915,32 @@ def plot_comparison_separate(hlt_agg, ngt_agg, quantity, split):
 # Main
 # -----------------------------------------------------------------------------
 
+def parse_args():
+    class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
+        pass
+
+    epilog = "available runs:\n" + "\n".join(
+        f"  {run}  {cfg.get('fill_text', ''):<26} {cfg.get('description', '')}" for run, cfg in sorted(RUNS.items()))
+    parser = argparse.ArgumentParser(description="Compare HLT vs NGT Demonstrator stream rates and bandwidths.",
+                                     formatter_class=HelpFormatter, epilog=epilog)
+    parser.add_argument("-r", "--run", default="403775", choices=sorted(RUNS), metavar="RUN",
+                        help="run number to process (see list below)")
+    parser.add_argument("-o", "--outdir", default="/eos/user/m/mzarucki/www/2026/NGT/SAKURA/NERD/rates/comparisons",
+                        help="base output directory")
+    parser.add_argument("--hlt-json", default="data/run_{run}.json",
+                        help="HLT (OMS) JSON path; '{run}' is replaced by the run number")
+    parser.add_argument("--ngt-json", default="data/streamRates_F3Mon_ngtdemonstrator_{run}_F3MonToOMS.json",
+                        help="NGT (F3Mon) JSON path; '{run}' is replaced by the run number")
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
+    configure_run(args.run, outdir=args.outdir, hlt_json=args.hlt_json, ngt_json=args.ngt_json)
+
+    print(f"Run: {RUN} ({FILL_TEXT}) {RUNS[RUN].get('description', '')}")
+    if LUMI_LABEL is None:
+        print("WARNING: no lumi_label set for this run in RUNS; luminosity omitted from the CMS label")
     print(f"HLT JSON: {HLT_JSON_PATH}")
     print(f"NGT JSON: {NGT_JSON_PATH}")
 
@@ -918,7 +979,7 @@ def main():
             print(f"=== HLT-vs-NGT comparison (separate): {quantity}, {split.name}")
             plot_comparison_separate(hlt_agg, ngt_agg, quantity, split)
 
-    print(f"\nPlots written to: {DEFAULT_OUTDIR}/{FILL_FIG}")
+    print(f"\nPlots written to: {OUTDIR}/{FILL_FIG}")
 
 
 if __name__ == "__main__":
