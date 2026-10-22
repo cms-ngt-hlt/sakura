@@ -273,7 +273,7 @@ class ScoutingPlot(ABC):
             (label, target["subpath"], target["hist_name"]), set())
             for label in labels}
         cms_lumi_label(ax, runs, self.config.get("lumi_csv", "lumi_data.csv"),
-                       data=True, label="Private Work (CMS data)",
+                       data=True, label="Preliminary",
                        year=cl["year"], com=cl["com"], fontsize=fontsize)
 
     # ---- hooks -------------------------------------------------------
