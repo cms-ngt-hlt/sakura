@@ -19,6 +19,50 @@ below `dqm_prefix` in the DQM files and produces, for each one, the usual
 3-condition overlay with the ratio-to-reference panel and the gray statistical
 uncertainty band of the reference.
 
+## All 2D histograms
+
+`all_2D_ScoutingDQM.py` is the matching generic TH2 plotter. Run it from
+`plotting/` with the same environment and config as the 1D plotter:
+
+```bash
+python all_2D_ScoutingDQM.py
+python all_2D_ScoutingDQM.py --local --list
+python all_2D_ScoutingDQM.py --per-run --include CaloRecHits --no-png -j 4
+python all_2D_ScoutingDQM.py --difference relative --rel-z-limit 0.08
+```
+
+For each histogram it writes **six pages** (and six PNGs by default):
+absolute and relative differences for **NGT vs Prompt**, **Prompt vs HLT**,
+and **HLT vs NGT**, in that direction. These pairs are fixed for this entry
+script; the older scripts still use `config.yaml`'s `diff_pairs`.
+Absolute means signed `A - B`, not `abs(A - B)`; relative means `(A - B) / B`.
+Bins with a zero denominator are masked. Each page includes a 2D map and
+x/y projection panels. Relative projections sum A and B first, then divide.
+No event-count or integral normalization is applied.
+
+The script discovers all `TH2*` objects in every selected file, using ROOT
+axis titles and full axis ranges. Profiles (`TProfile2D`) are excluded:
+their bin means cannot be combined by summing. Missing pairs and incompatible
+binning are skipped with warnings; both edge arrays must match for sums
+and comparisons. Histograms empty in every available condition are skipped
+unless `--keep-empty` is supplied.
+
+All input/run/filter/grouping options work as for 1D: `--config`, `--local`,
+`--pipeline-cfg`, `--per-run [RUN]`, `--runs`, `--exclude-runs`, `--lumi-csv`,
+`--include`, `--exclude`, `--list`, `--limit`, `--group-by`, `--single-pdf`,
+`--jobs`, and `--no-png`. The 1D `--yscale` is replaced by:
+
+* `--difference both|absolute|relative` (default: both).
+* `--abs-z-limit N`: symmetric absolute color range, with a symmetric-log scale.
+* `--rel-z-limit N`: symmetric relative color range, with a linear scale
+  (`0.08` means ±8%).
+
+Without explicit limits each map uses its largest finite absolute difference.
+Use fixed limits when comparing color intensities across pages.
+Outputs are `Comparison_All2D_<Folder>.pdf` (or `Comparison_All2D.pdf` with
+`--single-pdf`), with run identifiers in per-run mode. PNG filenames include
+histogram path, difference kind, and pair and go to `output.png_dir`.
+
 ## Prerequisites
 
 * Python 3 with `numpy`, `uproot`, `pyyaml`, `matplotlib`, `mplhep`

@@ -101,6 +101,7 @@ def scouting_input_dir(pipeline_cfg):
 
 class All1DPlot(ComparisonPlot1D):
 
+    dimension = 1
     output_pdf = "Comparison_All1D.pdf"     # rewritten per group in run()
 
     def __init__(self, config_path="config.yaml", include=(), exclude=(),
@@ -211,13 +212,12 @@ class All1DPlot(ComparisonPlot1D):
             return False
         return True
 
-    @staticmethod
-    def _th1_keys(root_dir):
-        """'sub/path/name' of every TH1* below `root_dir` (TProfiles and
-        TH2s are not 1D histograms and are skipped)."""
-        return [key for key, cls in root_dir.iterclassnames(recursive=True,
+    @classmethod
+    def _histogram_keys(cls, root_dir):
+        """Keys of TH1* (or TH2* in the 2D subclass); exclude profiles."""
+        return [key for key, classname in root_dir.iterclassnames(recursive=True,
                                                             cycle=False)
-                if cls.startswith("TH1")]
+                if classname.startswith(f"TH{cls.dimension}")]
 
     def targets(self):
         """Walk the DQM tree of one file per condition and collect every
@@ -233,7 +233,7 @@ class All1DPlot(ComparisonPlot1D):
                     if root is None:
                         print(f"   [Warning] DQM path not found in {fname}")
                         continue
-                    for key in self._th1_keys(root):
+                    for key in self._histogram_keys(root):
                         if key in found or not self._selected(key):
                             continue
                         subpath, _, hist_name = key.rpartition("/")
@@ -278,19 +278,22 @@ class All1DPlot(ComparisonPlot1D):
                             print(f"   [Warning] DQM path not found in "
                                   f"{fname}; file skipped")
                             continue
-                        present = set(self._th1_keys(root))
+                        present = set(self._histogram_keys(root))
                         for key in wanted:
                             if key not in present:
                                 continue
-                            values, edges = root[key].to_numpy()
+                            values, *edges = root[key].to_numpy()
                             entry = self._cache.get((cond.label, key))
                             if entry is None:
                                 self._cache[(cond.label, key)] = [
-                                    np.array(values, dtype=float), edges]
-                            elif values.shape == entry[0].shape:
+                                    np.array(values, dtype=float), *edges]
+                            elif (values.shape == entry[0].shape and
+                                  (self.dimension == 1 or all(
+                                      np.array_equal(a, b)
+                                      for a, b in zip(edges, entry[1:])))):
                                 entry[0] += values
                             else:
-                                print(f"   [Warning] Shape mismatch for "
+                                print(f"   [Warning] Binning mismatch for "
                                       f"'{key}' in {fname}: {values.shape} "
                                       f"vs {entry[0].shape}; file skipped "
                                       f"for this histogram")
@@ -312,7 +315,7 @@ class All1DPlot(ComparisonPlot1D):
         fetched = []
         for cond in self.conditions:
             entry = self._cache.get((cond.label, key))
-            data = None if entry is None else (entry[0], entry[1])
+            data = None if entry is None else tuple(entry)
             fetched.append({"condition": cond, "data": self.transform(data)})
         if all(item["data"] is None for item in fetched):
             print("   [Warning] Not found in any condition -> skipped")
@@ -412,8 +415,8 @@ class All1DPlot(ComparisonPlot1D):
 
     def _pdf_name(self, group):
         run = "" if self.active_run is None else f"_Run{self.active_run}"
-        return (f"Comparison_All1D{run}.pdf" if self.single_pdf
-                else f"Comparison_All1D{run}_{group}.pdf")
+        return (f"Comparison_All{self.dimension}D{run}.pdf" if self.single_pdf
+                else f"Comparison_All{self.dimension}D{run}_{group}.pdf")
 
     # ---- saving ------------------------------------------------------
 
@@ -432,7 +435,7 @@ class All1DPlot(ComparisonPlot1D):
     def _run_group(self, group, tgts):
         """One PdfPages for one group; returns (n_plotted, n_skipped)."""
         self.output_pdf = self._pdf_name(group)
-        n_plotted = n_skipped = 0
+        n_plotted = n_skipped = n_pages = 0
         try:
             print(f"--- Starting analysis for {self.output_pdf} "
                   f"({len(tgts)} histograms) ---")
@@ -443,12 +446,17 @@ class All1DPlot(ComparisonPlot1D):
                     if fetched is None:
                         n_skipped += 1
                         continue
+                    pages_before = n_pages
                     for out in self.make_figures(target, fetched):
                         self._save(out, pdf)
-                    n_plotted += 1
+                        n_pages += 1
+                    if n_pages > pages_before:
+                        n_plotted += 1
+                    else:
+                        n_skipped += 1
             if n_plotted:
                 print(f"SUCCESS: Analysis complete. Output: "
-                      f"{self.output_pdf} ({n_plotted} pages)")
+                      f"{self.output_pdf} ({n_pages} pages)")
             else:
                 # matplotlib >= 3.10 does not write an empty PdfPages
                 print(f"[Warning] Nothing to plot for {group}; "
@@ -477,10 +485,10 @@ class All1DPlot(ComparisonPlot1D):
         t0 = time.time()
         targets = self.targets()
         if not targets:
-            print("CRITICAL ERROR: no 1D histograms found "
+            print(f"CRITICAL ERROR: no {self.dimension}D histograms found "
                   "(check condition paths, dqm_prefix and --include)")
             return
-        print(f"Discovered {len(targets)} 1D histograms")
+        print(f"Discovered {len(targets)} {self.dimension}D histograms")
         self._preload(targets)
 
         groups = {}
@@ -515,9 +523,9 @@ def _run_group_in_worker(group, tgts):
     return _WORKER_PLOTTER._run_group(group, tgts)
 
 
-def _parse_args():
+def _parse_args(dimension=1):
     p = argparse.ArgumentParser(
-        description="Compare ALL 1D histograms of the Scouting DQM files "
+        description=f"Compare ALL {dimension}D histograms of the Scouting DQM files "
                     "across the conditions in config.yaml.")
     p.add_argument("--config", default="config.yaml",
                    help="path to config.yaml (default: %(default)s)")
@@ -543,23 +551,32 @@ def _parse_args():
                    help="one PDF per top-level DQM folder (default) or per "
                         "sub-folder (smaller PDFs, better parallelism)")
     p.add_argument("--single-pdf", action="store_true",
-                   help="one Comparison_All1D.pdf for everything "
+                   help=f"one Comparison_All{dimension}D.pdf for everything "
                         "(implies --jobs 1)")
-    for option, description in (
-            ("--xlim", "shared x-axis limits for main and ratio panels"),
-            ("--ylim", "main-panel y-axis limits; nonpositive MIN makes auto scale linear"),
-            ("--ratio-ylim", "ratio-panel y-axis limits (default: 0 2)")):
-        p.add_argument(option, nargs=2, type=float, metavar=("MIN", "MAX"),
-                       help=description)
-    p.add_argument("--xlabel", default=None, metavar="TEXT",
-                   help="override the x-axis label on every selected plot "
-                        "(plain text or matplotlib mathtext)")
-    p.add_argument("--ylabel", default=None, metavar="TEXT",
-                   help="override the main-panel y-axis label on every selected "
-                        "plot (plain text or matplotlib mathtext)")
-    p.add_argument("--yscale", choices=["auto", "log", "linear"],
-                   default="auto", help="main-panel y-scale (default: "
-                                        "log if max bin > 100 else linear)")
+    if dimension == 1:
+        for option, description in (
+                ("--xlim", "shared x-axis limits for main and ratio panels"),
+                ("--ylim", "main-panel y-axis limits; nonpositive MIN makes auto scale linear"),
+                ("--ratio-ylim", "ratio-panel y-axis limits (default: 0 2)")):
+            p.add_argument(option, nargs=2, type=float, metavar=("MIN", "MAX"),
+                           help=description)
+        p.add_argument("--xlabel", default=None, metavar="TEXT",
+                       help="override the x-axis label on every selected plot "
+                            "(plain text or matplotlib mathtext)")
+        p.add_argument("--ylabel", default=None, metavar="TEXT",
+                       help="override the main-panel y-axis label on every selected "
+                            "plot (plain text or matplotlib mathtext)")
+        p.add_argument("--yscale", choices=["auto", "log", "linear"],
+                       default="auto", help="main-panel y-scale (default: "
+                                            "log if max bin > 100 else linear)")
+    else:
+        p.set_defaults(yscale="auto")
+        p.add_argument("--difference", choices=["both", "absolute", "relative"],
+                       default="both", help="difference maps to render (default: both)")
+        p.add_argument("--abs-z-limit", type=float, default=None,
+                       help="absolute color-scale half-range (default: automatic per map)")
+        p.add_argument("--rel-z-limit", type=float, default=None,
+                       help="relative color-scale half-range, e.g. 0.08 for 8%% (default: automatic)")
     p.add_argument("--keep-empty", action="store_true",
                    help="also plot histograms that are empty in every "
                         "condition")
@@ -573,12 +590,15 @@ def _parse_args():
     return p.parse_args()
 
 
-if __name__ == "__main__":
-    args = _parse_args()
+def main(plot_class=All1DPlot):
+    args = _parse_args(plot_class.dimension)
+    options = (dict(xlabel=args.xlabel, ylabel=args.ylabel, xlim=args.xlim,
+                    ylim=args.ylim, ratio_ylim=args.ratio_ylim)
+               if plot_class.dimension == 1 else
+               dict(difference=args.difference, abs_z_limit=args.abs_z_limit,
+                    rel_z_limit=args.rel_z_limit))
     try:
-        plot = All1DPlot(config_path=args.config, include=args.include,
-                     xlabel=args.xlabel, ylabel=args.ylabel, xlim=args.xlim,
-                     ylim=args.ylim, ratio_ylim=args.ratio_ylim,
+        plot = plot_class(**options, config_path=args.config, include=args.include,
                      exclude=args.exclude, group_by=args.group_by,
                      single_pdf=args.single_pdf, yscale=args.yscale,
                      keep_empty=args.keep_empty, limit=args.limit,
@@ -602,3 +622,7 @@ if __name__ == "__main__":
             plot.run()
     except ValueError as exc:
         raise SystemExit(f"ERROR: {exc}") from exc
+
+
+if __name__ == "__main__":
+    main()
