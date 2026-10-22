@@ -1,7 +1,7 @@
 """
 Z_to_ee_fit_stability_per_fill.py
 
-Per-fill DSCB fit stability analyser.
+Per-fill or per-run DSCB fit stability analyser.
 
 For every fill found in the HLT / NGT / Prompt folders (by grouping runs):
   1. Aggregates di-electron mass histograms for all runs in the fill.
@@ -15,6 +15,10 @@ For every fill found in the HLT / NGT / Prompt folders (by grouping runs):
 Usage
 -----
   python Z_to_ee_fit_stability_per_fill.py --lumi-csv lumi_data.csv
+  python Z_to_ee_fit_stability_per_fill.py --per-run --lumi-csv lumi_data.csv
+
+--per-run fits each run separately, with horizontal bars spanning its
+recorded luminosity and vertical lines marking fill boundaries.
 
 DQM inputs come from DQM_DEST_BASE/hlt in pipeline.cfg, with a fallback
 for older flat layouts. Use --pipeline-cfg for another config, or --local
@@ -320,6 +324,12 @@ class PerFillFitAnalyzer:
             available_runs, lumi_csv, per_run=self.unit == "Run",
             selected_runs=selected if run_selection else None)
 
+        # Run points keep fill boundaries on the same cumulative lumi axis.
+        if self.unit == "Run":
+            _, self.boundary_info = cumulative_luminosity(available_runs, lumi_csv)
+        else:
+            self.boundary_info = self.fill_info
+
         # fit_results[fill][source] = (mean, mean_err, res, res_err, chi2_ndf)
         self.fit_results = {}
         self._run_all_fits()
@@ -395,7 +405,7 @@ class PerFillFitAnalyzer:
             output_file = f"Zee_Stability_Lumi_Per{self.unit}Fit.png"
         fills_to_plot = sorted(f for f in self.fit_results if f in self.fill_info)
         if not fills_to_plot:
-            print("No fills with results and lumi info.")
+            print(f"No {self.unit.lower()}s with results and lumi info.")
             return
 
         LUMI_THRESHOLD = 1.0 # pb
@@ -410,11 +420,14 @@ class PerFillFitAnalyzer:
 
         for label, info in self.SOURCES.items():
             x_pts, mu_pts, mu_err_pts, res_pts, res_err_pts = [], [], [], [], []
+            x_err_pts = []
 
             for fill in fills_to_plot:
                 res = self.fit_results[fill].get(label)
                 if res is not None:
-                    x_pts.append(self.fill_info[fill]['x'])
+                    point = self.fill_info[fill]
+                    x_pts.append(point['x'])
+                    x_err_pts.append((point['end'] - point['start']) / 2.0)
                     mu_pts.append(res[0]); mu_err_pts.append(res[1])
                     res_pts.append(res[2]); res_err_pts.append(res[3])
 
@@ -423,6 +436,8 @@ class PerFillFitAnalyzer:
                 capsize=3, markersize=10, linewidth=0, markeredgewidth=1.5,
                 label=f"{label} Conditions",
             )
+            if self.unit == "Run":
+                common_kw.update(xerr=x_err_pts, elinewidth=1.5)
             ax_top.errorbar(x_pts, mu_pts,  yerr=mu_err_pts,  **common_kw)
             ax_bot.errorbar(x_pts, res_pts, yerr=res_err_pts, **common_kw)
 
@@ -435,17 +450,17 @@ class PerFillFitAnalyzer:
         ylim_top = ax_top.get_ylim()
         y_text  = ylim_top[0] + 0.04 * (ylim_top[1] - ylim_top[0])
 
-        all_sorted_fills = sorted(self.fill_info.keys(), key=lambda f: self.fill_info[f]['start'])
+        all_sorted_fills = sorted(self.boundary_info, key=lambda f: self.boundary_info[f]['start'])
         for i, fill in enumerate(all_sorted_fills):
-            finfo = self.fill_info[fill]
+            finfo = self.boundary_info[fill]
             if i < len(all_sorted_fills) - 1:
                 nxt = all_sorted_fills[i+1]
-                if finfo['lumi'] > LUMI_THRESHOLD or self.fill_info[nxt]['lumi'] > LUMI_THRESHOLD:
+                if finfo['lumi'] > LUMI_THRESHOLD or self.boundary_info[nxt]['lumi'] > LUMI_THRESHOLD:
                     for ax in (ax_top, ax_bot):
                         ax.axvline(finfo['end'], color='grey', ls='--', alpha=0.6, lw=1.5)
 
             if finfo['lumi'] > LUMI_THRESHOLD:
-                ax_top.text(finfo['x'], y_text, f"{self.unit} {fill}",
+                ax_top.text(finfo['x'], y_text, f"Fill {fill}",
                             ha='center', va='bottom', color='grey',
                             fontsize=13, fontweight='bold')
 

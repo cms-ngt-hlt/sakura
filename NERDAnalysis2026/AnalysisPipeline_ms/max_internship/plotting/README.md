@@ -439,8 +439,24 @@ its top label counts only runs contributing to successful fits, per condition.
 Individual fit sanity plots also get labels for their contributing runs.
 
 The shared module also provides `cumulative_luminosity(...)` for the stability
-plot's fill/run membership, cumulative ranges, and midpoints. `--per-run`
-selects run groups; `--runs` and `--exclude-runs` restrict group membership
+plot's fill/run membership, cumulative ranges, and midpoints.
+For `Z_to_ee_fit_stability_per_fill.py`, the default remains one fit per fill.
+Add `--per-run` for one fit per run and condition:
+
+```bash
+python Z_to_ee_fit_stability_per_fill.py --lumi-csv lumi_data.csv --per-run
+```
+
+Each run point sits at its luminosity midpoint. Its horizontal bar spans the
+run's full **recorded** luminosity (half on either side), using the same CSV
+quantity as the axis; it is a run extent, not a luminosity uncertainty. Both
+mean and resolution panels retain vertical **fill** boundaries and fill labels.
+Run outputs use `Zee_Stability_Lumi_PerRunFit.png` and
+`fit_sanity_checks_per_run/`, leaving fill outputs separate.
+
+`--per-run RUN` optionally selects just one run. These run-length bars and
+retained fill boundaries apply only to `Z_to_ee_fit_stability_per_fill.py`;
+other plotters keep their existing behavior. With or without `--per-run`, `--runs` and `--exclude-runs` restrict group membership
 while retaining intervening CSV luminosity on the axis. CSV loading, unit
 conversion, cumulative coordinates, and CMS labels all live in `luminosity.py`;
 ROOT histogram loading and fitting remain in the individual plotters.
