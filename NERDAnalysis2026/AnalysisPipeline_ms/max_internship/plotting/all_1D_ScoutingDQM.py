@@ -107,7 +107,8 @@ class All1DPlot(ComparisonPlot1D):
                  group_by="top", single_pdf=False, yscale="auto",
                  keep_empty=False, limit=None, jobs=1, save_png=True,
                  pipeline_cfg=Path(__file__).resolve().parents[1] / "pipeline.cfg",
-                 local=False, per_run=False, runs=(), exclude_runs=(), lumi_csv=None):
+                 local=False, per_run=False, runs=(), exclude_runs=(), lumi_csv=None,
+                 xlabel=None, ylabel=None, xlim=None, ylim=None, ratio_ylim=None):
         super().__init__(config_path=config_path)
         if lumi_csv is not None:
             self.config["lumi_csv"] = lumi_csv
@@ -130,6 +131,19 @@ class All1DPlot(ComparisonPlot1D):
         self.group_by = group_by
         self.single_pdf = single_pdf
         self.yscale = yscale
+        self.xlabel = xlabel
+        self.ylabel = ylabel
+        for name, limits in (("xlim", xlim), ("ylim", ylim),
+                             ("ratio-ylim", ratio_ylim)):
+            if limits is not None and (len(limits) != 2 or
+                    not all(np.isfinite(v) for v in limits) or
+                    limits[0] >= limits[1]):
+                raise ValueError(f"--{name} requires finite MIN < MAX")
+        if ylim is not None and yscale == "log" and ylim[0] <= 0:
+            raise ValueError("--ylim requires positive limits with --yscale log")
+        self.xlim = xlim
+        self.ylim = ylim
+        self.ratio_ylim = ratio_ylim
         self.keep_empty = keep_empty
         self.limit = limit
         self.jobs = 1 if single_pdf else max(1, jobs)
@@ -314,18 +328,30 @@ class All1DPlot(ComparisonPlot1D):
     # ---- cosmetics ---------------------------------------------------
 
     def apply_yscale(self, ax_main, max_y, target):
+        if self.ylim is not None and self.ylim[0] <= 0 and self.yscale == "auto":
+            self._sci_notation(ax_main)
+            return
         if self.yscale == "log" or (self.yscale == "auto" and max_y > 100):
             ax_main.set_yscale("log")
         else:
             self._sci_notation(ax_main)
 
     def decorate(self, ax_main, ax_ratio, target):
+        if self.xlim is not None:
+            ax_main.set_xlim(*self.xlim)
+            ax_ratio.set_xlim(*self.xlim)
+        if self.ylim is not None:
+            ax_main.set_ylim(*self.ylim)
+        if self.ratio_ylim is not None:
+            ax_ratio.set_ylim(*self.ratio_ylim)
         if self.active_run is not None:
             ax_main.text(0.02, 0.04, f"Run {self.active_run}",
                          transform=ax_main.transAxes, fontsize=16)
-        ax_main.set_ylabel(self._label(target["ytitle"], "Entries"),
+        ax_main.set_ylabel(self.ylabel if self.ylabel is not None else
+                           self._label(target["ytitle"], "Entries"),
                            fontsize=20)
-        ax_ratio.set_xlabel(self._label(target["xtitle"], target["hist_name"]),
+        ax_ratio.set_xlabel(self.xlabel if self.xlabel is not None else
+                            self._label(target["xtitle"], target["hist_name"]),
                             fontsize=20)
 
     @staticmethod
@@ -519,6 +545,18 @@ def _parse_args():
     p.add_argument("--single-pdf", action="store_true",
                    help="one Comparison_All1D.pdf for everything "
                         "(implies --jobs 1)")
+    for option, description in (
+            ("--xlim", "shared x-axis limits for main and ratio panels"),
+            ("--ylim", "main-panel y-axis limits; nonpositive MIN makes auto scale linear"),
+            ("--ratio-ylim", "ratio-panel y-axis limits (default: 0 2)")):
+        p.add_argument(option, nargs=2, type=float, metavar=("MIN", "MAX"),
+                       help=description)
+    p.add_argument("--xlabel", default=None, metavar="TEXT",
+                   help="override the x-axis label on every selected plot "
+                        "(plain text or matplotlib mathtext)")
+    p.add_argument("--ylabel", default=None, metavar="TEXT",
+                   help="override the main-panel y-axis label on every selected "
+                        "plot (plain text or matplotlib mathtext)")
     p.add_argument("--yscale", choices=["auto", "log", "linear"],
                    default="auto", help="main-panel y-scale (default: "
                                         "log if max bin > 100 else linear)")
@@ -539,6 +577,8 @@ if __name__ == "__main__":
     args = _parse_args()
     try:
         plot = All1DPlot(config_path=args.config, include=args.include,
+                     xlabel=args.xlabel, ylabel=args.ylabel, xlim=args.xlim,
+                     ylim=args.ylim, ratio_ylim=args.ratio_ylim,
                      exclude=args.exclude, group_by=args.group_by,
                      single_pdf=args.single_pdf, yscale=args.yscale,
                      keep_empty=args.keep_empty, limit=args.limit,

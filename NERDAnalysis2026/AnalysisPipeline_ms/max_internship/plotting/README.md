@@ -234,6 +234,12 @@ python3 all_1D_ScoutingDQM.py -h
 | option | meaning |
 |---|---|
 | `--config PATH` | alternative `config.yaml` (default `config.yaml`) |
+| `--lumi-csv PATH` | override the run-level luminosity CSV configured in `config.yaml` |
+| `--xlabel TEXT` | override the x-axis label on every selected 1D plot |
+| `--xlim MIN MAX` | shared x limits for the main and ratio panels |
+| `--ylim MIN MAX` | main-panel y limits; a nonpositive minimum makes `auto` scale linear; explicit `log` requires positive limits |
+| `--ratio-ylim MIN MAX` | ratio-panel y limits (default: `0 2`) |
+| `--ylabel TEXT` | override the main-panel y-axis label on every selected 1D plot; the ratio label stays unchanged |
 | `--local` | bypass `pipeline.cfg`; use condition paths relative to the current working directory (absolute paths also work) |
 | `--per-run [RUN]` | compare conditions separately for all runs, or only RUN if supplied, with run numbers in output names and plots |
 | `--runs RUN [RUN ...]` | use only the listed runs; sum them unless `--per-run` is set |
@@ -255,6 +261,25 @@ The regexes are Python `re.search` patterns against the path relative to
 Anchor with `^` to match a folder from its start.
 
 ## Examples
+
+Redo one histogram with custom axis labels:
+
+```bash
+python3 all_1D_ScoutingDQM.py \
+  --include '^DiLepton/electrons_zMass$' \
+  --xlabel '$m_{ee}$ [GeV]' \
+  --ylabel 'Number of dielectron candidates' \
+  --xlim 70 110 --ylim 0 5000 --ratio-ylim 0.8 1.2
+```
+
+Labels accept plain text or matplotlib mathtext (use single shell quotes to
+preserve `$` and backslashes). Each override applies to **all histograms selected
+in that invocation**; run separate commands for plots needing different labels.
+Omitted labels retain the ROOT-title defaults; an empty string hides a label.
+Limits must be finite with MIN < MAX and apply to every selected plot.
+These options change display only, not binning or data. Add `--list` to preview
+the selected histogram paths before plotting. Paths use `/`, even though PNG
+filenames replace it with `_`.
 
 See what is in the files without plotting anything:
 
@@ -303,11 +328,15 @@ cosmetics are derived from the ROOT objects themselves:
   titles that cannot be converted are shown as plain text. If the axis title is
   empty, the histogram name is used.
 * **y-label**: the ROOT y-axis title, or `Entries` if empty.
-* **x-range**: the full histogram range; **ratio range**: 0–2 (framework default).
+* **x-range**: the full histogram range, overridden by `--xlim MIN MAX`;
+  **main y-range**: automatic, overridden by `--ylim MIN MAX`;
+  **ratio range**: 0–2, overridden by `--ratio-ylim MIN MAX`.
 * **y-scale**: see `--yscale`.
 
-If a particular histogram needs dedicated treatment (zoomed x-range, special
-labels, rebinning, reference lines), do what the other entry scripts do:
+Use `--xlabel` / `--ylabel` to override the axis labels directly.
+Use `--xlim`, `--ylim`, and `--ratio-ylim` to set display ranges.
+If a particular histogram needs dedicated treatment (rebinning, reference lines),
+do what the other entry scripts do:
 write a small subclass of `ComparisonPlot1D` (or of `All1DPlot`) and override
 `decorate()` / `transform()` for that histogram — see
 `variables_ScoutingECALRecHits.py` for the pattern. Keep `all_1D_ScoutingDQM.py`
