@@ -57,7 +57,12 @@ pair and difference type. Original plots remain unchanged. The extra copy
 excludes bins whose centres satisfy `x² + y² ≤ (1 cm)²`, around nominal
 `(0, 0)`, from both the map and projections. Vertex coordinates default to
 cm; explicit `[mm]`, `(mm)`, `[m]`, or `(m)` axis units are converted to cm.
-Other maps, including eta/phi and r/z, are unaffected. Profile projections
+For `VtxRvsZ` and `VtxZvsR` (also `_zoom`), the extra copy masks radial
+bin centres with `|r| ≤ 1 cm` at **every z**, representing the same beam-line
+cylinder. The radial axis is identified from ROOT titles (`r`, `rho`, or
+`radius`), in either axis order. If it cannot be identified unambiguously,
+a warning is printed and only the original is produced. Eta/phi maps are
+unaffected. Profile projections
 exclude both weighted sums and weights in the disk. The masked copy has
 its own automatic color range (explicit z-limits still apply), a visible
 mask annotation, and `_beamlineMasked` before the final comparison tags:
