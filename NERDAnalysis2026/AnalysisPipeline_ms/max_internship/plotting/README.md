@@ -21,7 +21,7 @@ uncertainty band of the reference.
 
 ## All 2D histograms
 
-`all_2D_ScoutingDQM.py` is the matching generic TH2 plotter. Run it from
+`all_2D_ScoutingDQM.py` is the matching generic TH2 and TProfile2D plotter. Run it from
 `plotting/` with the same environment and config as the 1D plotter:
 
 ```bash
@@ -40,9 +40,13 @@ Bins with a zero denominator are masked. Each page includes a 2D map and
 x/y projection panels. Relative projections sum A and B first, then divide.
 No event-count or integral normalization is applied.
 
-The script discovers all `TH2*` objects in every selected file, using ROOT
-axis titles and full axis ranges. Profiles (`TProfile2D`) are excluded:
-their bin means cannot be combined by summing. Missing pairs and incompatible
+The script discovers all `TH2*` and `TProfile2D` objects in every selected
+file, using ROOT axis titles and full axis ranges. Profiles are merged by
+summing their stored weighted values and bin weights, then dividing to get
+the combined mean. Their x/y projections also combine weighted sums and
+weights before comparing means; unfilled bins are masked. Absolute profile
+differences are in the units of the profiled quantity, relative differences
+are dimensionless. Missing pairs and incompatible
 binning are skipped with warnings; both edge arrays must match for sums
 and comparisons. Histograms empty in every available condition are skipped
 unless `--keep-empty` is supplied.

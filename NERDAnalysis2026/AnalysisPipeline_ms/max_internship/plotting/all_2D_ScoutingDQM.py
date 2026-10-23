@@ -2,11 +2,13 @@
 
 Shares input selection, caching, run filtering, PDF grouping and multiprocessing
 with all_1D_ScoutingDQM. Each histogram produces one page per pair and difference
-kind, with x/y projections. TProfiles are excluded because their means cannot
-be aggregated by summing bin contents.
+kind, with x/y projections. TProfile2D means are merged using their stored
+weighted sums and bin weights.
 """
 
 import sys
+import time
+import uproot
 from pathlib import Path
 
 import numpy as np
@@ -15,7 +17,7 @@ from matplotlib.colors import SymLogNorm, TwoSlopeNorm
 
 from all_1D_ScoutingDQM import All1DPlot, main
 from scouting_plot import FigureOutput, RelDiffMap
-from luminosity import load_lumi_info
+from luminosity import load_lumi_info, directory_run
 
 
 class All2DPlot(All1DPlot):
@@ -81,11 +83,94 @@ class All2DPlot(All1DPlot):
             for fname, run in self._file_runs(cond):
                 yield cond, fname, run
 
+    @classmethod
+    def _histogram_keys(cls, root_dir):
+        return [key for key, kind in root_dir.iterclassnames(recursive=True, cycle=False)
+                if kind.startswith("TH2") or kind == "TProfile2D"]
+
+    @staticmethod
+    def _mean(sums, weights):
+        return np.divide(sums, weights, out=np.full_like(sums, np.nan, dtype=float),
+                         where=weights != 0)
+
+    def _preload(self, targets):
+        """Merge counts, or profile sufficient statistics, once per file/run."""
+        self._cache = {}
+        self._profiles = {}
+        self.source.contributing_runs.clear()
+        wanted = [self._full_name(t) for t in targets]
+        kinds = {}
+        start = time.time()
+        n_files = 0
+        for cond in self.conditions:
+            for fname, run in self._file_runs(cond):
+                try:
+                    with uproot.open(fname) as f:
+                        root = self._dqm_root(f, run)
+                        if root is None:
+                            continue
+                        present = set(self._histogram_keys(root))
+                        for key in wanted:
+                            if key not in present:
+                                continue
+                            try:
+                                h = root[key]
+                                profile = h.classname == "TProfile2D"
+                                if key in kinds and kinds[key] != profile:
+                                    raise ValueError("TH2/TProfile2D type mismatch")
+                                edges = [h.axis(i).edges() for i in (0, 1)]
+                                if profile:
+                                    # ROOT stores x as the fastest-varying index,
+                                    # including underflow and overflow on both axes.
+                                    shape = (len(edges[1]) + 1, len(edges[0]) + 1)
+                                    raw, = h.base(uproot.models.TArray.Model_TArray)
+                                    values = np.asarray(raw, dtype=float).reshape(shape).T[1:-1, 1:-1].copy()
+                                    weights = np.asarray(h.member("fBinEntries"), dtype=float).reshape(shape).T[1:-1, 1:-1].copy()
+                                else:
+                                    values = np.array(h.values(), dtype=float)
+                                cache_key = (cond.label, key)
+                                entry = self._cache.get(cache_key)
+                                if entry is not None:
+                                    if (entry[0].shape != values.shape or any(
+                                            not np.array_equal(a, b) for a, b in zip(entry[1:], edges))):
+                                        raise ValueError("incompatible bin edges")
+                                    entry[0] += values
+                                    if profile:
+                                        self._profiles[cache_key][1] += weights
+                                else:
+                                    self._cache[cache_key] = [values, *edges]
+                                    if profile:
+                                        self._profiles[cache_key] = [values, weights]
+                                kinds[key] = profile
+                                subpath, _, name = key.rpartition("/")
+                                self.source.contributing_runs.setdefault(
+                                    (cond.label, subpath, name), set()).add(directory_run(root))
+                            except Exception as exc:
+                                print(f"   [Warning] Skipping {key} in {fname}: {exc}")
+                    n_files += 1
+                except Exception as exc:
+                    print(f"   [Warning] Error reading {fname}: {exc}")
+        for key, (sums, weights) in self._profiles.items():
+            self._cache[key][0] = self._mean(sums, weights)
+        print(f"Loaded {len(wanted)} histograms/profiles from {n_files} file/run(s) "
+              f"in {time.time() - start:.1f} s")
+
+    def _projection(self, label, target, values, axis):
+        stats = self._profiles.get((label, self._full_name(target)))
+        if stats is None:
+            return np.sum(values, axis=axis)
+        sums, weights = stats
+        return self._mean(np.sum(sums, axis=axis), np.sum(weights, axis=axis))
+
     def fetch(self, target):
         key = self._full_name(target)
         data = {c.label: self._cache[(c.label, key)] for c in self.conditions
                 if (c.label, key) in self._cache}
-        if not self.keep_empty and all(not np.any(d[0]) for d in data.values()):
+        if not self.keep_empty and all(
+                not np.any(np.isfinite(d[0]) & (d[0] != 0))
+                and not np.any(getattr(self, "_profiles", {}).get(
+                    (label, key), (None, np.array([])))[1])
+                for label, d in data.items()):
             return None
         pairs = []
         for a, b in self.pairs:
@@ -132,7 +217,8 @@ class All2DPlot(All1DPlot):
                                labels=[label_a, label_b])
                 mesh = ax.pcolormesh(xedges, yedges, np.ma.masked_invalid(diff.T),
                                      cmap="PiYG", norm=norm, rasterized=True)
-                fig.colorbar(mesh, ax=ax, label=formula, extend="both")
+                quantity = "Profile mean: " if (label_a, self._full_name(target)) in self._profiles else ""
+                fig.colorbar(mesh, ax=ax, label=quantity + formula, extend="both")
                 ax.set_xlabel(xlabel)
                 ax.set_ylabel(ylabel)
                 # Keep the comparison identifiable in PNGs, which omit PDF titles.
@@ -142,8 +228,8 @@ class All2DPlot(All1DPlot):
                 for panel, axis, edges, label in ((axes[1], 1, xedges, xlabel),
                                                   (axes[2], 0, yedges, ylabel)):
                     # Relative differences of projections: sum FIRST, then divide.
-                    values = self.difference(np.sum(a, axis=axis),
-                                             np.sum(b, axis=axis), kind)
+                    values = self.difference(self._projection(label_a, target, a, axis),
+                                             self._projection(label_b, target, b, axis), kind)
                     panel.stairs(values, edges, color="black", linewidth=1.5)
                     panel.axhline(0, color="gray", linestyle="--", linewidth=1)
                     panel.grid(alpha=.3)

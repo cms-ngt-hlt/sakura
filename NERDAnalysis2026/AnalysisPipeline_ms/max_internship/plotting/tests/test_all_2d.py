@@ -110,6 +110,49 @@ class All2DTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'expected brilcalc'):
             self.plot(lumi_csv=str(malformed)).targets()
 
+    def test_profiles_merge_weighted_means_and_project(self):
+        from uproot.writing.identify import to_TAxis, to_TProfile2D
+        key = 'Muons/Properties/MuonNoVtx_nTrackerLayersWithMeasurement_vs_eta_phi_prof'
+        w1 = np.array([[1., 3., 0.], [2., 1., 0.]])
+        w2 = np.array([[3., 1., 0.], [1., 2., 0.]])
+        m1 = np.array([[2., 4., 0.], [0., 5., 0.]])
+        m2 = np.array([[6., 8., 0.], [0., 2., 0.]])
+
+        def flat(a):
+            return np.pad(a, 1).T.flatten().astype(float)
+
+        for label, scale in [('Prompt', 1), ('HLT', 2), ('NGT', 3)]:
+            for filename, w, m in [('a.root', w1, m1), ('b.root', w2, m2)]:
+                sums = m * w * scale
+                profile = to_TProfile2D(
+                    fName=None, fTitle='tracker layers', data=flat(sums),
+                    fEntries=float(w.sum()), fTsumw=float(w.sum()), fTsumw2=float(w.sum()),
+                    fTsumwx=0., fTsumwx2=0., fTsumwy=0., fTsumwy2=0., fTsumwxy=0.,
+                    fTsumwz=float(sums.sum()), fTsumwz2=0., fSumw2=flat(m*m*w*scale*scale),
+                    fBinEntries=flat(w), fBinSumw2=flat(w),
+                    fXaxis=to_TAxis('xaxis', '#eta', 2, 0., 3., self.x),
+                    fYaxis=to_TAxis('yaxis', '#phi', 3, -2., 5., self.y))
+                with uproot.update(self.base / label / filename) as f:
+                    f[self.prefix + key] = profile
+        plot = self.plot()
+        targets = plot.targets()
+        target = next(t for t in targets if t['hist_name'].endswith('_prof'))
+        plot._preload(targets)
+        values = plot._cache[('Prompt', key)][0]
+        expected = plot._mean(m1*w1 + m2*w2, w1+w2)
+        np.testing.assert_allclose(values, expected)
+        self.assertEqual(values[0, 0], 5.)  # unequal weights: not sum/average of means
+        self.assertEqual(values[1, 0], 0.)  # measured zero remains valid
+        self.assertTrue(np.isnan(values[0, 2]))  # unfilled bin remains undefined
+        for axis in (0, 1):
+            np.testing.assert_allclose(plot._projection('Prompt', target, values, axis),
+                plot._mean((m1*w1+m2*w2).sum(axis=axis), (w1+w2).sum(axis=axis)))
+        outputs = list(plot.make_figures(target, plot.fetch(target)))
+        self.assertEqual(len(outputs), 6)
+        for out in outputs:
+            out.fig.canvas.draw()
+            plt.close(out.fig)
+
     def test_math_and_projection_order(self):
         a = np.array([[4., 3.], [5., 2.]])
         b = np.array([[2., 0.], [1., 1.]])
