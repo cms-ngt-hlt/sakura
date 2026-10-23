@@ -236,10 +236,10 @@ class All2DPlot(All1DPlot):
                     panel.set_xlim(edges[0], edges[-1])
                     panel.set_xlabel(label)
                     panel.set_ylabel("Difference" if kind == "absolute" else "Rel. diff.")
-                name = self.png_name(target).removeprefix("Comparison_")
+                name = self.png_name(target).removeprefix("Comparison_").removesuffix(".png")
                 yield FigureOutput(
                     fig=fig,
-                    png_name=f"Comparison_All2D_{kind}_{label_a}_vs_{label_b}_{name}",
+                    png_name=f"Comparison_All2D_{name}_{kind}_{label_a}_vs_{label_b}.png",
                     pdf_title=f"{self.pdf_title(target)}\n{kind.capitalize()} difference: {formula}")
 
 

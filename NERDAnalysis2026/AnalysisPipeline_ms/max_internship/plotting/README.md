@@ -74,7 +74,9 @@ Without explicit limits each map uses its largest finite absolute difference.
 Use fixed limits when comparing color intensities across pages.
 Outputs are `Comparison_All2D_<Folder>.pdf` (or `Comparison_All2D.pdf` with
 `--single-pdf`), with run identifiers in per-run mode. PNG filenames include
-histogram path, difference kind, and pair and go to `output.png_dir`.
+histogram path followed by the difference kind and condition pair, and go to
+`output.png_dir`, e.g.
+`Comparison_All2D_Tracks_eta_vs_phi_absolute_NGT_vs_Prompt.png`.
 
 ## Prerequisites
 
