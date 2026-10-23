@@ -1,4 +1,6 @@
 """Synthetic ROOT integration tests; run with unittest discover -s plotting/tests."""
+import contextlib
+import io
 from pathlib import Path
 import sys
 import tempfile
@@ -61,6 +63,52 @@ class All2DTests(unittest.TestCase):
                 plot._save(out, pdf)
         self.assertEqual(len(list((self.base / 'png').glob('*.png'))), 6)
         self.assertGreater((self.base / 'test.pdf').stat().st_size, 1000)
+
+    def test_missing_lumi_excluded_before_discovery_and_sum(self):
+        # Put an uncovered run first in the same file as an accepted run.
+        # Its huge contents and unique histogram must never enter the output.
+        for label in ('Prompt', 'HLT', 'NGT'):
+            with uproot.recreate(self.base / label / 'mixed.root') as f:
+                bad = self.prefix.replace('Run 123', 'Run 402839')
+                f[bad + 'Maps/map'] = (self.a * 1000, self.x, self.y)
+                f[bad + 'Excluded/only_bad_run'] = (self.a, self.x, self.y)
+                f[self.prefix + 'Maps/map'] = (self.a, self.x, self.y)
+        plot = self.plot()
+        warnings = io.StringIO()
+        with contextlib.redirect_stderr(warnings):
+            targets = plot.targets()
+            plot._preload(targets)
+            self.assertEqual(plot.runs(), [123])
+        self.assertNotIn('Excluded', [t['subpath'] for t in targets])
+        np.testing.assert_array_equal(plot._cache[('Prompt', 'Maps/map')][0],
+                                      self.a * 3)
+        self.assertEqual(plot.source.contributing_runs[('Prompt', 'Maps', 'map')], {123})
+        message = warnings.getvalue()
+        self.assertEqual(message.count('SKIPPING RUN 402839'), 1)
+        for label in ('Prompt', 'HLT', 'NGT'):
+            self.assertIn(str(self.base / label / 'mixed.root'), message)
+        # Per-run processing also excludes the uncovered run.
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(self.plot(per_run=True).runs(), [123])
+        # Explicit user exclusions are applied before luminosity validation.
+        quiet = io.StringIO()
+        with contextlib.redirect_stderr(quiet):
+            self.assertEqual(self.plot(exclude_runs=[402839]).runs(), [123])
+        self.assertEqual(quiet.getvalue(), '')
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaisesRegex(ValueError, 'No DQM runs remain with recorded'):
+                self.plot(per_run=402839).runs()
+
+    def test_no_lumi_coverage_stops_before_rendering(self):
+        csv = self.base / 'empty.csv'
+        csv.write_text('#run:fill,recorded(/pb)\n')
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaisesRegex(ValueError, 'No DQM runs remain with recorded'):
+                self.plot(lumi_csv=str(csv)).targets()
+        malformed = self.base / 'malformed.csv'
+        malformed.write_text('wrong header\n')
+        with self.assertRaisesRegex(ValueError, 'expected brilcalc'):
+            self.plot(lumi_csv=str(malformed)).targets()
 
     def test_math_and_projection_order(self):
         a = np.array([[4., 3.], [5., 2.]])
