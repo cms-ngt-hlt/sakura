@@ -47,6 +47,15 @@ binning are skipped with warnings; both edge arrays must match for sums
 and comparisons. Histograms empty in every available condition are skipped
 unless `--keep-empty` is supplied.
 
+Before discovering or summing 2D histograms, the plotter checks selected runs
+against the recorded luminosities in `lumi_csv` (or `--lumi-csv`). Runs missing
+from that CSV are **excluded across all conditions**, with a prominent stderr
+warning listing every excluded run and DQM file. Neither their bins nor their
+luminosity enter the final plots. This also applies to `--list` and per-run
+mode; in multi-run files, valid run directories are retained. If all selected
+runs lack luminosity, the script stops before rendering. Missing or malformed
+CSV files still raise errors rather than silently excluding the dataset.
+
 All input/run/filter/grouping options work as for 1D: `--config`, `--local`,
 `--pipeline-cfg`, `--per-run [RUN]`, `--runs`, `--exclude-runs`, `--lumi-csv`,
 `--include`, `--exclude`, `--list`, `--limit`, `--group-by`, `--single-pdf`,
