@@ -196,12 +196,12 @@ class All2DPlot(All1DPlot):
 
     @staticmethod
     def _beamline_mask(target, xedges, yedges):
-        """Bin-centre disk for vertex x/y maps only; nominal origin, radius 1 cm.
+        """Exclude the nominal beam-line cylinder (radius 1 cm) in XY and RZ.
 
         These DQM vertex coordinates default to cm. Honour explicit mm or m
         axis units too; never apply a spatial mask to generic eta/phi maps.
         """
-        if not re.match(r"^Vtx(?:XvsY|YvsX)(?:_|$)", target["hist_name"]):
+        if not re.match(r"^Vtx(?:XvsY|YvsX|RvsZ|ZvsR)(?:_|$)", target["hist_name"]):
             return None
 
         def to_cm(title):
@@ -210,6 +210,19 @@ class All2DPlot(All1DPlot):
 
         x = .5 * (xedges[:-1] + xedges[1:]) * to_cm(target["xtitle"])
         y = .5 * (yedges[:-1] + yedges[1:]) * to_cm(target["ytitle"])
+        if re.match(r"^Vtx(?:RvsZ|ZvsR)(?:_|$)", target["hist_name"]):
+            # Do not infer axis ordering from 'A vs B': use ROOT axis titles.
+            radial = [bool(re.search(r"(?<![a-z])(?:r|rho|radius)(?![a-z])",
+                                     target[title].lower()))
+                      for title in ("xtitle", "ytitle")]
+            if radial == [True, False]:
+                return np.broadcast_to(np.abs(x[:, None]) <= 1., (len(x), len(y)))
+            if radial == [False, True]:
+                return np.broadcast_to(np.abs(y[None, :]) <= 1., (len(x), len(y)))
+            print(f"   [Warning] Cannot identify radial axis for {target['hist_name']} "
+                  f"from titles {target['xtitle']!r}, {target['ytitle']!r}; "
+                  "beam-line-masked copy skipped (original retained)")
+            return None
         return x[:, None] ** 2 + y[None, :] ** 2 <= 1.
 
     def make_figures(self, target, fetched):
@@ -218,9 +231,9 @@ class All2DPlot(All1DPlot):
         for label_a, label_b, da, db in fetched:
             a, xedges, yedges = da
             b = db[0]
-            disk = self._beamline_mask(target, xedges, yedges)
-            for kind, masked in product(self.kinds, (False, True) if disk is not None else (False,)):
-                mask = disk if masked else None
+            beam_mask = self._beamline_mask(target, xedges, yedges)
+            for kind, masked in product(self.kinds, (False, True) if beam_mask is not None else (False,)):
+                mask = beam_mask if masked else None
                 diff = self.difference(a, b, kind)
                 if masked:
                     diff = np.where(mask, np.nan, diff)

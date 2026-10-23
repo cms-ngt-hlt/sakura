@@ -194,6 +194,32 @@ class All2DTests(unittest.TestCase):
         for out in outputs[:2]:
             out.fig.canvas.draw()
 
+    def test_rz_beamline_mask_uses_radial_axis_at_all_z(self):
+        plot = self.plot()
+        target = dict(subpath='DiMuon/DiMuonVertexMonitor', hist_name='VtxRvsZ_zoom',
+                      xtitle='Vertex z [cm]', ytitle='Vertex r [cm]')
+        z = np.array([-101., -99., -1., 1., 99., 101.])
+        r = np.array([0., .5, 1.5, 2.5])
+        mask = plot._beamline_mask(target, z, r)
+        expected = np.tile([True, True, False], (5, 1))
+        np.testing.assert_array_equal(mask, expected)
+        swapped = dict(target, hist_name='VtxZvsR', xtitle='radius [mm]', ytitle='z [cm]')
+        np.testing.assert_array_equal(plot._beamline_mask(swapped, r*10, z), expected.T)
+        with contextlib.redirect_stdout(io.StringIO()) as warning:
+            self.assertIsNone(plot._beamline_mask(dict(target, xtitle='', ytitle=''), z, r))
+        self.assertIn('Cannot identify radial axis', warning.getvalue())
+        a, b = np.full((5, 3), 3.), np.ones((5, 3))
+        plot._profiles = {}
+        plot.cms_label = lambda *args, **kwargs: None
+        outputs = list(plot.make_figures(target, [('HLT', 'NGT', [a, z, r], [b, z, r])]))
+        self.addCleanup(plt.close, 'all')
+        self.assertEqual(len(outputs), 4)
+        self.assertIn('_beamlineMasked_absolute_HLT_vs_NGT.png', outputs[1].png_name)
+        np.testing.assert_array_equal(np.ma.getmaskarray(
+            outputs[1].fig.axes[0].collections[0].get_array()).reshape(3, 5), expected.T)
+        np.testing.assert_array_equal(plot._projection('HLT', target, a, 1, mask), 3.)
+        outputs[1].fig.canvas.draw()
+
     def test_math_and_projection_order(self):
         a = np.array([[4., 3.], [5., 2.]])
         b = np.array([[2., 0.], [1., 1.]])
