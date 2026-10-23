@@ -153,6 +153,47 @@ class All2DTests(unittest.TestCase):
             out.fig.canvas.draw()
             plt.close(out.fig)
 
+    def test_beamline_mask_variants_and_projections(self):
+        plot = self.plot()
+        target = dict(subpath='DiMuonNoVtx/DiMuonVertexMonitor',
+                      hist_name='VtxXvsY', xtitle='x [cm]', ytitle='y [cm]')
+        edges = np.array([-2.5, -1.5, -.5, .5, 1.5, 2.5])
+        mask = plot._beamline_mask(target, edges, edges)
+        expected = np.zeros((5, 5), dtype=bool)
+        expected[2, 1:4] = True
+        expected[1:4, 2] = True
+        np.testing.assert_array_equal(mask, expected)
+        mm = dict(target, xtitle='x [mm]', ytitle='y [mm]')
+        np.testing.assert_array_equal(plot._beamline_mask(mm, edges*10, edges*10), mask)
+        self.assertIsNone(plot._beamline_mask(dict(target, hist_name='eta_vs_phi'), edges, edges))
+        self.assertIsNotNone(plot._beamline_mask(dict(target, hist_name='VtxXvsY_zoom'), edges, edges))
+        a = np.ones((5, 5)) * 3
+        b = np.ones((5, 5))
+        a[mask] = 1000
+        original = a.copy()
+        plot._profiles = {}
+        # Only suppress the unrelated luminosity label for this geometry test.
+        plot.cms_label = lambda *args, **kwargs: None
+        fetched = [(la, lb, [a, edges, edges], [b, edges, edges]) for la, lb in plot.pairs]
+        outputs = list(plot.make_figures(target, fetched))
+        self.addCleanup(plt.close, 'all')
+        self.assertEqual(len(outputs), 12)
+        self.assertEqual(len({o.png_name for o in outputs}), 12)
+        self.assertEqual(sum('_beamlineMasked_' in o.png_name for o in outputs), 6)
+        np.testing.assert_array_equal(a, original)
+        masked_out = outputs[1]
+        np.testing.assert_array_equal(
+            np.ma.getmaskarray(masked_out.fig.axes[0].collections[0].get_array()).reshape(5, 5), mask.T)
+        np.testing.assert_array_equal(plot._projection('NGT', target, a, 1, mask),
+                                      np.where(mask, 0, a).sum(axis=1))
+        # A profile projection must exclude BOTH stored weighted sums and weights.
+        sums, weights = a * 2, np.full((5, 5), 2.)
+        plot._profiles[('NGT', plot._full_name(target))] = [sums, weights]
+        np.testing.assert_allclose(plot._projection('NGT', target, a, 1, mask), 3.)
+        np.testing.assert_array_equal(weights, 2.)
+        for out in outputs[:2]:
+            out.fig.canvas.draw()
+
     def test_math_and_projection_order(self):
         a = np.array([[4., 3.], [5., 2.]])
         b = np.array([[2., 0.], [1., 1.]])

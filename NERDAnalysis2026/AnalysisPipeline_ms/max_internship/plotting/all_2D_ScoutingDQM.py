@@ -7,6 +7,8 @@ weighted sums and bin weights.
 """
 
 import sys
+import re
+from itertools import product
 import time
 import uproot
 from pathlib import Path
@@ -155,11 +157,14 @@ class All2DPlot(All1DPlot):
         print(f"Loaded {len(wanted)} histograms/profiles from {n_files} file/run(s) "
               f"in {time.time() - start:.1f} s")
 
-    def _projection(self, label, target, values, axis):
+    def _projection(self, label, target, values, axis, mask=None):
         stats = self._profiles.get((label, self._full_name(target)))
         if stats is None:
-            return np.sum(values, axis=axis)
+            return np.sum(values if mask is None else np.where(mask, 0., values), axis=axis)
         sums, weights = stats
+        if mask is not None:
+            sums = np.where(mask, 0., sums)
+            weights = np.where(mask, 0., weights)
         return self._mean(np.sum(sums, axis=axis), np.sum(weights, axis=axis))
 
     def fetch(self, target):
@@ -189,14 +194,36 @@ class All2DPlot(All1DPlot):
     def difference(a, b, kind):
         return a - b if kind == "absolute" else RelDiffMap._rel_diff(a, b)
 
+    @staticmethod
+    def _beamline_mask(target, xedges, yedges):
+        """Bin-centre disk for vertex x/y maps only; nominal origin, radius 1 cm.
+
+        These DQM vertex coordinates default to cm. Honour explicit mm or m
+        axis units too; never apply a spatial mask to generic eta/phi maps.
+        """
+        if not re.match(r"^Vtx(?:XvsY|YvsX)(?:_|$)", target["hist_name"]):
+            return None
+
+        def to_cm(title):
+            unit = re.search(r"(?:\[|\()\s*(cm|mm|m)\s*(?:\]|\))", title)
+            return {"cm": 1., "mm": .1, "m": 100.}[unit.group(1)] if unit else 1.
+
+        x = .5 * (xedges[:-1] + xedges[1:]) * to_cm(target["xtitle"])
+        y = .5 * (yedges[:-1] + yedges[1:]) * to_cm(target["ytitle"])
+        return x[:, None] ** 2 + y[None, :] ** 2 <= 1.
+
     def make_figures(self, target, fetched):
         xlabel = self._label(target["xtitle"], "x")
         ylabel = self._label(target["ytitle"], "y")
         for label_a, label_b, da, db in fetched:
             a, xedges, yedges = da
             b = db[0]
-            for kind in self.kinds:
+            disk = self._beamline_mask(target, xedges, yedges)
+            for kind, masked in product(self.kinds, (False, True) if disk is not None else (False,)):
+                mask = disk if masked else None
                 diff = self.difference(a, b, kind)
+                if masked:
+                    diff = np.where(mask, np.nan, diff)
                 formula = f"{label_a} − {label_b}"
                 if kind == "relative":
                     formula = f"({formula}) / {label_b}"
@@ -222,14 +249,15 @@ class All2DPlot(All1DPlot):
                 ax.set_xlabel(xlabel)
                 ax.set_ylabel(ylabel)
                 # Keep the comparison identifiable in PNGs, which omit PDF titles.
-                ax.text(0.02, 0.98, formula, transform=ax.transAxes, va="top",
+                annotation = formula + ("\nBeam line masked: r ≤ 1 cm (bin centres)" if masked else "")
+                ax.text(0.02, 0.98, annotation, transform=ax.transAxes, va="top",
                         fontsize=14, bbox={"facecolor": "white", "alpha": .8,
                                            "edgecolor": "none"})
                 for panel, axis, edges, label in ((axes[1], 1, xedges, xlabel),
                                                   (axes[2], 0, yedges, ylabel)):
                     # Relative differences of projections: sum FIRST, then divide.
-                    values = self.difference(self._projection(label_a, target, a, axis),
-                                             self._projection(label_b, target, b, axis), kind)
+                    values = self.difference(self._projection(label_a, target, a, axis, mask),
+                                             self._projection(label_b, target, b, axis, mask), kind)
                     panel.stairs(values, edges, color="black", linewidth=1.5)
                     panel.axhline(0, color="gray", linestyle="--", linewidth=1)
                     panel.grid(alpha=.3)
@@ -237,10 +265,12 @@ class All2DPlot(All1DPlot):
                     panel.set_xlabel(label)
                     panel.set_ylabel("Difference" if kind == "absolute" else "Rel. diff.")
                 name = self.png_name(target).removeprefix("Comparison_").removesuffix(".png")
+                if masked:
+                    name += "_beamlineMasked"
                 yield FigureOutput(
                     fig=fig,
                     png_name=f"Comparison_All2D_{name}_{kind}_{label_a}_vs_{label_b}.png",
-                    pdf_title=f"{self.pdf_title(target)}\n{kind.capitalize()} difference: {formula}")
+                    pdf_title=f"{self.pdf_title(target)}\n{kind.capitalize()} difference: {annotation}")
 
 
 if __name__ == "__main__":

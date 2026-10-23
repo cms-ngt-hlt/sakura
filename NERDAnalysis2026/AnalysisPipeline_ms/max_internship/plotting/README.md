@@ -51,6 +51,20 @@ binning are skipped with warnings; both edge arrays must match for sums
 and comparisons. Histograms empty in every available condition are skipped
 unless `--keep-empty` is supplied.
 
+Vertex x/y maps named `VtxXvsY` or `VtxYvsX` (including underscore suffixes
+such as `_zoom`) also get an **additional beam-line-masked copy** for each
+pair and difference type. Original plots remain unchanged. The extra copy
+excludes bins whose centres satisfy `x² + y² ≤ (1 cm)²`, around nominal
+`(0, 0)`, from both the map and projections. Vertex coordinates default to
+cm; explicit `[mm]`, `(mm)`, `[m]`, or `(m)` axis units are converted to cm.
+Other maps, including eta/phi and r/z, are unaffected. Profile projections
+exclude both weighted sums and weights in the disk. The masked copy has
+its own automatic color range (explicit z-limits still apply), a visible
+mask annotation, and `_beamlineMasked` before the final comparison tags:
+`Comparison_All2D_DiMuonNoVtx_DiMuonVertexMonitor_VtxXvsY_beamlineMasked_absolute_HLT_vs_NGT.png`.
+Both copies are included in the grouped PDF. Existing output files are not
+renamed or removed.
+
 Before discovering or summing 2D histograms, the plotter checks selected runs
 against the recorded luminosities in `lumi_csv` (or `--lumi-csv`). Runs missing
 from that CSV are **excluded across all conditions**, with a prominent stderr
