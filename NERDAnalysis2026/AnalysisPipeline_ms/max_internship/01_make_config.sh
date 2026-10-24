@@ -32,6 +32,23 @@ process.hltOutputLocalTestDataRaw.outputCommands = [
    'keep triggerTriggerEvent_*_*_HLTX'
 ]
 
+process.hltOutputDQMTestDataScouting.outputCommands = [
+    'drop *',
+    'keep *_hltFEDSelectorL1_*_HLTX',
+    'keep *_hltOnlineMetaDataDigis_*_HLTX',
+    'keep *_hltScoutingEgammaPacker_*_HLTX',
+    'keep *_hltScoutingMuonPackerNoVtx_*_HLTX',
+    'keep *_hltScoutingMuonPackerVtx_*_HLTX',
+    'keep *_hltScoutingPFPacker_*_HLTX',
+    'keep *_hltScoutingPrimaryVertexPacker_*_HLTX',
+    'keep *_hltScoutingRecHitPacker_*_HLTX',
+    'keep *_hltScoutingTrackPacker_*_HLTX',
+    'keep CTPPSDiamondDigiedmDetSetVector_hltCTPPSDiamondRawToDigi_*_HLTX',
+    'keep CTPPSPixelDigiedmDetSetVector_hltCTPPSPixelDigis_*_HLTX',
+    'keep edmTriggerResults_*_*_HLTX',
+    'keep triggerTriggerEvent_*_*_HLTX'
+]
+
 process.options.wantSummary = True
 EOF
 edmConfigDump "hltData.py" > "configs/hltDataDump.py" # needed for HTCondor
