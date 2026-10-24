@@ -21,7 +21,6 @@ cmsenv
 cd ../../
 voms-proxy-init --voms cms -rfc --valid 168:00
 cp "/tmp/x509up_u$(id -u)" .
-module load lxbatch/eossubmit
 ```
 
 Before running, edit [pipeline.cfg](pipeline.cfg). Its checked-in paths and
