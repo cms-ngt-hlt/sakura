@@ -220,6 +220,60 @@ class All2DTests(unittest.TestCase):
         np.testing.assert_array_equal(plot._projection('HLT', target, a, 1, mask), 3.)
         outputs[1].fig.canvas.draw()
 
+    def test_cli_controls_and_radial_comparison(self):
+        from unittest.mock import patch
+        from all_1D_ScoutingDQM import _parse_args
+        with patch.object(sys, 'argv', ['plot', '--pair', 'HLT', 'NGT',
+                '--xlabel', 'ix', '--ylabel', 'iy', '--xlim', '0', '3',
+                '--ylim', '-2', '5', '--projection', 'radial',
+                '--radial-center', '1', '0', '--radial-bin-width', '1',
+                '--radial-xlim', '0', '6', '--aspect', 'equal']):
+            args = _parse_args(2)
+        plot = self.plot(pairs=args.pair, xlabel=args.xlabel, ylabel=args.ylabel,
+                         xlim=args.xlim, ylim=args.ylim, projection=args.projection,
+                         radial_center=args.radial_center, radial_bin_width=args.radial_bin_width,
+                         radial_xlim=args.radial_xlim, aspect=args.aspect,
+                         cbar_label='custom difference', pdf_name='custom.pdf')
+        self.assertTrue(plot.single_pdf)
+        self.assertEqual(plot._pdf_name('Maps'), 'custom.pdf')
+        plot.active_run = 123
+        self.assertEqual(plot._pdf_name('Maps'), 'custom_Run123.pdf')
+        plot.active_run = None
+        targets = plot.targets(); plot._preload(targets)
+        target = targets[1]
+        fetched = plot.fetch(target)
+        self.assertEqual(len(fetched), 1)
+        radii, edges = plot._radial_geometry(self.x, self.y)
+        np.testing.assert_allclose(radii, np.hypot(
+            ((self.x[:-1]+self.x[1:])/2-1)[:,None],
+            ((self.y[:-1]+self.y[1:])/2)[None,:]))
+        values = fetched[0][2][0]
+        projected = plot._radial_projection('HLT', target, values, radii, edges, None)
+        np.testing.assert_allclose(projected, np.histogram(radii.ravel(), edges,
+                                                          weights=values.ravel())[0])
+        outputs = list(plot.make_figures(target, fetched))
+        self.addCleanup(plt.close, 'all')
+        self.assertEqual(len(outputs), 2)
+        self.assertIn('_radial_absolute_HLT_vs_NGT.png', outputs[0].png_name)
+        ax = outputs[0].fig.axes[0]
+        self.assertEqual(ax.get_xlabel(), 'ix')
+        self.assertEqual(ax.get_ylabel(), 'iy')
+        self.assertEqual(ax.get_xlim(), (0., 3.))
+        self.assertEqual(ax.get_ylim(), (-2., 5.))
+        self.assertEqual(outputs[0].fig.axes[1].get_xlim(), (0., 6.))
+        outputs[0].fig.canvas.draw()
+        with self.assertRaises(ValueError):
+            self.plot(pairs=[('unknown', 'HLT')])
+        with self.assertRaises(ValueError):
+            self.plot(radial_bin_width=0)
+        # Profile radial means also combine sums and weights before dividing.
+        key = ('HLT', plot._full_name(target))
+        weights = np.arange(1., 7.).reshape(2, 3)
+        plot._profiles[key] = [values*weights, weights]
+        expected = plot._mean(np.histogram(radii.ravel(), edges, weights=(values*weights).ravel())[0],
+                              np.histogram(radii.ravel(), edges, weights=weights.ravel())[0])
+        np.testing.assert_allclose(plot._radial_projection('HLT', target, values, radii, edges, None), expected)
+
     def test_math_and_projection_order(self):
         a = np.array([[4., 3.], [5., 2.]])
         b = np.array([[2., 0.], [1., 1.]])

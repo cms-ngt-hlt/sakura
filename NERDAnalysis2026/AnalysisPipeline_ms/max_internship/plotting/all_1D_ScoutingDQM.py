@@ -571,6 +571,21 @@ def _parse_args(dimension=1):
                                             "log if max bin > 100 else linear)")
     else:
         p.set_defaults(yscale="auto")
+        p.add_argument("--xlabel", help="override the map x-axis and x-projection label")
+        p.add_argument("--ylabel", help="override the map y-axis and y-projection label")
+        for option in ("--xlim", "--ylim", "--radial-xlim"):
+            p.add_argument(option, nargs=2, type=float, metavar=("MIN", "MAX"),
+                           help="display limits (do not change aggregation)")
+        p.add_argument("--pair", nargs=2, action="append", metavar=("A", "B"),
+                       help="compare A - B and (A - B) / B; repeatable, default: all three pairs")
+        p.add_argument("--pdf-name", help="custom combined PDF filename (implies --single-pdf)")
+        p.add_argument("--cbar-label", help="override colorbar label (literal text/mathtext)")
+        p.add_argument("--aspect", choices=["auto", "equal"], default="auto")
+        p.add_argument("--projection", choices=["xy", "radial"], default="xy")
+        p.add_argument("--radial-center", nargs=2, type=float, default=(0., 0.),
+                       metavar=("X", "Y"), help="radial origin in histogram coordinates")
+        p.add_argument("--radial-bin-width", type=float,
+                       help="radial bin width (default: minimum x-bin width)")
         p.add_argument("--difference", choices=["both", "absolute", "relative"],
                        default="both", help="difference maps to render (default: both)")
         p.add_argument("--abs-z-limit", type=float, default=None,
@@ -596,7 +611,11 @@ def main(plot_class=All1DPlot):
                     ylim=args.ylim, ratio_ylim=args.ratio_ylim)
                if plot_class.dimension == 1 else
                dict(difference=args.difference, abs_z_limit=args.abs_z_limit,
-                    rel_z_limit=args.rel_z_limit))
+                    rel_z_limit=args.rel_z_limit, xlabel=args.xlabel, ylabel=args.ylabel,
+                    xlim=args.xlim, ylim=args.ylim, pairs=args.pair,
+                    cbar_label=args.cbar_label, aspect=args.aspect, pdf_name=args.pdf_name,
+                    projection=args.projection, radial_center=args.radial_center,
+                    radial_bin_width=args.radial_bin_width, radial_xlim=args.radial_xlim))
     try:
         plot = plot_class(**options, config_path=args.config, include=args.include,
                      exclude=args.exclude, group_by=args.group_by,

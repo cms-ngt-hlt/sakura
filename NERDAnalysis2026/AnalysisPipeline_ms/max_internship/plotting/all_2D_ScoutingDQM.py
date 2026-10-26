@@ -27,7 +27,12 @@ class All2DPlot(All1DPlot):
     pairs = (("NGT", "Prompt"), ("Prompt", "HLT"), ("HLT", "NGT"))
 
     def __init__(self, *args, difference="both", abs_z_limit=None,
-                 rel_z_limit=None, **kwargs):
+                 rel_z_limit=None, pairs=None, cbar_label=None, aspect="auto",
+                 projection="xy", radial_center=(0., 0.), radial_bin_width=None,
+                 radial_xlim=None, pdf_name=None, **kwargs):
+        if pdf_name is not None:
+            kwargs["single_pdf"] = True
+        self.custom_pdf_name = pdf_name
         super().__init__(*args, **kwargs)
         if difference not in ("both", "absolute", "relative"):
             raise ValueError("difference must be both, absolute or relative")
@@ -37,6 +42,34 @@ class All2DPlot(All1DPlot):
                 raise ValueError(f"--{name} must be finite and positive")
         self.kinds = ("absolute", "relative") if difference == "both" else (difference,)
         self.z_limits = {"absolute": abs_z_limit, "relative": rel_z_limit}
+        self.pairs = tuple(tuple(pair) for pair in pairs) if pairs is not None else type(self).pairs
+        labels = {c.label for c in self.conditions}
+        if not self.pairs or any(len(pair) != 2 or not set(pair) <= labels for pair in self.pairs):
+            raise ValueError("--pair requires two configured condition labels")
+        self.pairs = tuple(dict.fromkeys(self.pairs))
+        if projection not in ("xy", "radial") or aspect not in ("auto", "equal"):
+            raise ValueError("Invalid projection or aspect")
+        if len(radial_center) != 2 or not np.all(np.isfinite(radial_center)):
+            raise ValueError("--radial-center requires two finite coordinates")
+        if radial_bin_width is not None and (not np.isfinite(radial_bin_width) or radial_bin_width <= 0):
+            raise ValueError("--radial-bin-width must be finite and positive")
+        if radial_xlim is not None and (len(radial_xlim) != 2 or
+                not np.all(np.isfinite(radial_xlim)) or radial_xlim[0] >= radial_xlim[1]):
+            raise ValueError("--radial-xlim requires finite MIN < MAX")
+        self.cbar_label = cbar_label
+        self.aspect = aspect
+        self.projection = projection
+        self.radial_center = radial_center
+        self.radial_bin_width = radial_bin_width
+        self.radial_xlim = radial_xlim
+
+    def _pdf_name(self, group):
+        if self.custom_pdf_name is None:
+            return super()._pdf_name(group)
+        path = Path(self.custom_pdf_name)
+        if self.active_run is not None:
+            path = path.with_name(f"{path.stem}_Run{self.active_run}{path.suffix}")
+        return str(path)
 
     def runs(self):
         """Validate luminosity coverage once, before discovery or summation."""
@@ -225,9 +258,26 @@ class All2DPlot(All1DPlot):
             return None
         return x[:, None] ** 2 + y[None, :] ** 2 <= 1.
 
+    def _radial_geometry(self, xedges, yedges):
+        x = .5 * (xedges[:-1] + xedges[1:]) - self.radial_center[0]
+        y = .5 * (yedges[:-1] + yedges[1:]) - self.radial_center[1]
+        radii = np.hypot(x[:, None], y[None, :])
+        width = self.radial_bin_width or float(np.min(np.diff(xedges)))
+        edges = np.arange(max(1, int(np.ceil(radii.max() / width))) + 1) * width
+        return radii, edges
+
+    def _radial_projection(self, label, target, values, radii, edges, mask):
+        keep = np.ones(values.shape, dtype=bool) if mask is None else ~mask
+        def project(array):
+            return np.histogram(radii[keep], bins=edges, weights=array[keep])[0]
+        stats = self._profiles.get((label, self._full_name(target)))
+        if stats is None:
+            return project(values)
+        return self._mean(project(stats[0]), project(stats[1]))
+
     def make_figures(self, target, fetched):
-        xlabel = self._label(target["xtitle"], "x")
-        ylabel = self._label(target["ytitle"], "y")
+        xlabel = self.xlabel if self.xlabel is not None else self._label(target["xtitle"], "x")
+        ylabel = self.ylabel if self.ylabel is not None else self._label(target["ytitle"], "y")
         for label_a, label_b, da, db in fetched:
             a, xedges, yedges = da
             b = db[0]
@@ -249,8 +299,10 @@ class All2DPlot(All1DPlot):
                 norm = (SymLogNorm(linthresh=min(1., limit), vmin=-limit, vmax=limit)
                         if kind == "absolute" else
                         TwoSlopeNorm(vmin=-limit, vcenter=0., vmax=limit))
-                fig, axes = plt.subplots(3, 1, figsize=(12, 14),
-                                         gridspec_kw={"height_ratios": [4, 1, 1]},
+                radial = self.projection == "radial"
+                fig, axes = plt.subplots(2 if radial else 3, 1,
+                                         figsize=(8, 10) if radial else (12, 14),
+                                         gridspec_kw={"height_ratios": [4, 1] if radial else [4, 1, 1]},
                                          layout="constrained")
                 ax = axes[0]
                 self.cms_label(ax, fontsize=18, target=target,
@@ -258,26 +310,43 @@ class All2DPlot(All1DPlot):
                 mesh = ax.pcolormesh(xedges, yedges, np.ma.masked_invalid(diff.T),
                                      cmap="PiYG", norm=norm, rasterized=True)
                 quantity = "Profile mean: " if (label_a, self._full_name(target)) in self._profiles else ""
-                fig.colorbar(mesh, ax=ax, label=quantity + formula, extend="both")
+                fig.colorbar(mesh, ax=ax, label=self.cbar_label if self.cbar_label is not None else quantity + formula, extend="both")
                 ax.set_xlabel(xlabel)
                 ax.set_ylabel(ylabel)
+                ax.set_aspect(self.aspect)
+                if self.xlim is not None:
+                    ax.set_xlim(*self.xlim)
+                if self.ylim is not None:
+                    ax.set_ylim(*self.ylim)
                 # Keep the comparison identifiable in PNGs, which omit PDF titles.
                 annotation = formula + ("\nBeam line masked: r ≤ 1 cm (bin centres)" if masked else "")
                 ax.text(0.02, 0.98, annotation, transform=ax.transAxes, va="top",
                         fontsize=14, bbox={"facecolor": "white", "alpha": .8,
                                            "edgecolor": "none"})
-                for panel, axis, edges, label in ((axes[1], 1, xedges, xlabel),
-                                                  (axes[2], 0, yedges, ylabel)):
-                    # Relative differences of projections: sum FIRST, then divide.
-                    values = self.difference(self._projection(label_a, target, a, axis, mask),
-                                             self._projection(label_b, target, b, axis, mask), kind)
+                if radial:
+                    radii, redges = self._radial_geometry(xedges, yedges)
+                    pa = self._radial_projection(label_a, target, a, radii, redges, mask)
+                    pb = self._radial_projection(label_b, target, b, radii, redges, mask)
+                    panels = [(axes[1], redges, r"$r_{ix,iy}$", self.radial_xlim,
+                               self.difference(pa, pb, kind))]
+                else:
+                    panels = []
+                    for panel, axis, edges, label, limits in (
+                            (axes[1], 1, xedges, xlabel, self.xlim),
+                            (axes[2], 0, yedges, ylabel, self.ylim)):
+                        values = self.difference(self._projection(label_a, target, a, axis, mask),
+                                                 self._projection(label_b, target, b, axis, mask), kind)
+                        panels.append((panel, edges, label, limits, values))
+                for panel, edges, label, limits, values in panels:
                     panel.stairs(values, edges, color="black", linewidth=1.5)
                     panel.axhline(0, color="gray", linestyle="--", linewidth=1)
                     panel.grid(alpha=.3)
-                    panel.set_xlim(edges[0], edges[-1])
+                    panel.set_xlim(*(limits if limits is not None else (edges[0], edges[-1])))
                     panel.set_xlabel(label)
                     panel.set_ylabel("Difference" if kind == "absolute" else "Rel. diff.")
                 name = self.png_name(target).removeprefix("Comparison_").removesuffix(".png")
+                if radial:
+                    name += "_radial"
                 if masked:
                     name += "_beamlineMasked"
                 yield FigureOutput(
