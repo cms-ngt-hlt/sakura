@@ -26,7 +26,7 @@ class All2DPlot(All1DPlot):
     dimension = 2
     pairs = (("NGT", "Prompt"), ("Prompt", "HLT"), ("HLT", "NGT"))
 
-    def __init__(self, *args, difference="both", abs_z_limit=None,
+    def __init__(self, *args, difference="both", z_limit=None, abs_z_limit=None,
                  rel_z_limit=None, pairs=None, cbar_label=None, aspect="auto",
                  projection="xy", radial_center=(0., 0.), radial_bin_width=None,
                  radial_xlim=None, pdf_name=None, **kwargs):
@@ -36,11 +36,15 @@ class All2DPlot(All1DPlot):
         super().__init__(*args, **kwargs)
         if difference not in ("both", "absolute", "relative"):
             raise ValueError("difference must be both, absolute or relative")
-        for name, value in (("abs-z-limit", abs_z_limit),
+        for name, value in (("z-limit", z_limit), ("abs-z-limit", abs_z_limit),
                             ("rel-z-limit", rel_z_limit)):
             if value is not None and (not np.isfinite(value) or value <= 0):
                 raise ValueError(f"--{name} must be finite and positive")
         self.kinds = ("absolute", "relative") if difference == "both" else (difference,)
+        if z_limit is not None:
+            if abs_z_limit is not None or rel_z_limit is not None:
+                raise ValueError("Use --z-limit alone, without the legacy per-kind limits")
+            abs_z_limit = rel_z_limit = z_limit
         self.z_limits = {"absolute": abs_z_limit, "relative": rel_z_limit}
         self.pairs = tuple(tuple(pair) for pair in pairs) if pairs is not None else type(self).pairs
         labels = {c.label for c in self.conditions}

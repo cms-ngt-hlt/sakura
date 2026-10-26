@@ -18,7 +18,7 @@ input paths relative to the working directory instead of the pipeline config.
 ```bash
 python3 all_2D_ScoutingDQM.py \
   --include '^Miscellaneous/CaloRecHitsAccepted/ebRecHitsEtaPhit?Map$' \
-  --pair HLT NGT --difference absolute --abs-z-limit 1000 \
+  --pair HLT NGT --difference absolute --z-limit 1000 \
   --xlabel 'RecHit EB $i\eta$' --ylabel 'RecHit EB $i\phi$' \
   --cbar-label 'Diff. in Number of RecHits (HLT - NGT)' \
   --pdf-name Comparison_EB_Maps_Diffs.pdf
@@ -29,7 +29,7 @@ python3 all_2D_ScoutingDQM.py \
 ```bash
 python3 all_2D_ScoutingDQM.py \
   --include '^Miscellaneous/CaloRecHitsAccepted/ebRecHitsEtaPhit?Map$' \
-  --pair HLT NGT --difference relative --rel-z-limit 0.08 \
+  --pair HLT NGT --difference relative --z-limit 0.08 \
   --xlabel 'RecHit EB $i\eta$' --ylabel 'RecHit EB $i\phi$' \
   --cbar-label 'Rel. Diff. (HLT - NGT) / NGT' \
   --pdf-name Comparison_EB_Maps_RelDiffs.pdf
@@ -40,7 +40,7 @@ python3 all_2D_ScoutingDQM.py \
 ```bash
 python3 all_2D_ScoutingDQM.py \
   --include '^Miscellaneous/CaloRecHitsAccepted/eePlusRecHits(EtaPhit?Map|XYMap)$' \
-  --pair HLT NGT --difference absolute --abs-z-limit 1000 \
+  --pair HLT NGT --difference absolute --z-limit 1000 \
   --xlabel 'RecHit EE+ $ix$' --ylabel 'RecHit EE+ $iy$' \
   --cbar-label 'Diff. in Number of RecHits (HLT - NGT)' \
   --pdf-name Comparison_EEPlus_Maps_Diffs.pdf
@@ -51,7 +51,7 @@ python3 all_2D_ScoutingDQM.py \
 ```bash
 python3 all_2D_ScoutingDQM.py \
   --include '^Miscellaneous/CaloRecHitsAccepted/eePlusRecHits(EtaPhit?Map|XYMap)$' \
-  --pair HLT NGT --difference relative --rel-z-limit 0.30 \
+  --pair HLT NGT --difference relative --z-limit 0.30 \
   --xlabel 'RecHit EE+ $ix$' --ylabel 'RecHit EE+ $iy$' \
   --cbar-label 'Rel. Diff. (HLT - NGT) / NGT' \
   --projection radial --radial-center 50.5 50.5 \

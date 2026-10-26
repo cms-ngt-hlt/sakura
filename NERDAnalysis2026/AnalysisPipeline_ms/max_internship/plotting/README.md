@@ -28,7 +28,7 @@ uncertainty band of the reference.
 python all_2D_ScoutingDQM.py
 python all_2D_ScoutingDQM.py --local --list
 python all_2D_ScoutingDQM.py --per-run --include CaloRecHits --no-png -j 4
-python all_2D_ScoutingDQM.py --difference relative --rel-z-limit 0.08
+python all_2D_ScoutingDQM.py --difference relative --z-limit 0.08
 ```
 
 For each histogram it writes **six pages** (and six PNGs by default):
@@ -85,9 +85,11 @@ All input/run/filter/grouping options work as for 1D: `--config`, `--local`,
 `--jobs`, and `--no-png`. The 1D `--yscale` is replaced by:
 
 * `--difference both|absolute|relative` (default: both).
-* `--abs-z-limit N`: symmetric absolute color range, with a symmetric-log scale.
-* `--rel-z-limit N`: symmetric relative color range, with a linear scale
-  (`0.08` means ±8%).
+* `--z-limit N`: symmetric color range `[-N, N]` for the selected difference
+  type (or both when `--difference both`). Absolute maps use a symmetric-log
+  scale; relative maps use a linear scale (`0.08` means ±8%).
+  The old `--abs-z-limit` and `--rel-z-limit` options remain supported for
+  existing commands; do not combine them with `--z-limit`.
 
 Without explicit limits each map uses its largest finite absolute difference.
 Use fixed limits when comparing color intensities across pages.

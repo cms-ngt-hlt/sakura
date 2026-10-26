@@ -588,10 +588,12 @@ def _parse_args(dimension=1):
                        help="radial bin width (default: minimum x-bin width)")
         p.add_argument("--difference", choices=["both", "absolute", "relative"],
                        default="both", help="difference maps to render (default: both)")
-        p.add_argument("--abs-z-limit", type=float, default=None,
-                       help="absolute color-scale half-range (default: automatic per map)")
-        p.add_argument("--rel-z-limit", type=float, default=None,
-                       help="relative color-scale half-range, e.g. 0.08 for 8%% (default: automatic)")
+        p.add_argument("--z-limit", type=float, default=None,
+                       help="symmetric color range [-N, N] for the selected difference(s); "
+                            "default: automatic per map")
+        # Retain historical per-kind options for existing command lines.
+        p.add_argument("--abs-z-limit", type=float, default=None, help=argparse.SUPPRESS)
+        p.add_argument("--rel-z-limit", type=float, default=None, help=argparse.SUPPRESS)
     p.add_argument("--keep-empty", action="store_true",
                    help="also plot histograms that are empty in every "
                         "condition")
@@ -610,7 +612,7 @@ def main(plot_class=All1DPlot):
     options = (dict(xlabel=args.xlabel, ylabel=args.ylabel, xlim=args.xlim,
                     ylim=args.ylim, ratio_ylim=args.ratio_ylim)
                if plot_class.dimension == 1 else
-               dict(difference=args.difference, abs_z_limit=args.abs_z_limit,
+               dict(difference=args.difference, z_limit=args.z_limit, abs_z_limit=args.abs_z_limit,
                     rel_z_limit=args.rel_z_limit, xlabel=args.xlabel, ylabel=args.ylabel,
                     xlim=args.xlim, ylim=args.ylim, pairs=args.pair,
                     cbar_label=args.cbar_label, aspect=args.aspect, pdf_name=args.pdf_name,
