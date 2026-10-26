@@ -307,9 +307,13 @@ class All2DPlot(All1DPlot):
                         TwoSlopeNorm(vmin=-limit, vcenter=0., vmax=limit))
                 radial = self.projection == "radial"
                 fig, axes = plt.subplots(2 if radial else 3, 1,
-                                         figsize=(8, 10) if radial else (12, 14),
-                                         gridspec_kw={"height_ratios": [4, 1] if radial else [4, 1, 1]},
-                                         layout="constrained")
+                                         figsize=(8, 10) if radial else (12, 18),
+                                         gridspec_kw={"height_ratios": [4, 1] if radial else [4, 1, 1],
+                                                      "hspace": .35 if radial or kind == "relative" else .25},
+                                         layout="none")
+                if radial or kind == "relative":
+                    fig.subplots_adjust(top=.92, bottom=.1 if radial else .08,
+                                        left=.1, right=.9)
                 ax = axes[0]
                 self.cms_label(ax, fontsize=18, target=target,
                                labels=[label_a, label_b])
