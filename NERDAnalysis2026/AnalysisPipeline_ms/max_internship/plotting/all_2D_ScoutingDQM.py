@@ -16,6 +16,8 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import SymLogNorm, TwoSlopeNorm
+from matplotlib.ticker import FuncFormatter
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from all_1D_ScoutingDQM import All1DPlot, main
 from scouting_plot import FigureOutput, RelDiffMap
@@ -300,7 +302,7 @@ class All2DPlot(All1DPlot):
                     limit = max(float(finite.max()) if finite.size else 0., 1e-12)
                     if not finite.size or not np.any(finite):
                         limit = 1.
-                norm = (SymLogNorm(linthresh=min(1., limit), vmin=-limit, vmax=limit)
+                norm = (SymLogNorm(linthresh=1., vmin=-limit, vmax=limit, base=10)
                         if kind == "absolute" else
                         TwoSlopeNorm(vmin=-limit, vcenter=0., vmax=limit))
                 radial = self.projection == "radial"
@@ -314,7 +316,15 @@ class All2DPlot(All1DPlot):
                 mesh = ax.pcolormesh(xedges, yedges, np.ma.masked_invalid(diff.T),
                                      cmap="PiYG", norm=norm, rasterized=True)
                 quantity = "Profile mean: " if (label_a, self._full_name(target)) in self._profiles else ""
-                fig.colorbar(mesh, ax=ax, label=self.cbar_label if self.cbar_label is not None else quantity + formula, extend="both")
+                # Match the approved DP RecHit scripts: 5%-width rectangular
+                # bar, 0.05-inch gap, same height as the map, no extension caps.
+                cax = make_axes_locatable(ax).append_axes("right", size="5%", pad=0.05)
+                cbar = fig.colorbar(mesh, cax=cax)
+                cbar.set_label(self.cbar_label if self.cbar_label is not None else quantity + formula,
+                               fontsize=22 if kind == "absolute" else (18 if radial else 20))
+                if kind == "relative":
+                    cbar.formatter = FuncFormatter(lambda value, pos: f"{value:.2f}")
+                    cbar.update_ticks()
                 ax.set_xlabel(xlabel)
                 ax.set_ylabel(ylabel)
                 ax.set_aspect(self.aspect)
@@ -348,6 +358,8 @@ class All2DPlot(All1DPlot):
                     panel.set_xlim(*(limits if limits is not None else (edges[0], edges[-1])))
                     panel.set_xlabel(label)
                     panel.set_ylabel("Difference" if kind == "absolute" else "Rel. diff.")
+                    make_axes_locatable(panel).append_axes(
+                        "right", size="5%", pad=0.05).axis("off")
                 name = self.png_name(target).removeprefix("Comparison_").removesuffix(".png")
                 if radial:
                     name += "_radial"
