@@ -315,7 +315,7 @@ class All2DPlot(All1DPlot):
                     fig.subplots_adjust(top=.92, bottom=.1 if radial else .08,
                                         left=.1, right=.9)
                 ax = axes[0]
-                self.cms_label(ax, fontsize=18, target=target,
+                self.cms_label(ax, fontsize=22 if kind == "absolute" else 20, target=target,
                                labels=[label_a, label_b])
                 mesh = ax.pcolormesh(xedges, yedges, np.ma.masked_invalid(diff.T),
                                      cmap="PiYG", norm=norm, rasterized=True)
@@ -336,11 +336,11 @@ class All2DPlot(All1DPlot):
                     ax.set_xlim(*self.xlim)
                 if self.ylim is not None:
                     ax.set_ylim(*self.ylim)
-                # Keep the comparison identifiable in PNGs, which omit PDF titles.
-                annotation = formula + ("\nBeam line masked: r ≤ 1 cm (bin centres)" if masked else "")
-                ax.text(0.02, 0.98, annotation, transform=ax.transAxes, va="top",
-                        fontsize=14, bbox={"facecolor": "white", "alpha": .8,
-                                           "edgecolor": "none"})
+                # Comparison formula belongs on the colorbar only.
+                if masked:
+                    ax.text(0.02, 0.98, "Beam line masked: r ≤ 1 cm (bin centres)",
+                            transform=ax.transAxes, va="top", fontsize=14,
+                            bbox={"facecolor": "white", "alpha": .8, "edgecolor": "none"})
                 if radial:
                     radii, redges = self._radial_geometry(xedges, yedges)
                     pa = self._radial_projection(label_a, target, a, radii, redges, mask)
@@ -372,7 +372,7 @@ class All2DPlot(All1DPlot):
                 yield FigureOutput(
                     fig=fig,
                     png_name=f"Comparison_All2D_{name}_{kind}_{label_a}_vs_{label_b}.png",
-                    pdf_title=f"{self.pdf_title(target)}\n{kind.capitalize()} difference: {annotation}")
+                    pdf_title=self.pdf_title(target))
 
 
 if __name__ == "__main__":
