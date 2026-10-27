@@ -205,6 +205,29 @@ class All1DPlot(ComparisonPlot1D):
             if not allowed:
                 raise ValueError("No DQM runs remain with recorded luminosity; "
                                  f"no {self.dimension}D plots will be generated. Update the luminosity CSV.")
+            # A comparison needs the same run inventory in every condition.
+            # The inventory contains only readable files with the configured
+            # DQM directory, not merely filenames that happen to exist.
+            incomplete = {
+                run: [c.label for c in self.conditions
+                      if not self.run_selection._run_files[run].get(c.label)]
+                for run in allowed}
+            incomplete = {run: labels for run, labels in incomplete.items() if labels}
+            if incomplete:
+                lines = ["!" * 78,
+                         f"WARNING: INCOMPLETE DQM RUNS EXCLUDED FROM ALL FINAL {self.dimension}D PLOTS"]
+                for run, labels in incomplete.items():
+                    lines.append(f"  SKIPPING RUN {run}: missing readable DQM for {', '.join(labels)}")
+                    for label, files in self.run_selection._run_files[run].items():
+                        for fname in files:
+                            lines.append(f"    EXCLUDING [{label}] {fname} [Run {run}]")
+                lines.extend(["The entire run is excluded from every condition and luminosity total.",
+                              "!" * 78])
+                print("\n".join(lines), file=sys.stderr, flush=True)
+                allowed = [run for run in allowed if run not in incomplete]
+            if not allowed:
+                raise ValueError("No common DQM runs remain across all configured conditions; "
+                                 f"no {self.dimension}D plots will be generated.")
             self._lumi_selected_runs = allowed
         return self._lumi_selected_runs
 

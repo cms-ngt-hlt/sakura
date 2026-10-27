@@ -130,6 +130,39 @@ class All2DTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'no 1D plots'):
                 self.plot(All1DPlot, per_run=402839).runs()
 
+    def test_incomplete_dqm_runs_excluded_for_both_plotters(self):
+        csv = self.base / 'complete_lumi.csv'
+        csv.write_text('#run:fill,recorded(/pb)\n123:1,1000\n124:1,9000\n')
+        prefix = self.prefix.replace('Run 123', 'Run 124')
+        for label in ('Prompt', 'HLT'):
+            with uproot.recreate(self.base / label / 'incomplete.root') as f:
+                f[prefix+'Maps/one'] = (np.array([10000., 20000.]), self.x)
+                f[prefix+'Maps/map'] = (self.a*10000, self.x, self.y)
+        # NGT has a file for the run but not the configured DQM directory.
+        with uproot.recreate(self.base / 'NGT' / 'wrong_directory.root') as f:
+            f['DQMData/Run 124/Other/map'] = (self.a, self.x, self.y)
+        for cls in (All1DPlot, All2DPlot):
+            with self.subTest(cls=cls.__name__):
+                plot = self.plot(cls, lumi_csv=str(csv))
+                warning = io.StringIO()
+                with contextlib.redirect_stderr(warning):
+                    self.assertEqual(plot.runs(), [123])
+                    targets = plot.targets()
+                    plot._preload(targets)
+                text = warning.getvalue()
+                self.assertIn('SKIPPING RUN 124: missing readable DQM for NGT', text)
+                self.assertIn(str(self.base / 'HLT' / 'incomplete.root'), text)
+                self.assertIn(str(self.base / 'Prompt' / 'incomplete.root'), text)
+                self.assertTrue(all(runs == {123} for runs in plot.source.contributing_runs.values()))
+                if cls is All1DPlot:
+                    np.testing.assert_array_equal(plot._cache[('Prompt','Maps/one')][0], self.a.sum(axis=1))
+                else:
+                    np.testing.assert_array_equal(plot._cache[('Prompt','Maps/map')][0], self.a*2)
+                with contextlib.redirect_stderr(io.StringIO()):
+                    self.assertEqual(self.plot(cls, lumi_csv=str(csv), per_run=True).runs(), [123])
+                    with self.assertRaisesRegex(ValueError, 'No common DQM runs'):
+                        self.plot(cls, lumi_csv=str(csv), runs=[124]).runs()
+
     def test_no_lumi_coverage_stops_before_rendering(self):
         csv = self.base / 'empty.csv'
         csv.write_text('#run:fill,recorded(/pb)\n')
