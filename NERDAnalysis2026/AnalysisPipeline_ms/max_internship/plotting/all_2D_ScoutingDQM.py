@@ -56,7 +56,7 @@ class All2DPlot(All1DPlot):
         if not self.pairs or any(len(pair) != 2 or not set(pair) <= labels for pair in self.pairs):
             raise ValueError("--pair requires two configured condition labels")
         self.pairs = tuple(dict.fromkeys(self.pairs))
-        if projection not in ("xy", "radial") or aspect not in ("auto", "equal"):
+        if projection not in ("xy", "radial", "none") or aspect not in ("auto", "equal"):
             raise ValueError("Invalid projection or aspect")
         if len(radial_center) != 2 or not np.all(np.isfinite(radial_center)):
             raise ValueError("--radial-center requires two finite coordinates")
@@ -315,14 +315,16 @@ class All2DPlot(All1DPlot):
                         if self.zscale == "symlog" or (self.zscale == "auto" and kind == "absolute") else
                         TwoSlopeNorm(vmin=-limit, vcenter=0., vmax=limit))
                 radial = self.projection == "radial"
-                fig, axes = plt.subplots(2 if radial else 3, 1,
-                                         figsize=(8, 10) if radial else (12, 18),
-                                         gridspec_kw={"height_ratios": [4, 1] if radial else [4, 1, 1],
+                map_only = self.projection == "none"
+                fig, axes = plt.subplots(1 if map_only else (2 if radial else 3), 1,
+                                         figsize=(12, 12) if map_only else ((8, 10) if radial else (12, 18)),
+                                         gridspec_kw={"height_ratios": [1] if map_only else ([4, 1] if radial else [4, 1, 1]),
                                                       "hspace": .35 if radial or kind == "relative" else .25},
                                          layout="none")
                 if radial or kind == "relative":
                     fig.subplots_adjust(top=.92, bottom=.1 if radial else .08,
                                         left=.1, right=.9)
+                axes = np.atleast_1d(axes)
                 ax = axes[0]
                 self.cms_label(ax, fontsize=22 if kind == "absolute" else 20, target=target,
                                labels=[label_a, label_b])
@@ -352,14 +354,14 @@ class All2DPlot(All1DPlot):
                     ax.text(0.02, 0.98, "Beam line masked: r ≤ 1 cm (bin centres)",
                             transform=ax.transAxes, va="top", fontsize=14,
                             bbox={"facecolor": "white", "alpha": .8, "edgecolor": "none"})
+                panels = []
                 if radial:
                     radii, redges = self._radial_geometry(xedges, yedges)
                     pa = self._radial_projection(label_a, target, a, radii, redges, mask)
                     pb = self._radial_projection(label_b, target, b, radii, redges, mask)
                     panels = [(axes[1], redges, r"$r_{ix,iy}$", self.radial_xlim,
                                self.difference(pa, pb, kind))]
-                else:
-                    panels = []
+                elif not map_only:
                     for panel, axis, edges, label, limits in (
                             (axes[1], 1, xedges, xlabel, self.xlim),
                             (axes[2], 0, yedges, ylabel, self.ylim)):
@@ -378,6 +380,8 @@ class All2DPlot(All1DPlot):
                 name = self.png_name(target).removeprefix("Comparison_").removesuffix(".png")
                 if radial:
                     name += "_radial"
+                if map_only:
+                    name += "_mapOnly"
                 if masked:
                     name += "_beamlineMasked"
                 yield FigureOutput(

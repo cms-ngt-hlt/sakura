@@ -639,7 +639,8 @@ def _parse_args(dimension=1):
         p.add_argument("--pdf-name", help="custom combined PDF filename (implies --single-pdf)")
         p.add_argument("--cbar-label", help="override colorbar label (literal text/mathtext)")
         p.add_argument("--aspect", choices=["auto", "equal"], default="auto")
-        p.add_argument("--projection", choices=["xy", "radial"], default="xy")
+        p.add_argument("--projection", choices=["xy", "radial", "none"], default="xy",
+                       help="lower projection panels; none renders only the 2D map")
         p.add_argument("--radial-center", nargs=2, type=float, default=(0., 0.),
                        metavar=("X", "Y"), help="radial origin in histogram coordinates")
         p.add_argument("--radial-bin-width", type=float,

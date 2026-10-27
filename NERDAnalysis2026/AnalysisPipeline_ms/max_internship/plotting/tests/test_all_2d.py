@@ -44,6 +44,21 @@ class All2DTests(unittest.TestCase):
     def plot(self, cls=All2DPlot, **kwargs):
         return cls(config_path=self.cfg, local=True, jobs=1, **kwargs)
 
+    def test_map_only(self):
+        plot = self.plot(projection='none', pairs=[('NGT', 'Prompt')])
+        targets = plot.targets()
+        plot._preload(targets)
+        outputs = list(plot.make_figures(targets[1], plot.fetch(targets[1])))
+        self.addCleanup(plt.close, 'all')
+        for kind, out in zip(('absolute', 'relative'), outputs):
+            self.assertEqual(len(out.fig.axes), 2)  # map and colorbar only
+            self.assertIn('_mapOnly_' + kind, out.png_name)
+            expected = plot.difference(self.a * 6, self.a * 2, kind)
+            np.testing.assert_allclose(
+                out.fig.axes[0].collections[0].get_array().filled(np.nan).reshape(3, 2),
+                expected.T)
+            out.fig.canvas.draw()
+
     def test_color_scales(self):
         from matplotlib.colors import SymLogNorm
         self.addCleanup(plt.close, 'all')

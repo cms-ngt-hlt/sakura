@@ -112,3 +112,8 @@ script. Projections add the separately projected profile means. Inputs must all
 be TProfile2D with identical bin edges and matching contributing runs within each
 condition; otherwise the operation fails explicitly. Use `--runs` as usual.
 Combined outputs have a `CombinedProfiles_NAME` filename component.
+
+Use `--projection none` to render only the 2D map and colorbar on a 12-by-12-inch
+canvas, with no lower projection panels. This also works with `--sum-profiles`.
+The map values and color limits are unchanged. PNG names include `_mapOnly`
+before the comparison tags, so the versions with and without projections coexist.
