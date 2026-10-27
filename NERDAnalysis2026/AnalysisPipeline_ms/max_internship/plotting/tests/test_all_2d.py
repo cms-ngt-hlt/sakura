@@ -216,6 +216,7 @@ class All2DTests(unittest.TestCase):
                     fYaxis=to_TAxis('yaxis', '#phi', 3, -2., 5., self.y))
                 with uproot.update(self.base / label / filename) as f:
                     f[self.prefix + key] = profile
+                    f[self.prefix + key.replace("MuonNoVtx", "MuonVtx")] = profile
         plot = self.plot()
         targets = plot.targets()
         target = next(t for t in targets if t['hist_name'].endswith('_prof'))
@@ -234,6 +235,34 @@ class All2DTests(unittest.TestCase):
         for out in outputs:
             out.fig.canvas.draw()
             plt.close(out.fig)
+
+        combined = self.plot(include=['^Muons/Properties/Muon.*_prof$'],
+                             sum_profiles='MuonCombined', difference='absolute', zscale='linear', z_limit=3)
+        target, = combined.targets()
+        self.assertEqual(combined.targets(), [target])
+        combined._preload([target])
+        key_combined = combined._full_name(target)
+        np.testing.assert_allclose(combined._cache[('Prompt', key_combined)][0],
+                                   2 * np.nan_to_num(expected))
+        self.assertEqual(combined.source.contributing_runs[('Prompt', 'CombinedProfiles', 'MuonCombined')], {123})
+        fetched = combined.fetch(target)
+        np.testing.assert_allclose(fetched[0][2][0] - fetched[0][3][0], 4 * np.nan_to_num(expected))
+        for axis in (0, 1):
+            np.testing.assert_allclose(combined._projection('Prompt', target, None, axis),
+                2 * np.nan_to_num(plot._mean((m1*w1+m2*w2).sum(axis=axis), (w1+w2).sum(axis=axis))))
+        outputs = list(combined.make_figures(target, fetched))
+        self.assertEqual(len(outputs), 3)
+        self.assertIn('CombinedProfiles_MuonCombined', outputs[0].png_name)
+        for out in outputs:
+            out.fig.canvas.draw()
+            plt.close(out.fig)
+        missing = self.plot(sum_profiles='Bad', include=['^Maps/'])
+        with self.assertRaisesRegex(ValueError, 'at least two'):
+            missing.targets()
+        # A missing component must never silently become a partial sum.
+        del combined._profiles[('Prompt', key)]
+        with self.assertRaisesRegex(ValueError, 'missing or is not TProfile2D'):
+            combined._combine_profiles([target])
 
     def test_beamline_mask_variants_and_projections(self):
         plot = self.plot()

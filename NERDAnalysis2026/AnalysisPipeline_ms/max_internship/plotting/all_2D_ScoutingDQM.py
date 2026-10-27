@@ -30,9 +30,10 @@ class All2DPlot(All1DPlot):
     def __init__(self, *args, difference="both", z_limit=None, zscale="auto", abs_z_limit=None,
                  rel_z_limit=None, pairs=None, cbar_label=None, aspect="auto",
                  projection="xy", radial_center=(0., 0.), radial_bin_width=None,
-                 radial_xlim=None, pdf_name=None, **kwargs):
+                 radial_xlim=None, pdf_name=None, sum_profiles=None, **kwargs):
         if pdf_name is not None:
             kwargs["single_pdf"] = True
+        self.sum_profiles = sum_profiles
         self.custom_pdf_name = pdf_name
         super().__init__(*args, **kwargs)
         if difference not in ("both", "absolute", "relative"):
@@ -71,6 +72,44 @@ class All2DPlot(All1DPlot):
         self.radial_bin_width = radial_bin_width
         self.radial_xlim = radial_xlim
 
+    def targets(self):
+        targets = super().targets()
+        if self.sum_profiles is None or not targets or "components" in targets[0]:
+            return targets
+        if self.limit is not None:
+            raise ValueError("--sum-profiles cannot be used with --limit")
+        if len(targets) < 2:
+            raise ValueError("--sum-profiles requires at least two selected profiles")
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", self.sum_profiles):
+            raise ValueError("--sum-profiles NAME must contain only letters, numbers, underscores or hyphens")
+        self._targets = [dict(targets[0], subpath="CombinedProfiles",
+                              hist_name=self.sum_profiles, components=targets)]
+        return self._targets
+
+    def _combine_profiles(self, targets):
+        for target in targets:
+            components = target.get("components")
+            if not components:
+                continue
+            key = self._full_name(target)
+            for cond in self.conditions:
+                keys = [(cond.label, self._full_name(t)) for t in components]
+                if any(k not in self._profiles for k in keys):
+                    raise ValueError(f"Cannot sum profiles for {cond.label}: a selected input is missing or is not TProfile2D")
+                entries = [self._cache[k] for k in keys]
+                if any(any(not np.array_equal(a, b) for a, b in zip(entries[0][1:], e[1:]))
+                       for e in entries[1:]):
+                    raise ValueError("Cannot sum profiles with different bin edges")
+                runs = [self.source.contributing_runs[(cond.label, t["subpath"], t["hist_name"])]
+                        for t in components]
+                if any(r != runs[0] for r in runs[1:]):
+                    raise ValueError(f"Cannot sum profiles for {cond.label}: contributing runs differ")
+                # Match ROOT profile values(): an empty component contributes zero.
+                values = sum(np.where(self._profiles[k][1] != 0, e[0], 0.)
+                             for k, e in zip(keys, entries))
+                self._cache[(cond.label, key)] = [values, *entries[0][1:]]
+                self.source.contributing_runs[(cond.label, target["subpath"], target["hist_name"])] = set(runs[0])
+
     def _pdf_name(self, group):
         if self.custom_pdf_name is None:
             return super()._pdf_name(group)
@@ -101,7 +140,8 @@ class All2DPlot(All1DPlot):
         self._cache = {}
         self._profiles = {}
         self.source.contributing_runs.clear()
-        wanted = [self._full_name(t) for t in targets]
+        inputs = [c for t in targets for c in t.get("components", [t])]
+        wanted = [self._full_name(t) for t in inputs]
         kinds = {}
         start = time.time()
         n_files = 0
@@ -155,10 +195,14 @@ class All2DPlot(All1DPlot):
                     print(f"   [Warning] Error reading {fname}: {exc}")
         for key, (sums, weights) in self._profiles.items():
             self._cache[key][0] = self._mean(sums, weights)
+        self._combine_profiles(targets)
         print(f"Loaded {len(wanted)} histograms/profiles from {n_files} file/run(s) "
               f"in {time.time() - start:.1f} s")
 
     def _projection(self, label, target, values, axis, mask=None):
+        if "components" in target:
+            return sum(np.nan_to_num(self._projection(label, t, self._cache[(label, self._full_name(t))][0], axis, mask), nan=0.)
+                       for t in target["components"])
         stats = self._profiles.get((label, self._full_name(target)))
         if stats is None:
             return np.sum(values if mask is None else np.where(mask, 0., values), axis=axis)
@@ -235,6 +279,9 @@ class All2DPlot(All1DPlot):
         return radii, edges
 
     def _radial_projection(self, label, target, values, radii, edges, mask):
+        if "components" in target:
+            return sum(np.nan_to_num(self._radial_projection(label, t, self._cache[(label, self._full_name(t))][0], radii, edges, mask), nan=0.)
+                       for t in target["components"])
         keep = np.ones(values.shape, dtype=bool) if mask is None else ~mask
         def project(array):
             return np.histogram(radii[keep], bins=edges, weights=array[keep])[0]
@@ -282,6 +329,8 @@ class All2DPlot(All1DPlot):
                 mesh = ax.pcolormesh(xedges, yedges, np.ma.masked_invalid(diff.T),
                                      cmap="PiYG", norm=norm, rasterized=True)
                 quantity = "Profile mean: " if (label_a, self._full_name(target)) in self._profiles else ""
+                if "components" in target:
+                    quantity = "Sum of profile means: "
                 # Match the approved DP RecHit scripts: 5%-width rectangular
                 # bar, 0.05-inch gap, same height as the map, no extension caps.
                 cax = make_axes_locatable(ax).append_axes("right", size="5%", pad=0.05)

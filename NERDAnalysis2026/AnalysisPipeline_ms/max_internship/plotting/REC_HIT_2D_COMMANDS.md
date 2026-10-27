@@ -91,3 +91,24 @@ for absolute differences and linear for relative differences. `--zscale symlog`
 explicitly selects symmetric logarithmic scaling for either difference type.
 Scaling changes colors only, not histogram values or projections. Output names
 are unchanged, so rerunning with another scale replaces matching outputs.
+
+## Sum of profile means (legacy combined-muon maps)
+
+Select the component profiles with `--include` and add
+`--sum-profiles MuonCombined`. This produces one combined target, rather than
+separate component plots. For example:
+
+```bash
+python3 all_2D_ScoutingDQM.py \
+  --include '^Muons/Properties/Muon(NoVtx|Vtx)_nTrackerLayersWithMeasurement_vs_eta_phi_prof$' \
+  --sum-profiles MuonCombined --pair NGT Prompt \
+  --difference absolute --zscale linear --z-limit 3
+```
+
+Each profile is first merged across the selected runs using its stored weights.
+Their means are then added bin by bin; this is a sum of means, not a pooled mean.
+Empty component bins contribute zero, matching ROOT profile values in the legacy
+script. Projections add the separately projected profile means. Inputs must all
+be TProfile2D with identical bin edges and matching contributing runs within each
+condition; otherwise the operation fails explicitly. Use `--runs` as usual.
+Combined outputs have a `CombinedProfiles_NAME` filename component.
