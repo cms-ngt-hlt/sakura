@@ -6,7 +6,6 @@ kind, with x/y projections. TProfile2D means are merged using their stored
 weighted sums and bin weights.
 """
 
-import sys
 import re
 from itertools import product
 import time
@@ -21,7 +20,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from all_1D_ScoutingDQM import All1DPlot, main
 from scouting_plot import FigureOutput, RelDiffMap
-from luminosity import load_lumi_info, directory_run
+from luminosity import directory_run
 
 
 class All2DPlot(All1DPlot):
@@ -76,46 +75,6 @@ class All2DPlot(All1DPlot):
         if self.active_run is not None:
             path = path.with_name(f"{path.stem}_Run{self.active_run}{path.suffix}")
         return str(path)
-
-    def runs(self):
-        """Validate luminosity coverage once, before discovery or summation."""
-        if not hasattr(self, "_lumi_selected_runs"):
-            selected = self.run_selection.runs()
-            lumi_csv = str(Path(self.config.get("lumi_csv", "lumi_data.csv")).resolve())
-            _, recorded = load_lumi_info(lumi_csv)
-            missing = [run for run in selected if run not in recorded]
-            if missing:
-                lines = ["!" * 78,
-                         "WARNING: DQM RUNS EXCLUDED FROM ALL FINAL 2D PLOTS",
-                         f"Missing recorded luminosity in {lumi_csv}"]
-                for run in missing:
-                    lines.append(f"  SKIPPING RUN {run} (all conditions):")
-                    for label, files in self.run_selection._run_files[run].items():
-                        for fname in files:
-                            lines.append(f"    [{label}] {fname} [Run {run}]")
-                lines.extend([
-                    "These runs contribute NO histogram bins and NO luminosity.",
-                    "For multi-run files, only the listed run directories are excluded.",
-                    "!" * 78])
-                print("\n".join(lines), file=sys.stderr, flush=True)
-            allowed = [run for run in selected if run in recorded]
-            if not allowed:
-                raise ValueError("No DQM runs remain with recorded luminosity; "
-                                 "no 2D plots will be generated. Update the luminosity CSV.")
-            self._lumi_selected_runs = allowed
-        return self._lumi_selected_runs
-
-    def _file_runs(self, cond, representative=False):
-        # Always resolve actual ROOT run directories, including in summed mode.
-        # Discovery and aggregation must use exactly the same accepted runs.
-        allowed = self.runs()
-        selected = allowed if self.active_run is None else [self.active_run]
-        for run in selected:
-            if run not in allowed:
-                continue
-            files = self.run_selection._run_files[run].get(cond.label, [])
-            for fname in files[:1] if representative else files:
-                yield fname, run
 
     def _first_files(self):
         # Unlike representative-file discovery, scan every selected file so

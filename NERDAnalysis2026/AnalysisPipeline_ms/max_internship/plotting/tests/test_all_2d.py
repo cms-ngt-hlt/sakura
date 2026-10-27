@@ -99,6 +99,37 @@ class All2DTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'No DQM runs remain with recorded'):
                 self.plot(per_run=402839).runs()
 
+    def test_1d_missing_lumi_guard_and_rendering(self):
+        for label in ('Prompt', 'HLT', 'NGT'):
+            with uproot.recreate(self.base / label / 'mixed.root') as f:
+                for run in (402839, 402842, 123):
+                    prefix = self.prefix.replace('Run 123', f'Run {run}')
+                    f[prefix + 'Maps/one'] = (np.array([1000., 2000.]) if run != 123
+                                              else np.array([1., 2.]), self.x)
+                    if run != 123:
+                        f[prefix + 'Excluded/only_bad'] = (np.ones(2), self.x)
+        plot = self.plot(All1DPlot)
+        warning = io.StringIO()
+        with contextlib.redirect_stderr(warning):
+            targets = plot.targets()
+            plot._preload(targets)
+        self.assertEqual(len(targets), 1)
+        self.assertIn('ALL FINAL 1D PLOTS', warning.getvalue())
+        for run in (402839, 402842):
+            self.assertEqual(warning.getvalue().count(f'SKIPPING RUN {run}'), 1)
+        np.testing.assert_array_equal(plot._cache[('Prompt', 'Maps/one')][0],
+                                      self.a.sum(axis=1) + [1., 2.])
+        self.assertEqual(plot.source.contributing_runs[('Prompt', 'Maps', 'one')], {123})
+        from matplotlib.backends.backend_pdf import PdfPages
+        with PdfPages(self.base / 'one.pdf') as pdf:
+            for out in plot.make_figures(targets[0], plot.fetch(targets[0])):
+                plot._save(out, pdf)
+        self.assertGreater((self.base / 'one.pdf').stat().st_size, 1000)
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(self.plot(All1DPlot, per_run=True).runs(), [123])
+            with self.assertRaisesRegex(ValueError, 'no 1D plots'):
+                self.plot(All1DPlot, per_run=402839).runs()
+
     def test_no_lumi_coverage_stops_before_rendering(self):
         csv = self.base / 'empty.csv'
         csv.write_text('#run:fill,recorded(/pb)\n')
