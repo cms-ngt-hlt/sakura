@@ -10,28 +10,31 @@ harvested scouting histograms.
 
 Run the production and DQM steps in a CMS environment with CMSSW, access to the
 mounted EOS filesystem, and HTCondor for production jobs. The release used here
-is **CMSSW_16_0_9**:
+is **CMSSW_16_0_10**:
 
 ```bash
 git clone git@github.com:cms-ngt-hlt/sakura.git
 cd sakura/NERDAnalysis2026/AnalysisPipeline_ms/max_internship/
-cmsrel CMSSW_16_0_9
-cd CMSSW_16_0_9/src/
+cmsrel CMSSW_16_0_10
+cd CMSSW_16_0_10/src/
 cmsenv
+git cms-init
+scram b -j 20
 cd ../../
 voms-proxy-init --voms cms -rfc --valid 168:00
 cp "/tmp/x509up_u$(id -u)" .
 ```
 
-Before running, edit [pipeline.cfg](pipeline.cfg). Its checked-in paths and
-dataset pattern are blank placeholders:
+Add packages via `git cms-addpkg` for custom changes (e.g. checking out private branches) before building.
+
+Before running, edit [pipeline.cfg](pipeline.cfg). Its checked-in paths and dataset pattern are blank placeholders:
 
 | Setting | What to configure |
 | --- | --- |
 | `CMSSW_SRC` | Absolute path to the CMSSW release's `src` directory, accessible to workers. Also used by the HLT DQM recipe to locate its source-client config. |
 | `EOS_BASE` | Mounted EOS output directory for production; DQM reads `<EOS_BASE>/<tag>/run_<run>/`. |
 | `EOS_XRD` | XRootD endpoint for production stage-out, matching your EOS location. |
-| `DATASET_PATTERN` | Dataset regular expression for `generate_filelists.sh`; inspect the generated list before submission. |
+| `DATASET_PATTERN` | Dataset regular expression for `generate_filelists.sh`; inspect the generated list before submission. Examples:<ul><li>`'^/EGamma[0-9]+/[^/]*ZElectron-PromptReco-v[0-9]+/RAW-RECO$'`</li><li>`'^/Muon[0-9]+/[^/]*ZMu-PromptReco-v[0-9]+/RAW-RECO$'`</li></ul> |
 | `FILELIST` | Raw-data input list. Generate it or deliberately reuse an existing list. |
 | `RUNS`, `TAGS`, `GTAGS` | Runs and calibration tags to process; `TAGS` and `GTAGS` are parallel arrays in the same order. |
 | `DQM_DEST_BASE` | Destination for final DQM histograms. |
