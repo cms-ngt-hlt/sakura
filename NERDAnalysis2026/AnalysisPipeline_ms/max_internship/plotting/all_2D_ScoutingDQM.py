@@ -27,7 +27,7 @@ class All2DPlot(All1DPlot):
     dimension = 2
     pairs = (("NGT", "Prompt"), ("Prompt", "HLT"), ("HLT", "NGT"))
 
-    def __init__(self, *args, difference="both", z_limit=None, abs_z_limit=None,
+    def __init__(self, *args, difference="both", z_limit=None, zscale="auto", abs_z_limit=None,
                  rel_z_limit=None, pairs=None, cbar_label=None, aspect="auto",
                  projection="xy", radial_center=(0., 0.), radial_bin_width=None,
                  radial_xlim=None, pdf_name=None, **kwargs):
@@ -46,6 +46,9 @@ class All2DPlot(All1DPlot):
             if abs_z_limit is not None or rel_z_limit is not None:
                 raise ValueError("Use --z-limit alone, without the legacy per-kind limits")
             abs_z_limit = rel_z_limit = z_limit
+        if zscale not in ("auto", "linear", "symlog"):
+            raise ValueError("zscale must be auto, linear or symlog")
+        self.zscale = zscale
         self.z_limits = {"absolute": abs_z_limit, "relative": rel_z_limit}
         self.pairs = tuple(tuple(pair) for pair in pairs) if pairs is not None else type(self).pairs
         labels = {c.label for c in self.conditions}
@@ -262,7 +265,7 @@ class All2DPlot(All1DPlot):
                     if not finite.size or not np.any(finite):
                         limit = 1.
                 norm = (SymLogNorm(linthresh=1., vmin=-limit, vmax=limit, base=10)
-                        if kind == "absolute" else
+                        if self.zscale == "symlog" or (self.zscale == "auto" and kind == "absolute") else
                         TwoSlopeNorm(vmin=-limit, vcenter=0., vmax=limit))
                 radial = self.projection == "radial"
                 fig, axes = plt.subplots(2 if radial else 3, 1,

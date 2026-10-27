@@ -649,6 +649,8 @@ def _parse_args(dimension=1):
         p.add_argument("--z-limit", type=float, default=None,
                        help="symmetric color range [-N, N] for the selected difference(s); "
                             "default: automatic per map")
+        p.add_argument("--zscale", choices=["auto", "linear", "symlog"], default="auto",
+                       help="color scale (default: auto uses symlog for absolute, linear for relative)")
         # Retain historical per-kind options for existing command lines.
         p.add_argument("--abs-z-limit", type=float, default=None, help=argparse.SUPPRESS)
         p.add_argument("--rel-z-limit", type=float, default=None, help=argparse.SUPPRESS)
@@ -670,7 +672,7 @@ def main(plot_class=All1DPlot):
     options = (dict(xlabel=args.xlabel, ylabel=args.ylabel, xlim=args.xlim,
                     ylim=args.ylim, ratio_ylim=args.ratio_ylim)
                if plot_class.dimension == 1 else
-               dict(difference=args.difference, z_limit=args.z_limit, abs_z_limit=args.abs_z_limit,
+               dict(difference=args.difference, z_limit=args.z_limit, zscale=args.zscale, abs_z_limit=args.abs_z_limit,
                     rel_z_limit=args.rel_z_limit, xlabel=args.xlabel, ylabel=args.ylabel,
                     xlim=args.xlim, ylim=args.ylim, pairs=args.pair,
                     cbar_label=args.cbar_label, aspect=args.aspect, pdf_name=args.pdf_name,

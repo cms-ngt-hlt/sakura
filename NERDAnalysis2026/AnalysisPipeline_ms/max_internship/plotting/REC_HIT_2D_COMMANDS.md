@@ -84,3 +84,10 @@ exclusions, PNG options and beam-line masks still apply.
 
 As before, these maps show differences, not statistical significance; profile
 uncertainties and correlations are not propagated.
+
+Use `--zscale linear --z-limit 10` for a linear color scale from -10 to +10.
+The default `--zscale auto` preserves the approved style: symmetric logarithmic
+for absolute differences and linear for relative differences. `--zscale symlog`
+explicitly selects symmetric logarithmic scaling for either difference type.
+Scaling changes colors only, not histogram values or projections. Output names
+are unchanged, so rerunning with another scale replaces matching outputs.

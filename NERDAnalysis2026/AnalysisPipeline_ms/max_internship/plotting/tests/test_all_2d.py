@@ -44,6 +44,24 @@ class All2DTests(unittest.TestCase):
     def plot(self, cls=All2DPlot, **kwargs):
         return cls(config_path=self.cfg, local=True, jobs=1, **kwargs)
 
+    def test_color_scales(self):
+        from matplotlib.colors import SymLogNorm
+        self.addCleanup(plt.close, 'all')
+        for scale in ('auto', 'linear', 'symlog'):
+            plot = self.plot(zscale=scale, z_limit=10, pairs=[('NGT', 'Prompt')])
+            targets = plot.targets()
+            plot._preload(targets)
+            outputs = list(plot.make_figures(targets[0], plot.fetch(targets[0])))
+            for kind, out in zip(('absolute', 'relative'), outputs):
+                norm = out.fig.axes[0].collections[0].norm
+                self.assertEqual((norm.vmin, norm.vmax), (-10, 10))
+                self.assertEqual(isinstance(norm, SymLogNorm),
+                                 scale == 'symlog' or (scale == 'auto' and kind == 'absolute'))
+                if scale == 'linear':
+                    np.testing.assert_allclose(norm([-10, -5, 0, 5, 10]), [0, .25, .5, .75, 1])
+                out.fig.canvas.draw()
+                plt.close(out.fig)
+
     def test_discovery_sum_and_render(self):
         plot = self.plot()
         targets = plot.targets()
