@@ -44,6 +44,49 @@ class All2DTests(unittest.TestCase):
     def plot(self, cls=All2DPlot, **kwargs):
         return cls(config_path=self.cfg, local=True, jobs=1, **kwargs)
 
+    def test_1d_profiles_weighted_mean_and_render(self):
+        from uproot.writing.identify import to_TAxis, to_TProfile
+        key = 'Muons/profile'
+        (self.base / 'lumi.csv').write_text('#run:fill,recorded(/pb)\n123:1,1000\n124:1,2000\n')
+        edges = np.arange(5., dtype=float)
+        w1, w2 = np.array([1., 2., 0., 1.]), np.array([3., 1., 0., 3.])
+        m1, m2 = np.array([-2., 0., 0., 2.]), np.array([-6., 0., 0., 6.])
+        for label, scale in [('Prompt', 1), ('HLT', 2), ('NGT', 3)]:
+            for filename, weights, means in [('b.root', w1, m1), ('c.root', w2, m2)]:
+                sums = weights * means * scale
+                profile = to_TProfile(
+                    fName=None, fTitle='mean', data=np.pad(sums, 1),
+                    fEntries=float(weights.sum()), fTsumw=float(weights.sum()),
+                    fTsumw2=float(weights.sum()), fTsumwx=0., fTsumwx2=0.,
+                    fTsumwy=float(sums.sum()), fTsumwy2=0.,
+                    fSumw2=np.pad(weights * (means * scale)**2, 1),
+                    fBinEntries=np.pad(weights, 1), fBinSumw2=np.pad(weights, 1),
+                    fXaxis=to_TAxis('xaxis', 'eta', 4, 0., 4., edges))
+                path = self.base / label / filename
+                opener = uproot.update if path.exists() else uproot.recreate
+                with opener(path) as f:
+                    f[(self.prefix if filename == 'b.root' else self.prefix.replace('Run 123', 'Run 124')) + key] = profile
+        plot = self.plot(All1DPlot, include=['^Muons/profile$'])
+        target, = plot.targets()  # absent from representative a.root
+        plot._preload([target])
+        fetched = plot.fetch(target)
+        for item in fetched:
+            scale = {'Prompt': 1, 'HLT': 2, 'NGT': 3}[item['condition'].label]
+            np.testing.assert_allclose(item['data'][0], np.array([-5., 0., np.nan, 5.]) * scale)
+            self.assertTrue(item['profile'])
+        outputs = plot.make_figures(target, fetched)
+        self.addCleanup(plt.close, 'all')
+        outputs[0].fig.canvas.draw()
+        self.assertFalse(outputs[0].fig.axes[1].get_legend_handles_labels()[0])
+        selected = self.plot(All1DPlot, include=['^Muons/profile$'], runs=[123])
+        selected._preload(selected.targets())
+        np.testing.assert_allclose(selected._cache[('Prompt', key)][0], [-2., 0., np.nan, 2.])
+        self.assertEqual(plot.source.contributing_runs[('Prompt', 'Muons', 'profile')], {123, 124})
+        # Occupied zero means must not be classified as empty histograms.
+        for entry in plot._cache.values():
+            entry[0][:] = 0.
+        self.assertIsNotNone(plot.fetch(target))
+
     def test_map_only(self):
         plot = self.plot(projection='none', pairs=[('NGT', 'Prompt')])
         targets = plot.targets()

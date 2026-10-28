@@ -441,6 +441,7 @@ class ComparisonPlot1D(ScoutingPlot):
         ref_values = ref_edges = None
         if ref_item["data"] is not None:
             ref_values, ref_edges = ref_item["data"]
+        if ref_values is not None and not ref_item.get("profile", False):
             ref_rel_err = np.divide(np.sqrt(ref_values), ref_values,
                                     out=np.zeros_like(ref_values),
                                     where=ref_values > 0)
@@ -457,28 +458,32 @@ class ComparisonPlot1D(ScoutingPlot):
             if item["data"] is None:
                 continue
             values, edges = item["data"]
-            if np.sum(values) == 0:
+            profile = item.get("profile", False)
+            if not np.any(np.isfinite(values)) or (not profile and np.sum(values) == 0):
                 continue
-            max_y = max(max_y, np.max(values))
+            max_y = max(max_y, np.nanmax(values))
             last_edges = edges
             cond = item["condition"]
 
             hep.histplot(values, bins=edges, ax=ax_main,
                          label=cond.legend_label, color=cond.color,
-                         linestyle=cond.style, linewidth=2, yerr=True)
+                         linestyle=cond.style, linewidth=2, yerr=False if profile else True)
 
-            if ref_values is not None and len(values) == len(ref_values):
+            if (ref_values is not None and np.array_equal(edges, ref_edges)
+                    and profile == ref_item.get("profile", False)):
                 ratio = np.divide(values, ref_values,
                                   out=np.full_like(values, np.nan),
                                   where=ref_values != 0)
                 # PHYSICS: propagated uncorrelated uncertainty
                 # sigma_R = R * sqrt(1/N + 1/D), guarded divides.
-                err_ratio = ratio * np.sqrt(
-                    np.divide(1, values, out=np.zeros_like(values),
-                              where=values > 0)
-                    + np.divide(1, ref_values,
-                                out=np.zeros_like(ref_values),
-                                where=ref_values > 0))
+                err_ratio = False
+                if not profile:
+                    err_ratio = ratio * np.sqrt(
+                        np.divide(1, values, out=np.zeros_like(values),
+                                  where=values > 0)
+                        + np.divide(1, ref_values,
+                                    out=np.zeros_like(ref_values),
+                                    where=ref_values > 0))
                 is_reference = cond is self.reference
                 hep.histplot(
                     ratio, bins=edges, ax=ax_ratio, color=cond.color,

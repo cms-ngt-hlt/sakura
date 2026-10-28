@@ -1,10 +1,10 @@
 """
-Entry script: generic comparison of ALL 1D histograms (TH1*) in the
+Entry script: generic comparison of ALL 1D histograms and profiles (TH1*, TProfile) in the
 Scouting DQM files.
 
 Unlike the other entry scripts (e.g. variables_ScoutingECALRecHits.py),
 the histogram list is NOT hardcoded: the DQM directory tree below
-`dqm_prefix` is walked at start-up and every TH1* found is turned into a
+`dqm_prefix` is walked at start-up and every TH1* or TProfile found becomes a
 target.  Everything else (3-condition overlay + ratio panel, config.yaml,
 PdfPages + PNG output) is inherited unchanged from ComparisonPlot1D.
 
@@ -255,12 +255,11 @@ class All1DPlot(ComparisonPlot1D):
                 yield fname, run
 
     def _first_files(self):
-        """One representative *.root file per condition, reference
-        first, so the discovered set is the union over all conditions."""
+        """Scan all selected files so later-introduced profiles are discovered."""
         ordered = [self.reference] + [c for c in self.conditions
                                       if c is not self.reference]
         for cond in ordered:
-            for fname, run in self._file_runs(cond, representative=True):
+            for fname, run in self._file_runs(cond):
                 yield cond, fname, run
 
     def _selected(self, full_name):
@@ -272,14 +271,13 @@ class All1DPlot(ComparisonPlot1D):
 
     @classmethod
     def _histogram_keys(cls, root_dir):
-        """Keys of TH1* (or TH2* in the 2D subclass); exclude profiles."""
+        """Discover 1D counts and profiles; the 2D subclass overrides this."""
         return [key for key, classname in root_dir.iterclassnames(recursive=True,
                                                             cycle=False)
-                if classname.startswith(f"TH{cls.dimension}")]
+                if classname.startswith(f"TH{cls.dimension}") or classname == "TProfile"]
 
     def targets(self):
-        """Walk the DQM tree of one file per condition and collect every
-        selected TH1*, with its axis titles."""
+        """Collect selected histograms and profiles with their axis titles."""
         if self._targets is not None:
             return self._targets
 
@@ -297,6 +295,7 @@ class All1DPlot(ComparisonPlot1D):
                         subpath, _, hist_name = key.rpartition("/")
                         h = root[key]
                         found[key] = {
+                            "profile": h.classname == "TProfile",
                             "subpath": subpath,
                             "hist_name": hist_name,
                             "xtitle": h.member("fXaxis").member("fTitle").strip(),
@@ -323,6 +322,9 @@ class All1DPlot(ComparisonPlot1D):
         Replaces the per-histogram file re-opening of the base class,
         which for ~2500 histograms x N files is the dominant cost.
         """
+        self._cache = {}
+        self._profiles = {}
+        kinds = {}
         self.source.contributing_runs.clear()
         wanted = [self._full_name(t) for t in targets]
         t0 = time.time()
@@ -340,28 +342,42 @@ class All1DPlot(ComparisonPlot1D):
                         for key in wanted:
                             if key not in present:
                                 continue
-                            values, *edges = root[key].to_numpy()
-                            entry = self._cache.get((cond.label, key))
-                            if entry is None:
-                                self._cache[(cond.label, key)] = [
-                                    np.array(values, dtype=float), *edges]
-                            elif (values.shape == entry[0].shape and
-                                  (self.dimension == 1 or all(
-                                      np.array_equal(a, b)
-                                      for a, b in zip(edges, entry[1:])))):
-                                entry[0] += values
-                            else:
-                                print(f"   [Warning] Binning mismatch for "
-                                      f"'{key}' in {fname}: {values.shape} "
-                                      f"vs {entry[0].shape}; file skipped "
-                                      f"for this histogram")
+                            h = root[key]
+                            profile = h.classname == "TProfile"
+                            if key in kinds and kinds[key] != profile:
+                                print(f"   [Warning] TH1/TProfile mismatch for {key} in {fname}; skipped")
                                 continue
+                            if profile:
+                                raw, = h.base(uproot.models.TArray.Model_TArray)
+                                values = np.asarray(raw, dtype=float)[1:-1].copy()
+                                weights = np.asarray(h.member("fBinEntries"), dtype=float)[1:-1].copy()
+                                edges = [h.axis(0).edges()]
+                            else:
+                                values, *edges = h.to_numpy()
+                            cache_key = (cond.label, key)
+                            entry = self._cache.get(cache_key)
+                            if entry is None:
+                                self._cache[cache_key] = [np.array(values, dtype=float), *edges]
+                                if profile:
+                                    self._profiles[cache_key] = [self._cache[cache_key][0], weights]
+                            elif (values.shape == entry[0].shape and all(
+                                    np.array_equal(a, b) for a, b in zip(edges, entry[1:]))):
+                                entry[0] += values
+                                if profile:
+                                    self._profiles[cache_key][1] += weights
+                            else:
+                                print(f"   [Warning] Binning mismatch for '{key}' in {fname}; skipped")
+                                continue
+                            kinds[key] = profile
                             subpath, _, hist_name = key.rpartition("/")
                             self.source.contributing_runs.setdefault(
                                 (cond.label, subpath, hist_name), set()).add(directory_run(root))
                     n_files += 1
                 except Exception as e:
                     print(f"   [Warning] Error reading {fname}: {e}")
+        for key, (sums, weights) in self._profiles.items():
+            self._cache[key][0] = np.divide(sums, weights,
+                out=np.full_like(sums, np.nan), where=weights != 0)
         print(f"Loaded {len(wanted)} histograms from {n_files} file(s) "
               f"in {time.time() - t0:.1f} s")
 
@@ -374,12 +390,14 @@ class All1DPlot(ComparisonPlot1D):
         for cond in self.conditions:
             entry = self._cache.get((cond.label, key))
             data = None if entry is None else tuple(entry)
-            fetched.append({"condition": cond, "data": self.transform(data)})
+            fetched.append({"condition": cond, "data": self.transform(data),
+                            "profile": (cond.label, key) in self._profiles})
         if all(item["data"] is None for item in fetched):
             print("   [Warning] Not found in any condition -> skipped")
             return None
         if not self.keep_empty and all(
-                item["data"] is None or np.sum(item["data"][0]) == 0
+                item["data"] is None or (not np.any(np.isfinite(item["data"][0]))
+                    if item["profile"] else not np.any(item["data"][0] != 0))
                 for item in fetched):
             print("   [Info] Empty in all conditions -> skipped "
                   "(use --keep-empty to plot anyway)")
@@ -409,7 +427,7 @@ class All1DPlot(ComparisonPlot1D):
             ax_main.text(0.02, 0.04, f"Run {self.active_run}",
                          transform=ax_main.transAxes, fontsize=16)
         ax_main.set_ylabel(self.ylabel if self.ylabel is not None else
-                           self._label(target["ytitle"], "Entries"),
+                           self._label(target["ytitle"], "Profile mean" if target.get("profile") else "Entries"),
                            fontsize=20)
         ax_ratio.set_xlabel(self.xlabel if self.xlabel is not None else
                             self._label(target["xtitle"], target["hist_name"]),
