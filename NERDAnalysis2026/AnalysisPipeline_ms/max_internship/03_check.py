@@ -8,6 +8,7 @@ Statuses: OK, EMPTY (0 events), FAIL (errors>0), CRASHED, NO_SUMMARY,
           MISSING_OUTPUT (job fine, file(s) not on EOS).
 """
 import argparse
+import os
 import re
 import subprocess
 import sys
@@ -85,13 +86,19 @@ def main():
     expected = defaultdict(list)          # (run, job) -> [(stream, eos_path)]
     for line in manifest.read_text().splitlines()[1:]:
         run, job, stream, eos_path, _inputs = line.split("\t")
-        expected[(int(run), int(job))].append((stream, eos_path))
+        # CHANGED: normalise (e.g. '//' -> '/') so it matches the pathlib-built listing below
+        expected[(int(run), int(job))].append((stream, os.path.normpath(eos_path)))
 
     # One directory listing per run dir (cheap), then set membership.
-    on_eos = set()
+    on_eos, bad_dirs = set(), set()
     for run_dir in {Path(p).parent for pairs in expected.values() for _, p in pairs}:
         if run_dir.is_dir():
             on_eos.update(str(run_dir / f.name) for f in run_dir.iterdir())
+        else:
+            bad_dirs.add(run_dir)        # CHANGED: don't fail silently
+    if bad_dirs:
+        print(f"WARNING: {len(bad_dirs)} expected EOS dir(s) not found, "
+              f"e.g. {next(iter(bad_dirs))}")
 
     # condor still busy? -> report is provisional
     q = subprocess.run(["condor_q", "-totals", "-af", "ClusterId"],
@@ -106,7 +113,7 @@ def main():
         missing = [s for s, p in expected[(run, job)] if p not in on_eos]
         if status == "OK" and missing:
             status = "MISSING_OUTPUT"
-        good = status in ("OK", "EMPTY") and not missing   # EMPTY: see note below
+        # CHANGED: dropped unused 'good' variable
         # With no stdout/stderr there is no evidence of failure: Condor may still
         # be running the job, or the job may not have been submitted yet.
         if status in ("FAIL", "CRASHED", "NO_SUMMARY", "MISSING_OUTPUT"):
@@ -131,14 +138,16 @@ def main():
     lines += ["| Run | Job | Total | Passed | Errors | Status | on EOS |",
               "|---:|---:|---:|---:|---:|:--|:--|"] + report_rows + [
         "",
-        "**Totals:** " + " · ".join(f"{v} {k}" for k, v in sorted(counts.items())),
+        "**Totals:** " + " . ".join(f"{v} {k}" for k, v in sorted(counts.items())),
         f"**To resubmit:** {len(resubmit)} job(s) -> resubmit_{tag}.txt",
         "",
+        # CHANGED: completed truncated note
         "NOTE: EMPTY (ran, 0 events) counts as done - a 0-event chunk is possible "
+        "when the input lumisections contain no selected events.",
     ]
     (HERE / f"check_report_{tag}.md").write_text("\n".join(lines) + "\n")
 
-    print(f"[{tag}] " + " · ".join(f"{v} {k}" for k, v in sorted(counts.items())))
+    print(f"[{tag}] " + " . ".join(f"{v} {k}" for k, v in sorted(counts.items())))
     if resubmit:
         print(f"{len(resubmit)} job(s) to redo ->  condor_submit condor_resubmit_{tag}.sub")
     else:
