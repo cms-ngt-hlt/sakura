@@ -60,8 +60,8 @@ Create the environment once (do not copy a laptop environment to LXPLUS):
 mkdir -p "$HOME/venvs"
 python3 -m venv "$HOME/venvs/scouting-plots"
 source "$HOME/venvs/scouting-plots/bin/activate"
-python -m pip install --upgrade pip
-python -m pip install numpy uproot pyyaml matplotlib mplhep
+python3 -m pip install --upgrade pip
+python3 -m pip install numpy uproot pyyaml matplotlib mplhep
 ```
 
 For every subsequent login or new terminal, activate it again:
@@ -73,9 +73,9 @@ source "$HOME/venvs/scouting-plots/bin/activate"
 Check the environment before running:
 
 ```bash
-which python
-python -m pip --version
-python -c "import numpy, uproot, yaml, matplotlib, mplhep; print('Environment ready')"
+which python3
+python3 -m pip --version
+python3 -c "import numpy, uproot, yaml, matplotlib, mplhep; print('Environment ready')"
 ```
 
 The Python executable and pip location should both be inside
@@ -102,8 +102,8 @@ outputs without a `scouting/` directory.
 
 ```bash
 cd /path/to/max_internship/plotting
-python all_1D_ScoutingDQM.py --limit 5 --jobs 1
-python all_1D_ScoutingDQM.py --jobs 1 --no-png
+python3 all_1D_ScoutingDQM.py --limit 5 --jobs 1
+python3 all_1D_ScoutingDQM.py --jobs 1 --no-png
 ```
 
 Keep `--jobs 1` on a shared LXPLUS login node: the default otherwise uses all
@@ -127,9 +127,9 @@ With the environment activated, run:
 
 ```bash
 cd /path/to/max_internship/plotting
-python all_1D_ScoutingDQM.py --local --list
-python all_1D_ScoutingDQM.py --local --limit 5 --jobs 1
-python all_1D_ScoutingDQM.py --local --jobs 2 --no-png
+python3 all_1D_ScoutingDQM.py --local --list
+python3 all_1D_ScoutingDQM.py --local --limit 5 --jobs 1
+python3 all_1D_ScoutingDQM.py --local --jobs 2 --no-png
 ```
 
 `--local` does not search recursively or add a `scouting/` prefix. For example,
@@ -179,13 +179,13 @@ filters below to run only what you need.
 To compare Prompt, HLT and NGT **separately for each run**, add `--per-run`:
 
 ```bash
-python all_1D_ScoutingDQM.py --local --per-run --jobs 1
+python3 all_1D_ScoutingDQM.py --local --per-run --jobs 1
 ```
 
 Supply a run number to plot only that run (also works with `--list`):
 
 ```bash
-python all_1D_ScoutingDQM.py --include "^Dilepton/" --per-run 403894 --jobs 1
+python3 all_1D_ScoutingDQM.py --include "^Dilepton/" --per-run 403894 --jobs 1
 ```
 
 If the requested run is unavailable, the script reports an error and lists
@@ -209,13 +209,13 @@ Use `--runs` or `--exclude-runs` to control which runs enter that sum:
 
 ```bash
 # Sum all available runs except 403894
-python all_1D_ScoutingDQM.py --exclude-runs 403894 --jobs 1
+python3 all_1D_ScoutingDQM.py --exclude-runs 403894 --jobs 1
 
 # Sum only these three runs
-python all_1D_ScoutingDQM.py --runs 403775 403894 403895 --jobs 1
+python3 all_1D_ScoutingDQM.py --runs 403775 403894 403895 --jobs 1
 
 # Plot those runs separately instead
-python all_1D_ScoutingDQM.py --runs 403775 403894 403895 --per-run --jobs 1
+python3 all_1D_ScoutingDQM.py --runs 403775 403894 403895 --per-run --jobs 1
 ```
 
 Both filters accept space-separated run numbers and work with `--list` and
@@ -373,7 +373,7 @@ packages and a compatible ROOT installation; the uproot-only Scouting
 environment above is not sufficient. Check it with:
 
 ```bash
-python -c "import ROOT, numpy, matplotlib, mplhep, uproot; print('HLT plotting environment ready')"
+python3 -c "import ROOT, numpy, matplotlib, mplhep, uproot; print('HLT plotting environment ready')"
 ```
 
 By default, both scripts read `DQM_DEST_BASE` from the pipeline's
@@ -426,8 +426,8 @@ active and `DQM_DEST_BASE` configured:
 
 ```bash
 cd /path/to/max_internship/plotting
-python Z_to_ee_fit.py
-python Z_to_ee_fit_stability_per_fill.py --lumi-csv lumi_data.csv
+python3 Z_to_ee_fit.py
+python3 Z_to_ee_fit_stability_per_fill.py --lumi-csv lumi_data.csv
 ```
 
 Both scripts accept `--pipeline-cfg /path/to/pipeline.cfg` to select another
@@ -435,8 +435,8 @@ pipeline configuration. To use `HLT/`, `NGT/`, and `Prompt/` folders directly
 under the current directory instead, bypass the pipeline config with `--local`:
 
 ```bash
-python Z_to_ee_fit.py --local
-python Z_to_ee_fit_stability_per_fill.py --local --lumi-csv lumi_data.csv
+python3 Z_to_ee_fit.py --local
+python3 Z_to_ee_fit_stability_per_fill.py --local --lumi-csv lumi_data.csv
 ```
 
 All plots are saved under the current working directory. `--lumi-csv` also
@@ -473,7 +473,7 @@ For `Z_to_ee_fit_stability_per_fill.py`, the default remains one fit per fill.
 Add `--per-run` for one fit per run and condition:
 
 ```bash
-python Z_to_ee_fit_stability_per_fill.py --lumi-csv lumi_data.csv --per-run
+python3 Z_to_ee_fit_stability_per_fill.py --lumi-csv lumi_data.csv --per-run
 ```
 
 Each run point sits at its luminosity midpoint. Its horizontal bar spans the
@@ -493,7 +493,7 @@ ROOT histogram loading and fitting remain in the individual plotters.
 For example, each entry script accepts the same luminosity and run options:
 
 ```bash
-python all_1D_ScoutingDQM.py --lumi-csv lumi_data.csv --per-run 401623
-python Z_to_ee_fit.py --lumi-csv lumi_data.csv --per-run 401623
-python Z_to_ee_fit_stability_per_fill.py --lumi-csv lumi_data.csv --per-run 401623
+python3 all_1D_ScoutingDQM.py --lumi-csv lumi_data.csv --per-run 401623
+python3 Z_to_ee_fit.py --lumi-csv lumi_data.csv --per-run 401623
+python3 Z_to_ee_fit_stability_per_fill.py --lumi-csv lumi_data.csv --per-run 401623
 ```
