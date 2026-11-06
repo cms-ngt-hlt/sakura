@@ -130,13 +130,13 @@ Run this once on the machine where you will plot (LXPLUS or your laptop):
 mkdir -p "$HOME/venvs"
 python3 -m venv "$HOME/venvs/scouting-plots"
 source "$HOME/venvs/scouting-plots/bin/activate"
-python -m pip install --upgrade pip
-python -m pip install numpy uproot pyyaml matplotlib mplhep
+python3 -m pip install --upgrade pip
+python3 -m pip install numpy uproot pyyaml matplotlib mplhep
 ```
 
 For each new terminal, activate the environment again with
 `source "$HOME/venvs/scouting-plots/bin/activate"`. Both `which python` and
-`python -m pip --version` should point inside that environment.
+`python3 -m pip --version` should point inside that environment.
 
 **On LXPLUS, using pipeline output:** set `DQM_DEST_BASE` in `pipeline.cfg`
 to your DQM output base. With the default plotting config, inputs are
@@ -145,8 +145,8 @@ when there is no `scouting/` directory). From this pipeline directory:
 
 ```bash
 cd plotting
-python all_1D_ScoutingDQM.py --limit 5 --jobs 1
-python all_1D_ScoutingDQM.py --jobs 1 --no-png
+python3 all_1D_ScoutingDQM.py --limit 5 --jobs 1
+python3 all_1D_ScoutingDQM.py --jobs 1 --no-png
 ```
 
 Use `--jobs 1` on shared LXPLUS login nodes; the default uses all cores.
@@ -156,8 +156,8 @@ and `plotting/NGT/`, or set the condition paths in `plotting/config.yaml` to
 their actual locations. From `plotting/`, run:
 
 ```bash
-python all_1D_ScoutingDQM.py --local --limit 5 --jobs 1
-python all_1D_ScoutingDQM.py --local --jobs 2 --no-png
+python3 all_1D_ScoutingDQM.py --local --limit 5 --jobs 1
+python3 all_1D_ScoutingDQM.py --local --jobs 2 --no-png
 ```
 
 `--local` skips reading or sourcing `pipeline.cfg` entirely. Relative condition
