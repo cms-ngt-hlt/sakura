@@ -43,13 +43,13 @@ directory. The HTCondor backend only generates and submits, so it needs
 
 ```bash
 # Every enabled recipe for one tag/run:
-bash 04_run_dqm.sh --tag NGT --run 403863
+./04_run_dqm.sh --tag NGT --run 403863
 
 # Every enabled recipe for NGT over every configured run:
-bash 04_run_dqm.sh --tag NGT
+./04_run_dqm.sh --tag NGT
 
 # Every enabled recipe, tag, and run:
-bash 04_run_dqm.sh
+./04_run_dqm.sh
 ```
 
 Choose recipes only through `DQM_CONFIGS` in `pipeline.cfg`; every listed recipe
@@ -95,7 +95,7 @@ the local backend does, through a temporary file in the destination directory.
 Once the queue drains, collect the outcome:
 
 ```bash
-bash 04_run_dqm.sh --status
+./04_run_dqm.sh --status
 ```
 
 This writes `check_report_dqm.md` with one row per selected recipe/tag/run, plus

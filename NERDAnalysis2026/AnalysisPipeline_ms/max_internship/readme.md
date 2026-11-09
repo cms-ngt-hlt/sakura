@@ -55,7 +55,7 @@ Run the commands below from this pipeline directory unless stated otherwise.
 ### Combined preparation
 
 ```bash
-bash 00_run_pipeline.sh
+./00_run_pipeline.sh
 ```
 
 This regenerates `FILELIST` and `configs/hltDataDump.py` in parallel, then creates
@@ -68,7 +68,7 @@ condor_submit condor_Prompt.sub
 condor_submit condor_NGT.sub
 ```
 
-To prepare and submit in one invocation, use `bash 00_run_pipeline.sh --fulltrust`
+To prepare and submit in one invocation, use `./00_run_pipeline.sh --fulltrust`
 instead. Both modes require the configuration above; automatic submission also
 requires the proxy and `condor_submit` to be ready beforehand.
 
@@ -81,7 +81,7 @@ in place. Do not regenerate them while jobs or resubmissions still use them.
 1. Activate CMSSW with `cmsenv` and generate the shared menu:
 
    ```bash
-   bash 01_make_config.sh
+   ./01_make_config.sh
    ```
 
    This writes `configs/hltDataDump.py`.
@@ -90,7 +90,7 @@ in place. Do not regenerate them while jobs or resubmissions still use them.
    one), then prepare and submit each tag:
 
    ```bash
-   bash generate_filelists.sh
+   ./generate_filelists.sh
    python3 02_submit.py --tag HLT
    condor_submit condor_HLT.sub
    ```
@@ -203,10 +203,10 @@ outputs available:
 
 ```bash
 # All enabled recipes for one run and calibration tag:
-bash 04_run_dqm.sh --tag NGT --run 403863
+./04_run_dqm.sh --tag NGT --run 403863
 
 # All enabled recipes, tags, and runs:
-bash 04_run_dqm.sh
+./04_run_dqm.sh
 ```
 
 The checked-in configuration enables **scouting and HLT**, in that order. Both
@@ -231,7 +231,7 @@ combinations run:
   `dqm.log`). Once `condor_q` is empty, collect the outcome with
 
   ```bash
-  bash 04_run_dqm.sh --status
+  ./04_run_dqm.sh --status
   ```
 
   which writes `check_report_dqm.md`, `dqm_resubmit.txt` and
