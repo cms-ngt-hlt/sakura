@@ -50,7 +50,7 @@ streams, menu, era, and batch resources suit your production. For NGT,
 
 Run the commands below from this pipeline directory unless stated otherwise.
 
-## Preparation and submission
+## 1–2. Prepare and submit production jobs
 
 ### Combined preparation
 
@@ -102,11 +102,6 @@ in place. Do not regenerate them while jobs or resubmissions still use them.
    preparation fails before replacing existing job directories, even with
    `--force`. The pipeline wrapper then stops before submission.
 
-5.  Now you have all the event data that you need, next step is plotting. 
-    If you want, you can run `python3 sanitiy_check_event_counter.py` first - this shows you the Z -> ee event counts for the different calibration tags. 
-    The different plotting scripts are available in the `plotting` folder. They can be executed like simple python files: `python3 <script.py>`. 
-    To compare *all* 1D histograms of the DQM files at once (instead of the hand-picked ones of the dedicated scripts), use `python3 all_1D_ScoutingDQM.py`; it supports `--include/--exclude` regex filters and `--list`, see [plotting/README.md](plotting/README.md). 
-
    Each tag has one `Jobs_<tag>/run_cfg.py`, frozen from the generated menu.
    Per-job scripts supply inputs and the NGT snapshot time through
    `HLT_JOB_OPTIONS`; workers copy the shared config to their temporary directory.
@@ -118,58 +113,6 @@ in place. Do not regenerate them while jobs or resubmissions still use them.
    import CMSSW; menu generation and workers still require it.
 
 ## 3. Check production jobs
-
-The plotting scripts need Python with `numpy`, `uproot`, `pyyaml`, `matplotlib`
-and `mplhep`; they do not need CMSSW or PyROOT. On LXPLUS, connect with
-`ssh YOUR_CERN_USERNAME@lxplus.cern.ch` and use a fresh shell without `cmsenv`
-so that CMS packages do not leak into the plotting environment.
-
-Run this once on the machine where you will plot (LXPLUS or your laptop):
-
-```bash
-mkdir -p "$HOME/venvs"
-python3 -m venv "$HOME/venvs/scouting-plots"
-source "$HOME/venvs/scouting-plots/bin/activate"
-python3 -m pip install --upgrade pip
-python3 -m pip install numpy uproot pyyaml matplotlib mplhep
-```
-
-For each new terminal, activate the environment again with
-`source "$HOME/venvs/scouting-plots/bin/activate"`. Both `which python` and
-`python3 -m pip --version` should point inside that environment.
-
-**On LXPLUS, using pipeline output:** set `DQM_DEST_BASE` in `pipeline.cfg`
-to your DQM output base. With the default plotting config, inputs are
-`$DQM_DEST_BASE/scouting/{Prompt,HLT,NGT}/*.root` (or directly under the base
-when there is no `scouting/` directory). From this pipeline directory:
-
-```bash
-cd plotting
-python3 all_1D_ScoutingDQM.py --limit 5 --jobs 1
-python3 all_1D_ScoutingDQM.py --jobs 1 --no-png
-```
-
-Use `--jobs 1` on shared LXPLUS login nodes; the default uses all cores.
-
-**Using local files:** put the ROOT files in `plotting/Prompt/`, `plotting/HLT/`
-and `plotting/NGT/`, or set the condition paths in `plotting/config.yaml` to
-their actual locations. From `plotting/`, run:
-
-```bash
-python3 all_1D_ScoutingDQM.py --local --limit 5 --jobs 1
-python3 all_1D_ScoutingDQM.py --local --jobs 2 --no-png
-```
-
-`--local` skips reading or sourcing `pipeline.cfg` entirely. Relative condition
-paths are resolved from the working directory, absolute paths are used directly,
-and `--pipeline-cfg` is ignored. This mode also works on LXPLUS. Omit `--no-png`
-to write PNGs in addition to PDFs.
-
-See the [all-1D plotting guide](plotting/README.md) for
-environment troubleshooting, input layouts and the full list of options.
-
-## Further Information
-For more details, espeically on the curation of the file list and the software architecture of the plotting scripts, see the [report](docs/report.pdf)
 
 Monitor jobs with `condor_q`. Once they have finished, run this for each tag:
 
@@ -260,19 +203,47 @@ input patterns, troubleshooting, and adding recipes.
 
 ## 5. Plot scouting results
 
+Plotting reads the harvested DQM histograms, so run it only after step 4 has
+published them under `DQM_DEST_BASE`.
+
+### Plotting environment
+
+The plotting scripts need Python with `numpy`, `uproot`, `pyyaml`, `matplotlib`
+and `mplhep`; they do not need CMSSW or PyROOT. On LXPLUS, connect with
+`ssh YOUR_CERN_USERNAME@lxplus.cern.ch` and use a fresh shell without `cmsenv`
+so that CMS packages do not leak into the plotting environment.
+
+Run this once on the machine where you will plot (LXPLUS or your laptop):
+
+```bash
+mkdir -p "$HOME/venvs"
+python3 -m venv "$HOME/venvs/scouting-plots"
+source "$HOME/venvs/scouting-plots/bin/activate"
+python3 -m pip install --upgrade pip
+python3 -m pip install numpy uproot pyyaml matplotlib mplhep
+```
+
+For each new terminal, activate the environment again with
+`source "$HOME/venvs/scouting-plots/bin/activate"`. Both `which python` and
+`python3 -m pip --version` should point inside that environment.
+
+### Configure inputs
+
 Set each `conditions[].path` in [plotting/config.yaml](plotting/config.yaml) to
 the corresponding **scouting** result directory, preferably as an absolute path:
 `<DQM_DEST_BASE>/scouting/Prompt`, `<DQM_DEST_BASE>/scouting/HLT`, and
 `<DQM_DEST_BASE>/scouting/NGT`. These paths are not read from `pipeline.cfg`.
 Review the luminosity, year, and histogram prefix in that YAML as well.
 
-The plotting environment needs `numpy`, `uproot`, `PyYAML`, `matplotlib`, and
-`mplhep`. Run the entry scripts from `plotting/`, because they load `config.yaml`
+### Dedicated plots
+
+Run the entry scripts from `plotting/`, because they load `config.yaml`
 from the current working directory:
 
 ```bash
 cd plotting
 python3 invariantMass_ScoutingDielectron.py
+python3 Z_to_ee_fit.py
 ```
 
 The other plot entry scripts run the same way; `scouting_plot.py` is the shared
@@ -280,10 +251,49 @@ framework. PDFs are written in the working directory and PNGs under the configur
 `output.png_dir`. Each condition aggregates all `*.root` files in its directory,
 so use matching run coverage across the compared tags.
 
-The optional `sanitiy_check_event_counter.py` still expects `HLT/`, `NGT/`, and
-`Prompt/` directories next to itself. To use it with the new layout, provide
-those directories as links to the scouting result directories (or copy the
-results there). It does not use `plotting/config.yaml` or `DQM_DEST_BASE`.
+### All 1D histograms
+
+To compare *all* 1D histograms of the DQM files at once (instead of the
+hand-picked ones of the dedicated scripts), use `all_1D_ScoutingDQM.py`; it
+supports `--include`/`--exclude` regex filters and `--list`.
+
+**On LXPLUS, using pipeline output:** set `DQM_DEST_BASE` in `pipeline.cfg`
+to your DQM output base. With the default plotting config, inputs are
+`$DQM_DEST_BASE/scouting/{Prompt,HLT,NGT}/*.root` (or directly under the base
+when there is no `scouting/` directory). From this pipeline directory:
+
+```bash
+cd plotting
+python3 all_1D_ScoutingDQM.py --limit 5 --jobs 1
+python3 all_1D_ScoutingDQM.py --jobs 1 --no-png
+```
+
+Use `--jobs 1` on shared LXPLUS login nodes; the default uses all cores.
+
+**Using local files:** put the ROOT files in `plotting/Prompt/`, `plotting/HLT/`
+and `plotting/NGT/`, or set the condition paths in `plotting/config.yaml` to
+their actual locations. From `plotting/`, run:
+
+```bash
+python3 all_1D_ScoutingDQM.py --local --limit 5 --jobs 1
+python3 all_1D_ScoutingDQM.py --local --jobs 2 --no-png
+```
+
+`--local` skips reading or sourcing `pipeline.cfg` entirely. Relative condition
+paths are resolved from the working directory, absolute paths are used directly,
+and `--pipeline-cfg` is ignored. This mode also works on LXPLUS. Omit `--no-png`
+to write PNGs in addition to PDFs.
+
+See the [all-1D plotting guide](plotting/README.md) for
+environment troubleshooting, input layouts and the full list of options.
+
+### Optional sanity check
+
+`sanitiy_check_event_counter.py` shows the Z -> ee event counts for the
+different calibration tags. It still expects `HLT/`, `NGT/`, and `Prompt/`
+directories next to itself. To use it with the new layout, provide those
+directories as links to the scouting result directories (or copy the results
+there). It does not use `plotting/config.yaml` or `DQM_DEST_BASE`.
 
 ## Further information
 
