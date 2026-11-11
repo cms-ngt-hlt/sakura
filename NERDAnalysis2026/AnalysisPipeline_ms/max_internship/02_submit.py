@@ -141,6 +141,8 @@ def main():
     flavour = cfg_scalar(cfg, "JOB_FLAVOUR")
     req_mem = cfg_scalar(cfg, "REQUEST_MEMORY_MB")
     proxy = cfg_scalar(cfg, "PROXY")
+    if subprocess.run(["bash", str(HERE / "ensure_proxy.sh"), cfg]).returncode != 0:
+        sys.exit("ERROR: no valid proxy; see ensure_proxy.sh output above")
     cmssw_src = cfg_scalar(cfg, "CMSSW_SRC")
     assert len(streams) == len(local_files), "STREAMS/LOCAL_FILES length mismatch"
 
@@ -269,7 +271,6 @@ def main():
         print(f"[{tag}] WARNING: skipped {len(skipped_runs)} runs missing from "
               f"oms_runs.csv (excluded for all tags): {skipped_text}", flush=True)
     print(f"Manifest: manifest_{tag}.tsv")
-    print(f"Check proxy first:  voms-proxy-info -timeleft   (proxy: {proxy})")
     print(f"Submit with:        condor_submit condor_{tag}.sub")
 
 
