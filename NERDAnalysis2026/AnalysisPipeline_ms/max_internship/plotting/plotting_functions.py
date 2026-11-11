@@ -263,5 +263,19 @@ def fit_dcb(root_hist, name, fit_range=ZEE_FIT_RANGE):
     fit_func.SetParLimits(7, 0.1, 10.0)
     fit_func.SetParLimits(8, 1.01, 100.0)
 
+    # Fit options: S = return the fit result, R = use the function range,
+    # L = binned log-likelihood, I = integrate the function over each bin,
+    # M = run Minuit's IMPROVE step after MIGRAD, Q = quiet.
+    # CAVEAT (kept as in the original scripts; changing it shifts the
+    # results): with this DCB function, I and M make the fit unreliable.
+    #   * M is a random search whose generator state persists within the
+    #     ROOT session, so a fit depends on how many fits ran before it:
+    #     the first condition fitted gets different uncertainties (e.g.
+    #     sigma error 0.020 vs 0.152 for the same Prompt histogram).
+    #   * I makes the minimum ill-conditioned: MIGRAD fails (status 4) or
+    #     reports unreliable errors (status 1).
+    # "SRLQ" converges (status 0), is independent of the fit order and
+    # gives plausible uncertainties; mu/sigma move slightly (Prompt:
+    # sigma 3.896 -> 3.927 GeV, mu 89.701 -> 89.691 GeV).
     root_hist.Fit(fit_func, "SRLIMQ", "", fit_min, fit_max)
     return fit_func

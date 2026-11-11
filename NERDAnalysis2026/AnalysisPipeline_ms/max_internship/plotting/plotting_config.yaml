@@ -22,6 +22,12 @@
 # explicitly below (no more "reference = first entry" convention).
 # ---------------------------------------------------------------------
 conditions:
+  - label: "Prompt"
+    legend_label: "Prompt Conditions"
+    path: "Prompt"
+    color: "black"
+    style: "-"
+    marker: "v"
   - label: "HLT"
     legend_label: "HLT Conditions"
     path: "HLT"
@@ -34,12 +40,6 @@ conditions:
     color: "#f89c20"
     style: ":"
     marker: "D"
-  - label: "Prompt"
-    legend_label: "Prompt Conditions"
-    path: "Prompt"
-    color: "black"
-    style: "-"
-    marker: "v"
 
 # The reference for the 1D ratio panel and the gray uncertainty band.
 reference: "Prompt"
