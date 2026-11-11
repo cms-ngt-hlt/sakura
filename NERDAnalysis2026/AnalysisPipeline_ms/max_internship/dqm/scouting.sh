@@ -35,7 +35,7 @@ PY
 
 cmsRun dqm.py > dqm.log 2>&1
 
-cmsDriver.py step3 -s HARVESTING:@standardDQM \
+cmsDriver.py step3 -s HARVESTING:hltScoutingPostProcessing \
     --conditions 160X_dataRun3_HLT_v1 \
     --data \
     --geometry DB:Extended \
