@@ -35,4 +35,4 @@ class PiZeroMassPlot(ComparisonPlot1D):
 
 
 if __name__ == "__main__":
-    PiZeroMassPlot(config_path="config.yaml").run()
+    PiZeroMassPlot.main()

@@ -5,7 +5,7 @@ Scouting DQM files.
 Unlike the other entry scripts (e.g. variables_ScoutingECALRecHits.py),
 the histogram list is NOT hardcoded: the DQM directory tree below
 `dqm_prefix` is walked at start-up and every TH1* found is turned into a
-target.  Everything else (3-condition overlay + ratio panel, config.yaml,
+target.  Everything else (3-condition overlay + ratio panel, plotting_config.yaml,
 PdfPages + PNG output) is inherited unchanged from ComparisonPlot1D.
 
 Compared to the hand-tuned scripts, the per-plot cosmetics are generic:
@@ -18,8 +18,9 @@ Compared to the hand-tuned scripts, the per-plot cosmetics are generic:
   * x-range  : full histogram range (base-class default)
   * output   : one multi-page PDF per top-level DQM folder
                (Comparison_All1D_<Folder>.pdf; --group-by subdir for one
-               per sub-folder, --single-pdf for a single file); PNGs go
-               to output.png_dir as usual, named
+               per sub-folder, --single-pdf for a single file), written
+               to the output dir (PLOTS_DEST or --output-dir), as are
+               the PNGs, named
                Comparison_<sub_path>_<hist_name>.png so that identical
                histogram names in different folders do not collide.
 
@@ -37,16 +38,16 @@ anyway.  Use --list to see what would be plotted without plotting.
 Usage: see README.md in this folder, or `python3 all_1D_ScoutingDQM.py -h`.
 """
 
-from luminosity import add_lumi_arguments, directory_run
+from luminosity import directory_run
+from plotting_functions import (DEFAULT_CONFIG, DEFAULT_PIPELINE_CFG,
+                                add_common_arguments, common_kwargs)
 
 import argparse
 import multiprocessing
 import os
 import re
-import subprocess
 import time
 import traceback
-from pathlib import Path
 
 import matplotlib
 matplotlib.use("Agg")           # headless; required for --jobs > 1
@@ -77,55 +78,17 @@ _ROOT_SYMBOL_RE = re.compile(
     "#(" + "|".join(sorted(_ROOT_SYMBOLS, key=len, reverse=True)) + ")")
 
 
-def scouting_input_dir(pipeline_cfg):
-    """Read the shell config using the same working directory as the pipeline."""
-    cfg = Path(pipeline_cfg).expanduser().resolve()
-    if not cfg.is_file():
-        raise ValueError(f"Pipeline config not found: {cfg}")
-    result = subprocess.run(
-        ["bash", "-c", 'set -e; source "$1" >&2; printf "%s" "${DQM_DEST_BASE:-}"',
-         "bash", str(cfg)],
-        cwd=cfg.parent, capture_output=True, text=True)
-    if result.returncode:
-        raise ValueError(f"Error reading {cfg}: {result.stderr.strip()}")
-    if not result.stdout.strip():
-        raise ValueError(f"DQM_DEST_BASE is empty or unset in {cfg}")
-    base = Path(result.stdout).expanduser()
-    if not base.is_absolute():
-        base = cfg.parent / base
-    # Prefer separated scouting output; older pipelines wrote tags directly
-    # under DQM_DEST_BASE. Also allows DQM_DEST_BASE to point at scouting itself.
-    scouting = base / "scouting"
-    return scouting if scouting.is_dir() else base
-
-
 class All1DPlot(ComparisonPlot1D):
 
-    output_pdf = "Comparison_All1D.pdf"     # rewritten per group in run()
-
-    def __init__(self, config_path="config.yaml", include=(), exclude=(),
+    def __init__(self, config_path=DEFAULT_CONFIG, include=(), exclude=(),
                  group_by="top", single_pdf=False, yscale="auto",
                  keep_empty=False, limit=None, jobs=1, save_png=True,
-                 pipeline_cfg=Path(__file__).resolve().parents[1] / "pipeline.cfg",
-                 local=False, per_run=False, runs=(), exclude_runs=(), lumi_csv=None,
-                 xlabel=None, ylabel=None, xlim=None, ylim=None, ratio_ylim=None):
-        super().__init__(config_path=config_path)
-        if lumi_csv is not None:
-            self.config["lumi_csv"] = lumi_csv
-        # Local mode must not read or source pipeline.cfg at all.
-        input_dir = Path.cwd() if local else scouting_input_dir(pipeline_cfg)
-        for cond in self.conditions:
-            # Absolute paths in custom plotting configs remain explicit overrides.
-            cond.path = str(input_dir / Path(cond.path).expanduser())
-            if not Path(cond.path).is_dir():
-                hint = ("Check condition paths in the plotting config "
-                        "(relative to the current working directory in --local mode)."
-                        if local else
-                        f"Check DQM_DEST_BASE in {pipeline_cfg} and condition paths "
-                        "in the plotting config.")
-                raise ValueError(
-                    f"DQM input directory not found for {cond.label}: {cond.path}. "
-                    + hint)
+                 pipeline_cfg=DEFAULT_PIPELINE_CFG, local=False,
+                 output_dir=None, per_run=False, runs=(), exclude_runs=(),
+                 lumi_csv=None, xlabel=None, ylabel=None, xlim=None,
+                 ylim=None, ratio_ylim=None):
+        super().__init__(config_path=config_path, pipeline_cfg=pipeline_cfg,
+                         local=local, output_dir=output_dir, lumi_csv=lumi_csv)
         self.include = [re.compile(p) for p in include]
         self.exclude = [re.compile(p) for p in exclude]
         self.group_by = group_by
@@ -431,12 +394,12 @@ class All1DPlot(ComparisonPlot1D):
 
     def _run_group(self, group, tgts):
         """One PdfPages for one group; returns (n_plotted, n_skipped)."""
-        self.output_pdf = self._pdf_name(group)
+        pdf_path = os.path.join(self.output_dir, self._pdf_name(group))
         n_plotted = n_skipped = 0
         try:
-            print(f"--- Starting analysis for {self.output_pdf} "
+            print(f"--- Starting analysis for {pdf_path} "
                   f"({len(tgts)} histograms) ---")
-            with PdfPages(self.output_pdf) as pdf:
+            with PdfPages(pdf_path) as pdf:
                 for target in tgts:
                     print(f" > Processing {self._full_name(target)}...")
                     fetched = self.fetch(target)
@@ -448,13 +411,13 @@ class All1DPlot(ComparisonPlot1D):
                     n_plotted += 1
             if n_plotted:
                 print(f"SUCCESS: Analysis complete. Output: "
-                      f"{self.output_pdf} ({n_plotted} pages)")
+                      f"{pdf_path} ({n_plotted} pages)")
             else:
                 # matplotlib >= 3.10 does not write an empty PdfPages
                 print(f"[Warning] Nothing to plot for {group}; "
-                      f"{self.output_pdf} not written")
+                      f"{pdf_path} not written")
         except Exception as e:
-            print(f"CRITICAL ERROR in {self.output_pdf}: {e}")
+            print(f"CRITICAL ERROR in {pdf_path}: {e}")
             traceback.print_exc()
         return n_plotted, n_skipped
 
@@ -518,17 +481,8 @@ def _run_group_in_worker(group, tgts):
 def _parse_args():
     p = argparse.ArgumentParser(
         description="Compare ALL 1D histograms of the Scouting DQM files "
-                    "across the conditions in config.yaml.")
-    p.add_argument("--config", default="config.yaml",
-                   help="path to config.yaml (default: %(default)s)")
-    p.add_argument("--pipeline-cfg",
-                   default=str(Path(__file__).resolve().parents[1] / "pipeline.cfg"),
-                   help="pipeline.cfg defining DQM_DEST_BASE "
-                        "(default: pipeline.cfg next to the pipeline scripts; "
-                        "ignored with --local)")
-    p.add_argument("--local", action="store_true",
-                   help="ignore pipeline.cfg and use condition paths from config.yaml "
-                        "relative to the current working directory")
+                    "across the conditions in plotting_config.yaml.")
+    add_common_arguments(p)
     p.add_argument("--include", action="append", default=[], metavar="REGEX",
                    help="only histograms whose 'subpath/name' matches "
                         "(repeatable, OR-ed)")
@@ -538,7 +492,6 @@ def _parse_args():
     p.add_argument("--list", action="store_true",
                    help="print the selected histograms and exit")
     add_run_arguments(p)
-    add_lumi_arguments(p, default=None)
     p.add_argument("--group-by", choices=["top", "subdir"], default="top",
                    help="one PDF per top-level DQM folder (default) or per "
                         "sub-folder (smaller PDFs, better parallelism)")
@@ -576,16 +529,15 @@ def _parse_args():
 if __name__ == "__main__":
     args = _parse_args()
     try:
-        plot = All1DPlot(config_path=args.config, include=args.include,
+        plot = All1DPlot(**common_kwargs(args), include=args.include,
                      xlabel=args.xlabel, ylabel=args.ylabel, xlim=args.xlim,
                      ylim=args.ylim, ratio_ylim=args.ratio_ylim,
                      exclude=args.exclude, group_by=args.group_by,
                      single_pdf=args.single_pdf, yscale=args.yscale,
                      keep_empty=args.keep_empty, limit=args.limit,
                      jobs=args.jobs, save_png=not args.no_png,
-                     pipeline_cfg=args.pipeline_cfg, local=args.local,
                      per_run=args.per_run, runs=args.runs,
-                     exclude_runs=args.exclude_runs, lumi_csv=args.lumi_csv)
+                     exclude_runs=args.exclude_runs)
         if args.list:
             if not plot.per_run and (plot.include_runs or plot.exclude_runs):
                 print("Summing runs: " + ", ".join(map(str, plot.runs())))
@@ -600,5 +552,5 @@ if __name__ == "__main__":
                 print(f"{len(plot.targets())} histograms selected")
         else:
             plot.run()
-    except ValueError as exc:
+    except (ValueError, KeyError, OSError) as exc:
         raise SystemExit(f"ERROR: {exc}") from exc

@@ -62,11 +62,14 @@ class DileptonMassPlot(ComparisonPlot1D):
             self._sci_notation(ax_main)
 
     def decorate(self, ax_main, ax_ratio, target):
-        # NOTE: the original used this y-label and x-label for ALL 15
-        # histograms, including the muon ones; preserved as-is.
-        ax_main.set_ylabel("Number of Dielectron Candidates", fontsize=20)
-        aaa = "$m_{ee}$ [GeV]" + f" {target['hist_name']}"
-        ax_ratio.set_xlabel(aaa, fontsize=20)
+        # Electron vs muon labels from the histogram name prefix
+        # (electrons_*, muons_*, muonsNoVtx_*).
+        if target["hist_name"].startswith("muons"):
+            candidates, mass = "Dimuon", r"$m_{\mu\mu}$ [GeV]"
+        else:
+            candidates, mass = "Dielectron", r"$m_{ee}$ [GeV]"
+        ax_main.set_ylabel(f"Number of {candidates} Candidates", fontsize=20)
+        ax_ratio.set_xlabel(mass, fontsize=20)
 
     # -- saving style of the old script: different PNG names plus a
     # -- standalone per-plot PDF next to each PNG.
@@ -79,4 +82,4 @@ class DileptonMassPlot(ComparisonPlot1D):
 
 
 if __name__ == "__main__":
-    DileptonMassPlot(config_path="config.yaml").run()
+    DileptonMassPlot.main()

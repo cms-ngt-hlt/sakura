@@ -25,4 +25,4 @@ class RelDiffMapEE(RelDiffMapRadial):
 
 
 if __name__ == "__main__":
-    RelDiffMapEE(config_path="config.yaml").run()
+    RelDiffMapEE.main()

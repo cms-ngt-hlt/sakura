@@ -41,7 +41,7 @@ def add_lumi_arguments(parser, default="lumi_data.csv"):
     parser.add_argument(
         "--lumi-csv", default=default,
         help="run-level brilcalc CSV in /pb, relative to the current directory "
-             + ("(default: %(default)s)" if default else "(default: lumi_csv in config.yaml)"))
+             + ("(default: %(default)s)" if default else "(default: lumi_csv in plotting_config.yaml)"))
 
 
 def cumulative_luminosity(runs, lumi_csv, *, per_run=False, selected_runs=None):

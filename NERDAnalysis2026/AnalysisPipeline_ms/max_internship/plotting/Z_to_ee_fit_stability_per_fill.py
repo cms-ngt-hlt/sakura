@@ -7,7 +7,7 @@ For every fill found in the HLT / NGT / Prompt folders (by grouping runs):
   1. Aggregates di-electron mass histograms for all runs in the fill.
   2. Fits a Double-sided Crystal-Ball + exponential background.
   3. Saves a sanity-check plot for the aggregated fill.
-  4. Collects the fitted μ and σ/μ per fill and plots them vs integrated
+  4. Collects the fitted mu and sigma/mu per fill and plots them vs integrated
      luminosity, centering the points at the midpoint of each fill's lumi range.
      Zero is the start of the first available input run; the range ends at
      the last available input run, retaining CSV luminosity between them.
@@ -22,171 +22,47 @@ recorded luminosity and vertical lines marking fill boundaries.
 
 DQM inputs come from DQM_DEST_BASE/hlt in pipeline.cfg, with a fallback
 for older flat layouts. Use --pipeline-cfg for another config, or --local
-for HLT/NGT/Prompt folders in the current directory. Plots are saved in
-the current directory.
+for the condition folders in the current directory. Conditions (folders,
+colours, markers) and the CMS label come from the plotting config; plots
+are saved in PLOTS_DEST from pipeline.cfg (default DQM_DEST_BASE/plots)
+or --output-dir.
 """
 
 from dqm_runs import DQMRunSelection, add_run_arguments
-from luminosity import add_lumi_arguments, cms_lumi_label, cumulative_luminosity
+from luminosity import cms_lumi_label, cumulative_luminosity
+from plotting_functions import (DCB_PAR_NAMES, ZEE_DQM_PREFIX,
+                                ZEE_FIT_RANGE, ZEE_HIST_NAME, ZEE_HIST_SUBPATH,
+                                add_common_arguments, cms_text, condition_styles, dcb_background, dcb_func,
+                                dcb_signal, extract_run_number, fit_dcb,
+                                hlt_input_dir, load_config, lumi_csv_path,
+                                make_output_dir)
 
 import argparse
-import yaml
 from pathlib import Path
-import subprocess
 
 import ROOT
 import os
-import re
 import numpy as np
 import matplotlib.pyplot as plt
 import mplhep as hep
 
 plt.style.use(hep.style.CMS)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# DCB + exponential background
-# ─────────────────────────────────────────────────────────────────────────────
-
-def dqm_input_dir(pipeline_cfg, recipe):
-    """Read the shell config using the same working directory as the pipeline."""
-    cfg = Path(pipeline_cfg).expanduser().resolve()
-    if not cfg.is_file():
-        raise ValueError(f"Pipeline config not found: {cfg}")
-    result = subprocess.run(
-        ["bash", "-c", 'set -e; source "$1" >&2; printf "%s" "${DQM_DEST_BASE:-}"',
-         "bash", str(cfg)],
-        cwd=cfg.parent, capture_output=True, text=True)
-    if result.returncode:
-        raise ValueError(f"Error reading {cfg}: {result.stderr.strip()}")
-    if not result.stdout.strip():
-        raise ValueError(f"DQM_DEST_BASE is empty or unset in {cfg}")
-    base = Path(result.stdout).expanduser()
-    if not base.is_absolute():
-        base = cfg.parent / base
-    # Prefer recipe-specific output; older pipelines wrote tags directly
-    # under DQM_DEST_BASE. Also accepts a base pointing at the recipe itself.
-    # On case-insensitive filesystems, the HLT tag also matches "hlt".
-    if recipe == "hlt" and all(
-            (base / tag).is_dir() for tag in ("HLT", "NGT", "Prompt")):
-        return base
-    recipe_dir = base / recipe
-    return recipe_dir if recipe_dir.is_dir() else base
-
-
-def add_dqm_arguments(parser):
-    add_run_arguments(parser)
-    parser.add_argument(
-        "--pipeline-cfg",
-        default=str(Path(__file__).resolve().parents[1] / "pipeline.cfg"),
-        help="pipeline.cfg defining DQM_DEST_BASE (ignored with --local)")
-    parser.add_argument(
-        "--local", action="store_true",
-        help="ignore pipeline.cfg and read HLT/NGT/Prompt under the current directory")
-
-
-def hlt_input_dir(args, parser):
-    try:
-        base = Path.cwd() if args.local else dqm_input_dir(args.pipeline_cfg, "hlt")
-        for tag in ("HLT", "NGT", "Prompt"):
-            if not (base / tag).is_dir() and not (args.per_run is not False or args.runs or args.exclude_runs):
-                raise ValueError(
-                    f"DQM input directory not found: {base / tag}. "
-                    "Check DQM_DEST_BASE in pipeline.cfg (or the current directory "
-                    "with --local).")
-        return base
-    except ValueError as exc:
-        parser.error(str(exc))
-
-
-def dcb_func(x, p):
-    xx = x[0]
-    mean, sigma     = p[3], p[4]
-    aL, nL, aH, nH = abs(p[5]), p[6], abs(p[7]), p[8]
-    t = (xx - mean) / sigma
-    bkg = p[0] * np.exp(p[1] * xx)
-
-    if -aL < t < aH:
-        return p[2] * np.exp(-0.5 * t**2) + bkg
-    elif t <= -aL:
-        A = (nL / aL)**nL * np.exp(-0.5 * aL**2)
-        B = nL / aL - aL
-        return p[2] * A * (B - t)**(-nL) + bkg
-    else:
-        A = (nH / aH)**nH * np.exp(-0.5 * aH**2)
-        B = nH / aH - aH
-        return p[2] * A * (B + t)**(-nH) + bkg
-
-
-def bkg_only(x, p):
-    return p[0] * np.exp(p[1] * x)
-
-
-def sig_only(x, p):
-    mean, sigma     = p[3], p[4]
-    aL, nL, aH, nH = abs(p[5]), p[6], abs(p[7]), p[8]
-    t = (x - mean) / sigma
-
-    if -aL < t < aH:
-        return p[2] * np.exp(-0.5 * t**2)
-    elif t <= -aL:
-        A = (nL / aL)**nL * np.exp(-0.5 * aL**2)
-        B = nL / aL - aL
-        return p[2] * A * (B - t)**(-nL)
-    else:
-        A = (nH / aH)**nH * np.exp(-0.5 * aH**2)
-        B = nH / aH - aH
-        return p[2] * A * (B + t)**(-nH)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Helpers
-# ─────────────────────────────────────────────────────────────────────────────
-
-def extract_run_number(filename):
-    match = re.search(r'_R(\d+)\.root', filename)
-    return int(match.group(1)) if match else None
-
-
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Per-fill fit + sanity-check plot
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
-def fit_fill(root_hist, label, fill_id, sanity_dir, runs, lumi_csv, unit="Fill", *, year):
+def fit_fill(root_hist, label, fill_id, sanity_dir, runs, lumi_csv, unit="Fill", *, year, com):
     """
     Fit root_hist with DCB + exp background.
     """
-    fit_min, fit_max = 60, 120
+    fit_min, fit_max = ZEE_FIT_RANGE
 
-    peak_val = root_hist.GetMaximum()
-    peak_x   = root_hist.GetXaxis().GetBinCenter(root_hist.GetMaximumBin())
-
-    if peak_val <= 0 or root_hist.GetEntries() < 10:
+    if root_hist.GetMaximum() <= 0 or root_hist.GetEntries() < 10:
         print(f"  [{label} {unit} {fill_id}] Too few entries, skipping.")
         return None
 
-    fname    = f"f_{label}_{unit}{fill_id}"
-    fit_func = ROOT.TF1(fname, dcb_func, fit_min, fit_max, 9)
-
-    fit_func.SetParameters(
-        peak_val * 0.05,          # p0  bkg constant
-        -0.04,                    # p1  bkg slope
-        peak_val,                 # p2  signal norm
-        peak_x,                   # p3  mean
-        3.0,                      # p4  sigma
-        1.5,                      # p5  aL
-        5.0,                      # p6  nL
-        1.5,                      # p7  aH
-        5.0,                      # p8  nH
-    )
-    fit_func.SetParLimits(0, 0,              peak_val)
-    fit_func.SetParLimits(1, -0.8,           0.0)
-    fit_func.SetParLimits(2, peak_val*0.01,  peak_val*5.0)
-    fit_func.SetParLimits(3, peak_x - 5.0,  peak_x + 5.0)
-    fit_func.SetParLimits(4, 0.5,   8.0)
-    fit_func.SetParLimits(5, 0.1,  10.0);  fit_func.SetParLimits(6, 1.01, 100.0)
-    fit_func.SetParLimits(7, 0.1,  10.0);  fit_func.SetParLimits(8, 1.01, 100.0)
-
-    root_hist.Fit(fit_func, "SRLIMQ", "", fit_min, fit_max)
+    fit_func = fit_dcb(root_hist, f"f_{label}_{unit}{fill_id}", (fit_min, fit_max))
 
     mean      = fit_func.GetParameter(3);  mean_err  = fit_func.GetParError(3)
     sigma     = fit_func.GetParameter(4);  sigma_err = fit_func.GetParError(4)
@@ -202,11 +78,11 @@ def fit_fill(root_hist, label, fill_id, sanity_dir, runs, lumi_csv, unit="Fill",
     res_err = res * np.sqrt((sigma_err / sigma)**2 + (mean_err / mean)**2)
     params  = [fit_func.GetParameter(i) for i in range(9)]
 
-    # ── Sanity-check plot ──────────────────────────────────────────────────
+    # -- Sanity-check plot --------------------------------------------------
     x_plot  = np.linspace(fit_min, fit_max, 500)
     y_total = [dcb_func([x], params) for x in x_plot]
-    y_bkg   = [bkg_only(x,   params) for x in x_plot]
-    y_sig   = [sig_only(x,   params) for x in x_plot]
+    y_bkg   = [dcb_background(x, params) for x in x_plot]
+    y_sig   = [dcb_signal(x,     params) for x in x_plot]
 
     pull_x, pull_y = [], []
     for i in range(1, root_hist.GetNbinsX() + 1):
@@ -225,8 +101,8 @@ def fit_fill(root_hist, label, fill_id, sanity_dir, runs, lumi_csv, unit="Fill",
         gridspec_kw={'height_ratios': [3, 2], 'hspace': 0.05}
     )
     cms_lumi_label(ax_s, {label: runs}, lumi_csv, data=True,
-                  label=f"Sanity Check | {label} | {unit} {fill_id}",
-                  year=year, fontsize=16)
+                  text=f"Sanity Check | {label} | {unit} {fill_id}",
+                  year=year, com=com, fontsize=16)
 
     hep.histplot(root_hist, ax=ax_s,
                  label=f"{label} {unit} {fill_id}",
@@ -236,10 +112,10 @@ def fit_fill(root_hist, label, fill_id, sanity_dir, runs, lumi_csv, unit="Fill",
     ax_s.plot(x_plot, y_sig,   color='blue',  lw=2, ls='--', label='Signal (DCB)')
     ax_s.plot(x_plot, y_bkg,   color='green', lw=2, ls=':',  label='Background (Exp)')
 
-    par_names = ["Bkg C0","Bkg C1","Sig Norm","Mean","Sigma","aL","nL","aH","nH"]
+    par_names = DCB_PAR_NAMES
     stats  = rf"$\chi^2/\mathrm{{ndf}} = {chi2:.1f}/{ndf} = {chi2_ndf:.2f}$" + "\n"
     stats += rf"Res $(\sigma/\mu)$: ${res:.2f} \pm {res_err:.2f}\%$" + "\n"
-    stats += "─" * 22 + "\n"
+    stats += "-" * 22 + "\n"
     for i in range(9):
         stats += rf"{par_names[i]}: {params[i]:.3f} $\pm$ {fit_func.GetParError(i):.3f}" + "\n"
 
@@ -271,27 +147,23 @@ def fit_fill(root_hist, label, fill_id, sanity_dir, runs, lumi_csv, unit="Fill",
     return mean, mean_err, res, res_err, chi2_ndf
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Analyser
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 class PerFillFitAnalyzer:
 
-    SOURCES = {
-        'HLT':    {'folder': 'HLT',    'color': '#5790fc', 'marker': 'o'},
-        'NGT':    {'folder': 'NGT',    'color': '#f89c20', 'marker': 'D'},
-        'Prompt': {'folder': 'Prompt', 'color': 'black',   'marker': 'v'},
-    }
-
-    def __init__(self, base_path, lumi_csv, output_dir=".", run_selection=None, config_path="config.yaml"):
-        with open(config_path) as stream:
-            self.year = yaml.safe_load(stream)["cms_label"]["year"]
+    def __init__(self, base_path, lumi_csv, config, output_dir=".", run_selection=None):
+        self.year = config["cms_label"]["year"]
+        self.com = config["cms_label"]["com"]
+        self.cms_text = cms_text(config)
+        self.sources = condition_styles(config)
         self.run_selection = run_selection
         self.unit = "Run" if run_selection and run_selection.per_run else "Fill"
         self.base_path  = base_path
         self.output_dir = output_dir
         self.lumi_csv = lumi_csv
-        self.fitted_runs = {label: set() for label in self.SOURCES}
+        self.fitted_runs = {label: set() for label in self.sources}
         self.sanity_dir = os.path.join(output_dir, f"fit_sanity_checks_per_{self.unit.lower()}")
         os.makedirs(self.sanity_dir, exist_ok=True)
 
@@ -302,11 +174,11 @@ class PerFillFitAnalyzer:
             self.source_files = {
                 label: {run: run_selection._run_files[run].get(label, [])
                         for run in selected}
-                for label in self.SOURCES
+                for label in self.sources
             }
         else:
             self.source_files = {}
-            for label, info in self.SOURCES.items():
+            for label, info in self.sources.items():
                 folder = Path(self.base_path) / info['folder']
                 if not folder.is_dir():
                     print(f"Warning: {folder} not found, skipping {label}.")
@@ -339,13 +211,12 @@ class PerFillFitAnalyzer:
         if not rf or rf.IsZombie():
             return None
 
-        dqm_path = (f"DQMData/Run {run_num}/HLT/Run summary/"
-                    f"ObjectMonitor/MainShifter/di-Electron_Mass")
+        dqm_path = f"DQMData/Run {run_num}/{ZEE_DQM_PREFIX}/{ZEE_HIST_SUBPATH}"
         h = rf.Get(dqm_path)
 
         if not h and not self.run_selection:
             for key in rf.GetListOfKeys():
-                if "di-Electron_Mass" in key.GetName():
+                if ZEE_HIST_NAME in key.GetName():
                     h = key.ReadObj()
                     break
 
@@ -388,17 +259,17 @@ class PerFillFitAnalyzer:
                 print(f"  Fitting {self.unit} {fill} ({len(runs_in_fill)} runs)...")
                 result = fit_fill(h_sum, label, fill, self.sanity_dir,
                                   contributing, self.lumi_csv, unit=self.unit,
-                                  year=self.year)
+                                  year=self.year, com=self.com)
 
                 if fill not in self.fit_results:
-                    self.fit_results[fill] = {src: None for src in self.SOURCES}
+                    self.fit_results[fill] = {src: None for src in self.sources}
                 self.fit_results[fill][label] = result
 
                 if result:
                     self.fitted_runs[label].update(contributing)
                     mu, mu_e, res, res_e, c2 = result
-                    print(f"    {self.unit} {fill}  μ={mu:.3f}±{mu_e:.3f} GeV  "
-                          f"σ/μ={res:.2f}±{res_e:.2f}%  χ²/ndf={c2:.2f}")
+                    print(f"    {self.unit} {fill}  mu={mu:.3f}+-{mu_e:.3f} GeV  "
+                          f"sigma/mu={res:.2f}+-{res_e:.2f}%  chi2/ndf={c2:.2f}")
 
     def plot_stability_vs_lumi(self, output_file=None):
         if output_file is None:
@@ -415,10 +286,10 @@ class PerFillFitAnalyzer:
             gridspec_kw={'height_ratios': [3, 2], 'hspace': 0.05}
         )
         cms_lumi_label(ax_top, {label: runs for label, runs in self.fitted_runs.items()
-                                if runs}, self.lumi_csv, data=True, label="Preliminary",
-                       year=self.year, com=13.6, fontsize=22)
+                                if runs}, self.lumi_csv, data=True, text=self.cms_text,
+                       year=self.year, com=self.com, fontsize=22)
 
-        for label, info in self.SOURCES.items():
+        for label, info in self.sources.items():
             x_pts, mu_pts, mu_err_pts, res_pts, res_err_pts = [], [], [], [], []
             x_err_pts = []
 
@@ -479,42 +350,53 @@ class PerFillFitAnalyzer:
         out = os.path.join(self.output_dir, output_file)
         plt.savefig(out, bbox_inches='tight')
         plt.close()
-        print(f"\nSaved → {out}")
+        print(f"\nSaved -> {out}")
 
     def summary_table(self):
         print(f"\n{self.unit:>10}  {'Source':>8}  "
-              f"{'μ [GeV]':>12}  {'σ/μ [%]':>12}  {'χ²/ndf':>8}")
-        print("─" * 60)
+              f"{'mu [GeV]':>12}  {'sigma/mu [%]':>12}  {'chi2/ndf':>8}")
+        print("-" * 60)
         for fill in sorted(self.fit_results):
-            for label in self.SOURCES:
+            for label in self.sources:
                 result = self.fit_results[fill].get(label)
                 if result:
                     mu, mu_e, res, res_e, c2 = result
                     print(f"{fill:>10}  {label:>8}  "
-                          f"{mu:7.3f}±{mu_e:.3f}  {res:6.3f}±{res_e:.3f}  {c2:8.2f}")
+                          f"{mu:7.3f}+-{mu_e:.3f}  {res:6.3f}+-{res_e:.3f}  {c2:8.2f}")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    add_dqm_arguments(parser)
-    add_lumi_arguments(parser)
-    parser.add_argument("--config", default="config.yaml",
-                        help="plotting YAML containing cms_label.year (default: %(default)s)")
+    add_common_arguments(parser)
+    add_run_arguments(parser)
     args = parser.parse_args()
-    base_dir = hlt_input_dir(args, parser)
-    if not os.path.isfile(args.lumi_csv):
-        parser.error(f"Luminosity CSV not found: {args.lumi_csv}. Set --lumi-csv.")
 
     try:
+        config = load_config(args.config)
+        sources = condition_styles(config)
+        folders = [info['folder'] for info in sources.values()]
+        output_dir = make_output_dir(args.pipeline_cfg, args.local, args.output_dir)
+        base_dir = hlt_input_dir(args.pipeline_cfg, folders, local=args.local)
+        selecting = args.per_run is not False or args.runs or args.exclude_runs
+        for folder in folders:
+            if not (base_dir / folder).is_dir() and not selecting:
+                raise ValueError(
+                    f"DQM input directory not found: {base_dir / folder}. "
+                    "Check DQM_DEST_BASE in pipeline.cfg (or the current directory "
+                    "with --local).")
+        lumi_csv = lumi_csv_path(config, args.lumi_csv)
+        if not os.path.isfile(lumi_csv):
+            raise ValueError(f"Luminosity CSV not found: {lumi_csv}. Set --lumi-csv.")
+
         selection = None
-        if args.per_run is not False or args.runs or args.exclude_runs:
+        if selecting:
             selection = DQMRunSelection(
-                {label: str(base_dir / label) for label in ("HLT", "NGT", "Prompt")},
-                "HLT/Run summary", args.per_run, args.runs, args.exclude_runs)
+                {label: str(base_dir / info['folder']) for label, info in sources.items()},
+                ZEE_DQM_PREFIX, args.per_run, args.runs, args.exclude_runs)
             print("Selected runs: " + ", ".join(map(str, selection.runs())))
-        analyzer = PerFillFitAnalyzer(base_dir, args.lumi_csv, run_selection=selection,
-                                      config_path=args.config)
-    except ValueError as exc:
+        analyzer = PerFillFitAnalyzer(base_dir, lumi_csv, config,
+                                      output_dir=output_dir, run_selection=selection)
+    except (ValueError, KeyError, OSError) as exc:
         parser.error(str(exc))
     analyzer.summary_table()
     analyzer.plot_stability_vs_lumi()

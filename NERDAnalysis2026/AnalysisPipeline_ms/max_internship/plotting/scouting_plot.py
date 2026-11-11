@@ -22,8 +22,13 @@ Class hierarchy
 The following changes were made when refactoring the code:
 * Every PDF page now carries the histogram name as a title, and every PNG
   is saved with dpi=150 (previously only some scripts did either).
-* PNGs (and the dielectron standalone per-plot PDFs) go into the
-  `output.png_dir` folder from config.yaml instead of the working dir.
+* All outputs (multi-page PDF, PNGs, dielectron standalone per-plot
+  PDFs) go into PLOTS_DEST from pipeline.cfg (default
+  DQM_DEST_BASE/plots) or --output-dir, never the working dir.
+* Condition paths are resolved like in all_1D_ScoutingDQM.py: relative
+  to DQM_DEST_BASE/scouting from pipeline.cfg, or to the working
+  directory with --local.  Every entry script accepts the options from
+  plotting_functions.add_common_arguments() via `<Class>.main()`.
 * Warnings are printed for file-read errors and histogram shape
   mismatches (previously swallowed silently).
 * The dielectron-only `plt.rcParams['font.size'] = 20` override is gone.
@@ -31,17 +36,23 @@ The following changes were made when refactoring the code:
 """
 
 from luminosity import cms_lumi_label, directory_run
+from plotting_functions import (DEFAULT_CONFIG, DEFAULT_PIPELINE_CFG,
+                                add_common_arguments, cms_text,
+                                common_kwargs, load_config, lumi_csv_path, make_output_dir,
+                                scouting_input_dir)
 
 from abc import ABC, abstractmethod
+import argparse
 from dataclasses import dataclass
 import glob
 import os
+from pathlib import Path
+import sys
 import traceback
 import warnings
 
 import numpy as np
 import uproot
-import yaml # additional dependency
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.colors import SymLogNorm, TwoSlopeNorm
@@ -72,27 +83,6 @@ PDF_TITLE_PAD = 20
 # Configuration
 # ======================================================================
 
-_REQUIRED_CONFIG_KEYS = (
-    "conditions", "reference", "cms_label", "dqm_prefix",
-    "diff_pairs", "output",
-)
-
-
-def load_config(config_path="config.yaml"):
-    """
-    Read config.yaml and return it as a nested dict.
-
-    Fails loudly if the file or a required key is missing.
-    """
-    with open(config_path) as fh:
-        config = yaml.safe_load(fh)
-    missing = [k for k in _REQUIRED_CONFIG_KEYS if k not in config]
-    if missing:
-        raise KeyError(
-            f"Config file '{config_path}' is missing required keys: {missing}")
-    return config
-
-
 @dataclass
 class Condition:
     """
@@ -105,12 +95,14 @@ class Condition:
                    (e.g. "Prompt Conditions")
     path         : directory globbed for "*.root"
     color, style : matplotlib color / linestyle (1D overlays only)
+    marker       : matplotlib marker (Z -> ee and sanity-check plots)
     """
     label: str
     legend_label: str
     path: str
     color: str = "black"
     style: str = "-"
+    marker: str = "o"
 
 
 # ======================================================================
@@ -130,7 +122,7 @@ class HistogramSource:
     """
 
     def __init__(self, dqm_prefix):
-        # e.g. "HLT/Run summary/ScoutingOnline" (from config.yaml)
+        # e.g. "HLT/Run summary/ScoutingOnline" (from plotting_config.yaml)
         self.dqm_prefix = dqm_prefix
         self.contributing_runs = {}
 
@@ -220,11 +212,11 @@ class FigureOutput:
     One finished matplotlib figure plus the instructions for saving it.
     """
     fig: object                 # matplotlib Figure
-    png_name: str               # basename; saved under output.png_dir
+    png_name: str               # basename; saved in the output dir
     pdf_title: str              # shown on the PdfPages page, stripped
                                 # again before the PNG save
     extra_pdf_name: str = None  # dielectron also writes a standalone
-                                # per-plot PDF (into png_dir as well)
+                                # per-plot PDF (into the output dir)
 
 
 # ======================================================================
@@ -242,12 +234,33 @@ class ScoutingPlot(ABC):
     `fetch()` and `make_figures()`.
     """
 
-    # name of the multi-page PDF; set by each concrete subclass
+    # name of the multi-page PDF (written to the output dir); set by each
+    # concrete subclass
     output_pdf = None
 
-    def __init__(self, config_path="config.yaml"):
+    def __init__(self, config_path=DEFAULT_CONFIG,
+                 pipeline_cfg=DEFAULT_PIPELINE_CFG, local=False,
+                 output_dir=None, lumi_csv=None):
         self.config = load_config(config_path)
+        self.config["lumi_csv"] = lumi_csv_path(self.config, lumi_csv)
         self.conditions = [Condition(**c) for c in self.config["conditions"]]
+
+        self.output_dir = make_output_dir(pipeline_cfg, local, output_dir)
+
+        # Local mode must not read or source pipeline.cfg at all.
+        input_dir = scouting_input_dir(pipeline_cfg, local=local)
+        for cond in self.conditions:
+            # Absolute paths in custom plotting configs remain explicit overrides.
+            cond.path = str(input_dir / Path(cond.path).expanduser())
+            if not Path(cond.path).is_dir():
+                hint = ("Check condition paths in the plotting config "
+                        "(relative to the current working directory in --local mode)."
+                        if local else
+                        f"Check DQM_DEST_BASE in {pipeline_cfg} and condition paths "
+                        "in the plotting config.")
+                raise ValueError(
+                    f"DQM input directory not found for {cond.label}: {cond.path}. "
+                    + hint)
 
         # The reference condition is named explicitly in the config
         # (replaces the old "reference = first entry" convention).
@@ -262,9 +275,6 @@ class ScoutingPlot(ABC):
 
         self.source = HistogramSource(self.config["dqm_prefix"])
 
-        self.png_dir = self.config["output"]["png_dir"]
-        os.makedirs(self.png_dir, exist_ok=True)
-
         plt.style.use(hep.style.CMS)
 
     def cms_label(self, ax, fontsize, target, labels):
@@ -272,8 +282,8 @@ class ScoutingPlot(ABC):
         runs = {label: self.source.contributing_runs.get(
             (label, target["subpath"], target["hist_name"]), set())
             for label in labels}
-        cms_lumi_label(ax, runs, self.config.get("lumi_csv", "lumi_data.csv"),
-                       data=True, label="Preliminary",
+        cms_lumi_label(ax, runs, self.config["lumi_csv"],
+                       data=True, text=cms_text(self.config),
                        year=cl["year"], com=cl["com"], fontsize=fontsize)
 
     # ---- hooks -------------------------------------------------------
@@ -298,11 +308,28 @@ class ScoutingPlot(ABC):
 
     # ---- the fixed template ------------------------------------------
 
-    def run(self):
-        """The fixed lifecycle, identical for all eight scripts."""
+    @classmethod
+    def main(cls):
+        """Command-line entry point shared by the hand-tuned scripts:
+        parse the common options, build the plotter, run it."""
+        parser = argparse.ArgumentParser(
+            description=sys.modules[cls.__module__].__doc__,
+            formatter_class=argparse.RawDescriptionHelpFormatter)
+        add_common_arguments(parser)
+        args = parser.parse_args()
         try:
-            print(f"--- Starting analysis for {self.output_pdf} ---")
-            with PdfPages(self.output_pdf) as pdf:
+            plot = cls(**common_kwargs(args))
+        except (ValueError, KeyError, OSError) as exc:
+            raise SystemExit(f"ERROR: {exc}") from exc
+        sys.exit(0 if plot.run() else 1)
+
+    def run(self):
+        """The fixed lifecycle, identical for all eight scripts.
+        Returns True on success."""
+        pdf_path = os.path.join(self.output_dir, self.output_pdf)
+        try:
+            print(f"--- Starting analysis for {pdf_path} ---")
+            with PdfPages(pdf_path) as pdf:
                 for target in self.targets():
                     print(f" > Processing {target['hist_name']}...")
                     fetched = self.fetch(target)
@@ -312,10 +339,12 @@ class ScoutingPlot(ABC):
                         continue
                     for out in self.make_figures(target, fetched):
                         self._save(out, pdf)
-            print(f"SUCCESS: Analysis complete. Output: {self.output_pdf}")
+            print(f"SUCCESS: Analysis complete. Output: {pdf_path}")
+            return True
         except Exception as e:
             print(f"CRITICAL ERROR: {e}")
             traceback.print_exc()
+            return False
 
     def _save(self, out, pdf_pages):
         """
@@ -330,11 +359,11 @@ class ScoutingPlot(ABC):
         pdf_pages.savefig(out.fig, bbox_inches="tight")
 
         ax_main.set_title("")
-        png_path = os.path.join(self.png_dir, out.png_name)
+        png_path = os.path.join(self.output_dir, out.png_name)
         out.fig.savefig(png_path, bbox_inches="tight", dpi=PNG_DPI)
         print(f"   [Info] Saved {png_path}")
         if out.extra_pdf_name:
-            out.fig.savefig(os.path.join(self.png_dir, out.extra_pdf_name),
+            out.fig.savefig(os.path.join(self.output_dir, out.extra_pdf_name),
                             bbox_inches="tight")
         plt.close(out.fig)
 
@@ -386,8 +415,7 @@ class ComparisonPlot1D(ScoutingPlot):
         line -- appear in the legend).  Default: no-op."""
 
     def legend_loc(self, target):
-        """Legend location for both panels; default 'best'
-        (EtaPlot overrides for the photon histogram)."""
+        """Legend location for both panels; default 'best'."""
         return "best"
 
     def ratio_marker_size(self, edges, target):

@@ -23,4 +23,4 @@ class AbsDiffMapEE(AbsDiffMap):
 
 
 if __name__ == "__main__":
-    AbsDiffMapEE(config_path="config.yaml").run()
+    AbsDiffMapEE.main()

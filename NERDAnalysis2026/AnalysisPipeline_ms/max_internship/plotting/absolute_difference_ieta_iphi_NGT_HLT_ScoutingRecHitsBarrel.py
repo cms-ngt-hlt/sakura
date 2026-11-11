@@ -18,4 +18,4 @@ class AbsDiffMapEB(AbsDiffMap):
 
 
 if __name__ == "__main__":
-    AbsDiffMapEB(config_path="config.yaml").run()
+    AbsDiffMapEB.main()

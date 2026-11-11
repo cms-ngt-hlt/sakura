@@ -62,36 +62,22 @@ class RecHitsPlot(ComparisonPlot1D):
 
         ax_ratio.set_xlabel(self._xlabel(hist_name), fontsize=20)
 
-        #if hist_name == "ebRechitsN_bad":
-        #    ax_main.set_ylim(0, 2e6) # changed
-
-
     @staticmethod
     def _xlabel(hist_name):
-        """Human-readable x-label from the histogram name (verbatim
-        substring mapping from the original script)."""
-        aaa = hist_name
+        """Human-readable x-label from the histogram name; rejected
+        RecHits (*_bad) are marked as such."""
         lower = hist_name.lower()
+        region = ("EB " if lower.startswith("eb") else
+                  "EE " if lower.startswith("ee") else "")
+        rejected = " (rejected)" if lower.endswith("_bad") else ""
         if "energy" in lower:
-            if "eb" in lower:
-                return "RecHit EB Energy [GeV] " + aaa
-            if "ee" in lower:
-                return "RecHit EE Energy [GeV] " + aaa
-            return "RecHit Energy [GeV] " + aaa
+            return f"RecHit {region}Energy [GeV]{rejected}"
         if "time" in lower:
-            if "eb" in lower:
-                return "RecHit EB Time [ns] " + aaa
-            if "ee" in lower:
-                return "RecHit EE Time [ns] " + aaa
-            return "RecHit Time [ns] " + aaa
+            return f"RecHit {region}Time [ns]{rejected}"
         if "rechitsn" in lower:
-            if "eb" in lower:
-                return "Number of EB RecHits " + aaa
-            if "ee" in lower:
-                return "Number of EE RecHits " + aaa
-            return "Number of RecHits " + aaa
+            return f"Number of {region}RecHits{rejected}"
         return hist_name
 
 
 if __name__ == "__main__":
-    RecHitsPlot(config_path="config.yaml").run()
+    RecHitsPlot.main()

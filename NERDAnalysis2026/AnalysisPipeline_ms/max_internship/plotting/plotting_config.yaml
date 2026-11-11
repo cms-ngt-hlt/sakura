@@ -11,41 +11,49 @@
 #                (matches the old 2D scripts' files_config)
 #   legend_label long form: used in the 1D plot legends
 #                (matches the old 1D scripts' files_config)
-#   path         directory globbed for "*.root"
-#   color/style  matplotlib settings, used by the 1D overlays only
+#   path         directory globbed for "*.root", relative to
+#                DQM_DEST_BASE/scouting from pipeline.cfg (HLT recipe for
+#                the Z -> ee scripts), or to the working dir with --local
+#   color/style  matplotlib color / linestyle of the 1D overlays
+#   marker       matplotlib marker (Z -> ee and sanity-check plots)
 #
-# ORDER MATTERS for the 1D legend order; the reference is named
+# ORDER MATTERS: it sets the drawing and legend order of every plot
+# (Scouting comparisons, Z -> ee fits, sanity check); the reference is named
 # explicitly below (no more "reference = first entry" convention).
 # ---------------------------------------------------------------------
 conditions:
-  - label: "Prompt"
-    legend_label: "Prompt Conditions"
-    path: "Prompt"
-    color: "black"
-    style: "-"
   - label: "HLT"
     legend_label: "HLT Conditions"
     path: "HLT"
     color: "#5790fc"
     style: "--"
+    marker: "o"
   - label: "NGT"
     legend_label: "NGT Conditions"
     path: "NGT"
     color: "#f89c20"
     style: ":"
+    marker: "D"
+  - label: "Prompt"
+    legend_label: "Prompt Conditions"
+    path: "Prompt"
+    color: "black"
+    style: "-"
+    marker: "v"
 
 # The reference for the 1D ratio panel and the gray uncertainty band.
 reference: "Prompt"
 
 # ---------------------------------------------------------------------
 # CMS label (hep.cms.label) parameters.  Single source of truth --
-# Year and collision energy are configured here. Luminosity is computed
+# Label text, year and collision energy are configured here. Luminosity is computed
 # from contributing runs using lumi_csv below.
 # NOTE: the fontsize is NOT here on purpose: it differs between scripts
 # (22 vs 20) and is part of the pixel-for-pixel output, so it stays in
 # the subclasses.
 # ---------------------------------------------------------------------
 cms_label:
+  text: "Preliminary"   # label next to "CMS" on the final plots
   year: 2026
 
   com: 13.6         # sqrt(s) in TeV
@@ -67,14 +75,8 @@ diff_pairs:
   - ["HLT", "NGT"]
   - ["HLT", "Prompt"]
 
-# ---------------------------------------------------------------------
-# Output settings.  Each script still writes its own multi-page PDF
-# (name hardcoded per subclass, as before); the individual PNGs (and
-# the dielectron per-plot PDFs) now go into a common subfolder instead
-# of cluttering the working directory.
-# ---------------------------------------------------------------------
-output:
-  png_dir: "png"
+# Plots are written to PLOTS_DEST from pipeline.cfg (default
+# DQM_DEST_BASE/plots) or --output-dir; there is no output setting here.
 
 # Run-level brilcalc CSV in /pb, relative to the working directory.
 lumi_csv: "lumi_data.csv"

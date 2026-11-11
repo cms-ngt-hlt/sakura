@@ -209,11 +209,19 @@ published them under `DQM_DEST_BASE`.
 ### Plotting environment
 
 The plotting scripts need Python with `numpy`, `uproot`, `pyyaml`, `matplotlib`
-and `mplhep`; they do not need CMSSW or PyROOT. On LXPLUS, connect with
-`ssh YOUR_CERN_USERNAME@lxplus.cern.ch` and use a fresh shell without `cmsenv`
-so that CMS packages do not leak into the plotting environment.
+and `mplhep`, and the Z-to-ee fits also need PyROOT. The CMSSW release from
+[Getting started](#getting-started) provides all of them, so on LXPLUS simply
+run `cmsenv` before plotting:
 
-Run this once on the machine where you will plot (LXPLUS or your laptop):
+```bash
+cd CMSSW_16_0_10/src/
+cmsenv
+cd ../../plotting/
+```
+
+On a machine without CMSSW (e.g. a laptop), a virtual environment is enough
+for the Scouting plots, but not for the Z-to-ee fits (no PyROOT). Create it in
+a fresh shell without `cmsenv` so that CMS packages do not leak into it:
 
 ```bash
 mkdir -p "$HOME/venvs"
@@ -229,26 +237,31 @@ For each new terminal, activate the environment again with
 
 ### Configure inputs
 
-Set each `conditions[].path` in [plotting/config.yaml](plotting/config.yaml) to
-the corresponding **scouting** result directory, preferably as an absolute path:
-`<DQM_DEST_BASE>/scouting/Prompt`, `<DQM_DEST_BASE>/scouting/HLT`, and
-`<DQM_DEST_BASE>/scouting/NGT`. These paths are not read from `pipeline.cfg`.
-Review the luminosity, year, and histogram prefix in that YAML as well.
+All plotting scripts read `DQM_DEST_BASE` from `pipeline.cfg` and resolve the
+`conditions[].path` entries of [plotting/plotting_config.yaml](plotting/plotting_config.yaml)
+(`Prompt`, `HLT`, `NGT`) under `<DQM_DEST_BASE>/scouting/` (Scouting plots) or
+`<DQM_DEST_BASE>/hlt/` (Z-to-ee fits). Use `--local` to resolve them relative to
+the working directory instead. Review the luminosity CSV, year, histogram prefix
+in that YAML as well. Plots go to `PLOTS_DEST` in `pipeline.cfg` (default
+`$DQM_DEST_BASE/plots`, e.g. set it to your CERNBox `www` area) or to
+`--output-dir`; nothing is written to the working directory.
 
 ### Dedicated plots
 
-Run the entry scripts from `plotting/`, because they load `config.yaml`
+Run the entry scripts from `plotting/`, because they load `plotting_config.yaml`
 from the current working directory:
 
 ```bash
 cd plotting
 python3 invariantMass_ScoutingDielectron.py
 python3 Z_to_ee_fit.py
+python3 run_all_plots.py      # every plotting script in one go
 ```
 
-The other plot entry scripts run the same way; `scouting_plot.py` is the shared
-framework. PDFs are written in the working directory and PNGs under the configured
-`output.png_dir`. Each condition aggregates all `*.root` files in its directory,
+The other plot entry scripts run the same way and share the options `--config`,
+`--pipeline-cfg`, `--local`, `--output-dir` and `--lumi-csv`; `scouting_plot.py`
+is the shared framework and `plotting_functions.py` holds the shared helpers.
+All plots are written to `PLOTS_DEST` (or `--output-dir`). Each condition aggregates all `*.root` files in its directory,
 so use matching run coverage across the compared tags.
 
 ### All 1D histograms
@@ -271,15 +284,16 @@ python3 all_1D_ScoutingDQM.py --jobs 1 --no-png
 Use `--jobs 1` on shared LXPLUS login nodes; the default uses all cores.
 
 **Using local files:** put the ROOT files in `plotting/Prompt/`, `plotting/HLT/`
-and `plotting/NGT/`, or set the condition paths in `plotting/config.yaml` to
+and `plotting/NGT/`, or set the condition paths in `plotting/plotting_config.yaml` to
 their actual locations. From `plotting/`, run:
 
 ```bash
-python3 all_1D_ScoutingDQM.py --local --limit 5 --jobs 1
-python3 all_1D_ScoutingDQM.py --local --jobs 2 --no-png
+python3 all_1D_ScoutingDQM.py --local --output-dir /path/to/plots --limit 5 --jobs 1
+python3 all_1D_ScoutingDQM.py --local --output-dir /path/to/plots --jobs 2 --no-png
 ```
 
-`--local` skips reading or sourcing `pipeline.cfg` entirely. Relative condition
+`--local` skips reading or sourcing `pipeline.cfg` entirely, so the plot
+destination must be given with `--output-dir`. Relative condition
 paths are resolved from the working directory, absolute paths are used directly,
 and `--pipeline-cfg` is ignored. This mode also works on LXPLUS. Omit `--no-png`
 to write PNGs in addition to PDFs.
@@ -289,11 +303,10 @@ environment troubleshooting, input layouts and the full list of options.
 
 ### Optional sanity check
 
-`sanitiy_check_event_counter.py` shows the Z -> ee event counts for the
-different calibration tags. It still expects `HLT/`, `NGT/`, and `Prompt/`
-directories next to itself. To use it with the new layout, provide those
-directories as links to the scouting result directories (or copy the results
-there). It does not use `plotting/config.yaml` or `DQM_DEST_BASE`.
+`plotting/sanity_check_event_counter.py` shows the Z -> ee event counts for the
+different calibration tags. It uses `plotting/plotting_config.yaml` and `DQM_DEST_BASE`
+like the other Scouting plots (or `--local`); see the
+[plotting README](plotting/README.md#event-count-sanity-check).
 
 ## Further information
 

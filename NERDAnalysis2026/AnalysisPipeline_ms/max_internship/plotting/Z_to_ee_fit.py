@@ -1,20 +1,26 @@
 """Fit Z-to-ee HLT DQM histograms from DQM_DEST_BASE in pipeline.cfg.
 
-Use --pipeline-cfg for another config, or --local for HLT/NGT/Prompt
-folders in the current directory. Plots are saved in the current directory.
+Conditions (folders, colours, markers), the ratio reference and the CMS
+label come from the plotting config.  Use --pipeline-cfg for another
+pipeline config, or --local for the condition folders in the current
+directory.  Plots are saved in PLOTS_DEST from pipeline.cfg (default
+DQM_DEST_BASE/plots) or --output-dir, fit sanity checks in its
+fit_sanity_checks/ subfolder.
 """
 
 from dqm_runs import DQMRunSelection, add_run_arguments
-from luminosity import add_lumi_arguments, cms_lumi_label
+from luminosity import cms_lumi_label
+from plotting_functions import (DCB_PAR_NAMES, ZEE_DQM_PREFIX,
+                                ZEE_FIT_RANGE, ZEE_HIST_NAME, ZEE_HIST_SUBPATH,
+                                add_common_arguments, cms_text, condition_styles, dcb_background, dcb_func,
+                                dcb_signal, extract_run_number, fit_dcb,
+                                hlt_input_dir, load_config, lumi_csv_path,
+                                make_output_dir)
 
 import argparse
-import yaml
-from pathlib import Path
-import subprocess
+import os
 
 import ROOT
-import os
-import re
 import numpy as np
 import matplotlib.pyplot as plt
 import mplhep as hep
@@ -23,93 +29,25 @@ import uproot
 # Set CMS style
 plt.style.use(hep.style.CMS)
 
-def dqm_input_dir(pipeline_cfg, recipe):
-    """Read the shell config using the same working directory as the pipeline."""
-    cfg = Path(pipeline_cfg).expanduser().resolve()
-    if not cfg.is_file():
-        raise ValueError(f"Pipeline config not found: {cfg}")
-    result = subprocess.run(
-        ["bash", "-c", 'set -e; source "$1" >&2; printf "%s" "${DQM_DEST_BASE:-}"',
-         "bash", str(cfg)],
-        cwd=cfg.parent, capture_output=True, text=True)
-    if result.returncode:
-        raise ValueError(f"Error reading {cfg}: {result.stderr.strip()}")
-    if not result.stdout.strip():
-        raise ValueError(f"DQM_DEST_BASE is empty or unset in {cfg}")
-    base = Path(result.stdout).expanduser()
-    if not base.is_absolute():
-        base = cfg.parent / base
-    # Prefer recipe-specific output; older pipelines wrote tags directly
-    # under DQM_DEST_BASE. Also accepts a base pointing at the recipe itself.
-    # On case-insensitive filesystems, the HLT tag also matches "hlt".
-    if recipe == "hlt" and all(
-            (base / tag).is_dir() for tag in ("HLT", "NGT", "Prompt")):
-        return base
-    recipe_dir = base / recipe
-    return recipe_dir if recipe_dir.is_dir() else base
+HIST_PATH = f"{ZEE_DQM_PREFIX}/{ZEE_HIST_SUBPATH}"
+FIT_RANGE = ZEE_FIT_RANGE
 
 
-def add_dqm_arguments(parser):
-    add_run_arguments(parser)
-    parser.add_argument(
-        "--pipeline-cfg",
-        default=str(Path(__file__).resolve().parents[1] / "pipeline.cfg"),
-        help="pipeline.cfg defining DQM_DEST_BASE (ignored with --local)")
-    parser.add_argument(
-        "--local", action="store_true",
-        help="ignore pipeline.cfg and read HLT/NGT/Prompt under the current directory")
-
-
-def hlt_input_dir(args, parser):
-    try:
-        base = Path.cwd() if args.local else dqm_input_dir(args.pipeline_cfg, "hlt")
-        for tag in ("HLT", "NGT", "Prompt"):
-            if not (base / tag).is_dir() and not (args.per_run is not False or args.runs or args.exclude_runs):
-                raise ValueError(
-                    f"DQM input directory not found: {base / tag}. "
-                    "Check DQM_DEST_BASE in pipeline.cfg (or the current directory "
-                    "with --local).")
-        return base
-    except ValueError as exc:
-        parser.error(str(exc))
-
-
-def extract_run_number(filename):
-    match = re.search(r'_R(\d+)\.root', filename)
-    return int(match.group(1)) if match else None
-
-def dcb_func(x, p):
-    xx = x[0]
-    mean, sigma = p[3], p[4]
-    aL, nL, aH, nH = abs(p[5]), p[6], abs(p[7]), p[8]
-    t = (xx - mean) / sigma
-    bkg = p[0] * np.exp(p[1] * xx)
-    if t > -aL and t < aH:
-        return p[2] * np.exp(-0.5 * t**2) + bkg
-    elif t <= -aL:
-        A = (nL / aL)**nL * np.exp(-0.5 * aL**2)
-        B = nL / aL - aL
-        return p[2] * A * (B - t)**(-nL) + bkg
-    else:
-        A = (nH / aH)**nH * np.exp(-0.5 * aH**2)
-        B = nH / aH - aH
-        return p[2] * A * (B + t)**(-nH) + bkg
-
-def get_fit_results(base_path, folder_name, label, output_dir=".",
-                    run_selection=None, run=None, lumi_csv="lumi_data.csv", *, year):
+def get_fit_results(base_path, folder_name, label, output_dir,
+                    run_selection=None, run=None, *, lumi_csv, year, com):
     folder_path = os.path.join(base_path, folder_name)
-    file_runs = (run_selection.file_runs(folder_name) if run_selection else
+    file_runs = (run_selection.file_runs(label) if run_selection else
                  ((os.path.join(folder_path, f), extract_run_number(f))
                   for f in os.listdir(folder_path) if f.endswith(".root")))
     suffix = "" if run is None else f"_Run{run}"
     combined_hist = None
     contributing_runs = set()
-    
+
     for path, run_num in file_runs:
         if not run_num: continue
         f = ROOT.TFile.Open(path)
-        h = f.Get(f"DQMData/Run {run_num}/HLT/Run summary/ObjectMonitor/MainShifter/di-Electron_Mass")
-        if not h: 
+        h = f.Get(f"DQMData/Run {run_num}/{HIST_PATH}")
+        if not h:
             f.Close(); continue
         if combined_hist is None:
             combined_hist = h.Clone(f"h_fit_{label}{suffix}")
@@ -118,72 +56,41 @@ def get_fit_results(base_path, folder_name, label, output_dir=".",
             combined_hist.Add(h)
         contributing_runs.add(run_num)
         f.Close()
-    
-    if run_selection and combined_hist is None:
+
+    if combined_hist is None:
         print(f"Warning: no histogram for {label}{suffix}; skipping")
         return None
 
-    fit_min, fit_max = 60, 120
-    fit_func = ROOT.TF1(f"f_{label}{suffix}", dcb_func, fit_min, fit_max, 9)
-    peak_val = combined_hist.GetMaximum()
-    peak_x = combined_hist.GetXaxis().GetBinCenter(combined_hist.GetMaximumBin())
-    
-    # Standardized initial parameters for all sources
-    fit_func.SetParameters(peak_val*0.05, -0.04, peak_val, peak_x, 3.0, 1.5, 5.0, 1.5, 5.0)
-    
-    # Relaxed limits to allow the optimizer more room
-    fit_func.SetParLimits(0, 0, peak_val)
-    fit_func.SetParLimits(1, -0.8, 0.0)
-    fit_func.SetParLimits(2, peak_val*0.01, peak_val*5.0)
-    # Dynamic limits for Mean (p[3]) around the detected peak
-    fit_func.SetParLimits(3, peak_x - 5.0, peak_x + 5.0)
-    fit_func.SetParLimits(4, 0.5, 8.0)
-    fit_func.SetParLimits(5, 0.1, 10.0); fit_func.SetParLimits(6, 1.01, 100.0)
-    fit_func.SetParLimits(7, 0.1, 10.0); fit_func.SetParLimits(8, 1.01, 100.0)
-    
-    combined_hist.Fit(fit_func, "SRLIMQ", "", fit_min, fit_max)
-    
+    fit_min, fit_max = FIT_RANGE
+    fit_func = fit_dcb(combined_hist, f"f_{label}{suffix}", FIT_RANGE)
+
     # --- Sanity Check Plot ---
-    os.makedirs(os.path.join(output_dir, "fit_sanity_checks"), exist_ok=True)
+    sanity_dir = os.path.join(output_dir, "fit_sanity_checks")
+    os.makedirs(sanity_dir, exist_ok=True)
     fig_s, (ax_s, ax_p) = plt.subplots(
-        2, 1, 
-        figsize=(10, 10), 
+        2, 1,
+        figsize=(10, 10),
         sharex=True,
         gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.05}
     )
-    cms_lumi_label(ax_s, {label: contributing_runs}, lumi_csv, data=True, label=f"Sanity Check | {label}" + ("" if run is None else f" | Run {run}"), year=year)
-    
+    cms_lumi_label(ax_s, {label: contributing_runs}, lumi_csv, data=True,
+                   text=f"Sanity Check | {label}" + ("" if run is None else f" | Run {run}"),
+                   year=year, com=com)
+
     # Plot data
     hep.histplot(combined_hist, ax=ax_s, label=f"{label} Data", color='black', histtype='errorbar', marker='o')
-    
+
     # Plot fit components
     x_plot = np.linspace(fit_min, fit_max, 500)
     params = [fit_func.GetParameter(i) for i in range(9)]
     y_plot_total = [dcb_func([x], params) for x in x_plot]
-    
-    # Helper to calculate individual components
-    def bkg_val(x, p): return p[0] * np.exp(p[1] * x)
-    def sig_val(x, p):
-        mean, sigma = p[3], p[4]
-        aL, nL, aH, nH = abs(p[5]), p[6], abs(p[7]), p[8]
-        t = (x - mean) / sigma
-        if t > -aL and t < aH: return p[2] * np.exp(-0.5 * t**2)
-        elif t <= -aL:
-            A = (nL / aL)**nL * np.exp(-0.5 * aL**2)
-            B = nL / aL - aL
-            return p[2] * A * (B - t)**(-nL)
-        else:
-            A = (nH / aH)**nH * np.exp(-0.5 * aH**2)
-            B = nH / aH - aH
-            return p[2] * A * (B + t)**(-nH)
-
-    y_plot_bkg = [bkg_val(x, params) for x in x_plot]
-    y_plot_sig = [sig_val(x, params) for x in x_plot]
+    y_plot_bkg = [dcb_background(x, params) for x in x_plot]
+    y_plot_sig = [dcb_signal(x, params) for x in x_plot]
 
     ax_s.plot(x_plot, y_plot_total, color='red', label='Total Fit (DCB + Exp)', linewidth=3)
     ax_s.plot(x_plot, y_plot_sig, color='blue', linestyle='--', label='Signal (DCB)', linewidth=2)
     ax_s.plot(x_plot, y_plot_bkg, color='green', linestyle=':', label='Background (Exp)', linewidth=2)
-    
+
     # --- Pull Plot Calculation ---
     pull_x = []
     pull_y = []
@@ -196,7 +103,7 @@ def get_fit_results(base_path, folder_name, label, output_dir=".",
         if err > 0:
             pull_x.append(x)
             pull_y.append((val - f_val) / err)
-    
+
     ax_p.errorbar(pull_x, pull_y, yerr=1, fmt='o', color='black', markersize=4, capsize=0)
     ax_p.axhline(0, color='red', linestyle='-')
     ax_p.axhline(1, color='gray', linestyle='--', alpha=0.5)
@@ -204,12 +111,12 @@ def get_fit_results(base_path, folder_name, label, output_dir=".",
     ax_p.axhline(2, color='gray', linestyle=':', alpha=0.3)
     ax_p.axhline(-2, color='gray', linestyle=':', alpha=0.3)
     ax_p.set_ylabel("Pull", fontsize=15)
-    
+
     # Free range: autoscale with a bit of padding
     if pull_y:
         max_pull = max(abs(min(pull_y)), abs(max(pull_y)))
         ax_p.set_ylim(-max_pull * 1.2, max_pull * 1.2)
-    
+
     ax_p.grid(True, alpha=0.3)
 
     # Extract results
@@ -217,47 +124,40 @@ def get_fit_results(base_path, folder_name, label, output_dir=".",
     sigma = fit_func.GetParameter(4); sigma_err = fit_func.GetParError(4)
     chi2 = fit_func.GetChisquare()
     ndf = fit_func.GetNDF()
-    
+    chi2_ndf = chi2 / ndf if ndf > 0 else 0
+
     res = (sigma/mean)*100
     res_err = res * np.sqrt((sigma_err/sigma)**2 + (mean_err/mean)**2)
 
     # Build parameter text box
-    par_names = ["Bkg C0", "Bkg C1", "Sig Norm", "Mean", "Sigma", "aL", "nL", "aH", "nH"]
-    chi2_val = chi2 / ndf if ndf > 0 else 0
-    stats_text = rf"$\chi^2/ndf = {chi2:.1f}/{ndf} = {chi2_val:.2f}$" + "\n"
+    stats_text = rf"$\chi^2/ndf = {chi2:.1f}/{ndf} = {chi2_ndf:.2f}$" + "\n"
     stats_text += rf"Res ($\sigma/\mu$): {res:.2f} $\pm$ {res_err:.2f}%" + "\n"
     stats_text += "-"*20 + "\n"
-    for i in range(9):
-        val = fit_func.GetParameter(i)
-        err = fit_func.GetParError(i)
-        stats_text += rf"{par_names[i]}: {val:.3f} $\pm$ {err:.3f}" + "\n"
-    
+    for i, name in enumerate(DCB_PAR_NAMES):
+        stats_text += rf"{name}: {params[i]:.3f} $\pm$ {fit_func.GetParError(i):.3f}" + "\n"
+
     ax_s.text(0.05, 0.95, stats_text, transform=ax_s.transAxes, fontsize=9,
               verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-    
+
     ax_p.set_xlabel("$m_{ee}$ [GeV]", fontsize=15)
     ax_s.set_ylabel("Events", fontsize=15)
     ax_s.legend(loc='upper right')
     ax_s.set_xlim(fit_min, fit_max)
-    
-    sanity_path = os.path.join(output_dir, "fit_sanity_checks", f"{label}{suffix}_Fit_Sanity.png")
+
+    sanity_path = os.path.join(sanity_dir, f"{label}{suffix}_Fit_Sanity.png")
     fig_s.savefig(sanity_path, bbox_inches='tight')
     plt.close(fig_s)
-    
-    res = (sigma/mean)*100
-    res_err = res * np.sqrt((sigma_err/sigma)**2 + (mean_err/mean)**2)
-    
-    return mean, mean_err, res, res_err, chi2/ndf
 
-def plot_comparison(base_dir, run_selection=None, run=None, lumi_csv="lumi_data.csv", config_path="config.yaml"):
-    with open(config_path) as stream:
-        year = yaml.safe_load(stream)["cms_label"]["year"]
-    sources = {
-        'HLT':    {'folder': 'HLT',    'color': '#5790fc', 'marker': 'o'},
-        'NGT':    {'folder': 'NGT',    'color': '#f89c20', 'marker': 'D'},
-        'Prompt': {'folder': 'Prompt', 'color': 'black',   'marker': 'v'}
-    }
-    
+    return mean, mean_err, res, res_err, chi2_ndf
+
+
+def plot_comparison(base_dir, config, output_dir, run_selection=None, run=None,
+                    *, lumi_csv):
+    year = config["cms_label"]["year"]
+    com = config["cms_label"]["com"]
+    reference = config["reference"]
+    sources = condition_styles(config)
+
     global_histos = {src: None for src in sources}
     contributing_runs = {label: set() for label in sources}
     common_bins = None
@@ -274,11 +174,10 @@ def plot_comparison(base_dir, run_selection=None, run=None, lumi_csv="lumi_data.
             if not run_num: continue
             with uproot.open(path) as f:
                 if run_selection:
-                    hist_path = (f"DQMData/Run {run_num}/HLT/Run summary/"
-                                 "ObjectMonitor/MainShifter/di-Electron_Mass")
+                    hist_path = f"DQMData/Run {run_num}/{HIST_PATH}"
                     keys = [hist_path] if hist_path in f else []
                 else:
-                    keys = [k for k in f.keys() if "di-Electron_Mass" in k]
+                    keys = [k for k in f.keys() if ZEE_HIST_NAME in k]
                 if not keys: continue
                 h = f[keys[0]]
                 if common_bins is None: common_bins = h.axis().edges()
@@ -286,9 +185,10 @@ def plot_comparison(base_dir, run_selection=None, run=None, lumi_csv="lumi_data.
                 if global_histos[label] is None: global_histos[label] = np.zeros_like(counts)
                 global_histos[label] += counts
                 contributing_runs[label].add(run_num)
-        
-        result = get_fit_results(base_dir, info['folder'], label,
-                                 run_selection=run_selection, run=run, lumi_csv=lumi_csv, year=year)
+
+        result = get_fit_results(base_dir, info['folder'], label, output_dir,
+                                 run_selection=run_selection, run=run,
+                                 lumi_csv=lumi_csv, year=year, com=com)
         if result is None:
             global_histos[label] = None
             contributing_runs[label].clear()
@@ -297,30 +197,31 @@ def plot_comparison(base_dir, run_selection=None, run=None, lumi_csv="lumi_data.
         fit_params[label] = (mu, mu_err, res, res_err)
         print(f"Finished {label} - chi2/ndf: {chi2_ndf:.2f}")
 
-    if run_selection and not fit_params:
+    if not fit_params:
+        print("Warning: no condition could be fitted; nothing to plot")
         return
 
     fig, (ax_main, ax_ratio) = plt.subplots(
-        2, 1, 
-        figsize=(10, 10), 
+        2, 1,
+        figsize=(10, 10),
         sharex=True,
         gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.05}
     )
 
     # --- Top Plot: Distributions ---
     cms_lumi_label(ax_main, {label: runs for label, runs in contributing_runs.items()
-                            if runs}, lumi_csv, data=True, label="Preliminary",
-                   year=year, com=13.6, fontsize=22)
+                            if runs}, lumi_csv, data=True, text=cms_text(config),
+                   year=year, com=com, fontsize=22)
 
     if run is not None:
         ax_main.text(0.02, 0.04, f"Run {run}", transform=ax_main.transAxes)
 
-    prompt_counts = global_histos.get('Prompt')
+    ref_counts = global_histos.get(reference)
 
     for label, info in sources.items():
         counts = global_histos[label]
         if counts is None: continue
-        
+
         mu, mu_err, res, res_err = fit_params[label]
         res_label = f"{label} Conditions\n" + rf"$\sigma/\mu = {res:.2f} \pm {res_err:.2f}\%$"
 
@@ -345,51 +246,50 @@ def plot_comparison(base_dir, run_selection=None, run=None, lumi_csv="lumi_data.
             markersize=10,        # Explicitly set to match original visual weight
             yerr=True,
             histtype='errorbar',
-            linewidth=0,          
+            linewidth=0,
             ax=ax_main
         )
 
     ax_main.set_ylabel("Number of Dielectron Candidates", fontsize=20)
     ax_main.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
     ax_main.yaxis.get_offset_text().set_ha('left')
-    ax_main.yaxis.get_offset_text().set_x(-0.07) 
-    
+    ax_main.yaxis.get_offset_text().set_x(-0.07)
+
     ax_main.legend(fontsize=18, loc='upper right')
-    ax_main.set_xlim(60, 120)
+    ax_main.set_xlim(*FIT_RANGE)
     ax_main.grid(True, alpha=0.3)
 
-    # --- Bottom Plot: Ratios (X / Prompt) ---
-    if prompt_counts is not None:
-        valid_mask = prompt_counts > 0
+    # --- Bottom Plot: Ratios (X / reference) ---
+    if ref_counts is not None:
         bin_centers = (common_bins[:-1] + common_bins[1:]) / 2
 
-        # --- Gray band: statistical uncertainty of the Prompt reference ---
-        ref_rel_err = np.divide(np.sqrt(prompt_counts), prompt_counts,
-                                out=np.zeros_like(prompt_counts),
-                                where=prompt_counts > 0)
+        # --- Gray band: statistical uncertainty of the reference ---
+        ref_rel_err = np.divide(np.sqrt(ref_counts), ref_counts,
+                                out=np.zeros_like(ref_counts),
+                                where=ref_counts > 0)
         ax_ratio.fill_between(bin_centers,
                               1 - ref_rel_err,
                               1 + ref_rel_err,
                               step='mid',
                               alpha=0.3,
                               color='gray',
-                              label='Stat. unc. (Prompt)')
+                              label=f'Stat. unc. ({reference})')
 
         for label, info in sources.items():
             counts = global_histos[label]
             if counts is None: continue
 
-            ratio = np.divide(counts, prompt_counts, out=np.full_like(counts, np.nan), where=prompt_counts!=0)
+            ratio = np.divide(counts, ref_counts, out=np.full_like(counts, np.nan), where=ref_counts!=0)
 
             # Propagated uncertainty: sigma_R = R * sqrt(1/N + 1/D)
-            # Only add for non-reference items (NGT, HLT)
-            is_reference = (label == 'Prompt')
+            # Only shown for non-reference conditions (the reference has the band)
+            is_reference = (label == reference)
             err_ratio = ratio * np.sqrt(
-                np.divide(1, counts,        out=np.zeros_like(counts), where=counts > 0) +
-                np.divide(1, prompt_counts, out=np.zeros_like(prompt_counts), where=prompt_counts > 0)
+                np.divide(1, counts,     out=np.zeros_like(counts), where=counts > 0) +
+                np.divide(1, ref_counts, out=np.zeros_like(ref_counts), where=ref_counts > 0)
             )
 
-            hep.histplot(                
+            hep.histplot(
                 ratio,
                 bins=common_bins,
                 color=info['color'],
@@ -397,22 +297,20 @@ def plot_comparison(base_dir, run_selection=None, run=None, lumi_csv="lumi_data.
                 histtype='errorbar',
                 marker='_',
                 markersize=12,
-                linewidth=0, 
+                linewidth=0,
                 markeredgewidth=2,
                 ax=ax_ratio
             )
+        ax_ratio.legend(fontsize=14, loc='best')
 
     ax_ratio.axhline(1.0, color='gray', linestyle='--', alpha=0.5)
-    ax_ratio.set_ylabel("Ratio w.r.t. Prompt", fontsize=20)
-    ax_ratio.set_xlabel("$m_{ee} [GeV]$ ", fontsize=20)
+    ax_ratio.set_ylabel(f"Ratio w.r.t. {reference}", fontsize=20)
+    ax_ratio.set_xlabel("$m_{ee}$ [GeV]", fontsize=20)
     ax_ratio.set_ylim(0.0, 2.0)
     ax_ratio.grid(True, alpha=0.3)
-    ax_ratio.legend(fontsize=14, loc='best')
 
-    ax_ratio.grid(True, alpha=0.3)
-    
     suffix = "" if run is None else f"_Run{run}"
-    output = f"Zee_Comparison_Final{suffix}.png"
+    output = os.path.join(output_dir, f"Zee_Comparison_Final{suffix}.png")
     plt.savefig(output, bbox_inches='tight')
     plt.close(fig)
     print(f"Saved {output}")
@@ -420,28 +318,41 @@ def plot_comparison(base_dir, run_selection=None, run=None, lumi_csv="lumi_data.
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    add_dqm_arguments(parser)
-    add_lumi_arguments(parser)
-    parser.add_argument("--config", default="config.yaml",
-                        help="plotting YAML containing cms_label.year (default: %(default)s)")
+    add_common_arguments(parser)
+    add_run_arguments(parser)
     args = parser.parse_args()
-    base_dir = hlt_input_dir(args, parser)
     ROOT.gROOT.SetBatch(True)
     try:
+        config = load_config(args.config)
+        sources = condition_styles(config)
+        folders = [info['folder'] for info in sources.values()]
+        output_dir = make_output_dir(args.pipeline_cfg, args.local, args.output_dir)
+        base_dir = hlt_input_dir(args.pipeline_cfg, folders, local=args.local)
+        selecting = args.per_run is not False or args.runs or args.exclude_runs
+        for folder in folders:
+            if not (base_dir / folder).is_dir() and not selecting:
+                raise ValueError(
+                    f"DQM input directory not found: {base_dir / folder}. "
+                    "Check DQM_DEST_BASE in pipeline.cfg (or the current directory "
+                    "with --local).")
+        lumi_csv = lumi_csv_path(config, args.lumi_csv)
+
         selection = None
-        if args.per_run is not False or args.runs or args.exclude_runs:
+        if selecting:
             selection = DQMRunSelection(
-                {label: str(base_dir / label) for label in ("HLT", "NGT", "Prompt")},
-                "HLT/Run summary", args.per_run, args.runs, args.exclude_runs)
+                {label: str(base_dir / info['folder']) for label, info in sources.items()},
+                ZEE_DQM_PREFIX, args.per_run, args.runs, args.exclude_runs)
             runs = selection.runs()
             print("Selected runs: " + ", ".join(map(str, runs)))
         if selection and selection.per_run:
             for run in runs:
                 selection.active_run = run
-                plot_comparison(base_dir, selection, run, lumi_csv=args.lumi_csv, config_path=args.config)
+                plot_comparison(base_dir, config, output_dir, selection, run,
+                                lumi_csv=lumi_csv)
         else:
-            plot_comparison(base_dir, selection, lumi_csv=args.lumi_csv, config_path=args.config)
-    except ValueError as exc:
+            plot_comparison(base_dir, config, output_dir, selection,
+                            lumi_csv=lumi_csv)
+    except (ValueError, KeyError, OSError) as exc:
         parser.error(str(exc))
 
 

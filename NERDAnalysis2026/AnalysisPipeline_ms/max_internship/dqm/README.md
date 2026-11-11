@@ -222,7 +222,7 @@ exactly the jobs the last report flagged.
   `upload/` directory and the corresponding log. `step2.root` is intermediate
   DQMIO, not the final histogram file for plotting.
 
-Point `conditions[].path` in [`plotting/config.yaml`](../plotting/config.yaml) at
+Point `conditions[].path` in [`plotting/plotting_config.yaml`](../plotting/plotting_config.yaml) at
 `<DQM_DEST_BASE>/scouting/<tag>` for each condition, preferably using absolute
 paths, and run plot entry scripts from `plotting/`. Paths are relative to the
 plotting process's working directory, and every `*.root` file in each condition

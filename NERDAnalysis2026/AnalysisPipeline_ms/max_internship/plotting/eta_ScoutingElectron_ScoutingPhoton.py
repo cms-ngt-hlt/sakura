@@ -24,23 +24,12 @@ class EtaPlot(ComparisonPlot1D):
         # Always linear with scientific y ticks.
         self._sci_notation(ax_main)
 
-    def legend_loc(self, target):
-        # The photon plot needs a fixed legend position.
-        return "upper right" if target["hist_name"] == "eta_pho" else "best"
-
     def decorate(self, ax_main, ax_ratio, target):
+        # y-ranges are left to autoscaling (main) and the shared 0-2
+        # default (ratio): fixed ranges only fit one dataset.
         ax_main.set_ylabel(f"Number of {target['label']}", fontsize=20)
-
-        # Hardcoded per-histogram zooms (verbatim from the original).
-        if target["hist_name"] == "eta_ele":
-            ax_main.set_ylim(0, 170000) # changed this by an order of magnitude
-            ax_ratio.set_ylim(0.75, 1.15)
-        elif target["hist_name"] == "eta_pho":
-            ax_main.set_ylim(0, 105000) # this as well
-            ax_ratio.set_ylim(0.55, 1.55)
-
         ax_ratio.set_xlabel(r"$\eta$", fontsize=20)
 
 
 if __name__ == "__main__":
-    EtaPlot(config_path="config.yaml").run()
+    EtaPlot.main()

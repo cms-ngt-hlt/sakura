@@ -20,4 +20,4 @@ class RelDiffMapEB(RelDiffMap):
 
 
 if __name__ == "__main__":
-    RelDiffMapEB(config_path="config.yaml").run()
+    RelDiffMapEB.main()

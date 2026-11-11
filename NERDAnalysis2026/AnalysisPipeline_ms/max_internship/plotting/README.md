@@ -1,7 +1,26 @@
 # Plotting scripts
 
-This directory contains the [Scouting DQM comparison plotter](#scouting-dqm-comparison)
-and the [HLT Z-to-ee fit plotters](#hlt-z-to-ee-fit-plotters).
+This directory contains the [Scouting DQM comparison plotter](#scouting-dqm-comparison),
+the [HLT Z-to-ee fit plotters](#hlt-z-to-ee-fit-plotters) and the
+[event-count sanity check](#event-count-sanity-check).
+[`run_all_plots.py`](#run-all-plots) runs all of them in one go.
+
+All scripts share the same command-line options (`--config`,
+`--pipeline-cfg`, `--local`, `--output-dir`, `--lumi-csv`) and read the
+conditions, reference, colours and CMS label from `plotting_config.yaml`. Plots are
+never written to the working directory: they go to `PLOTS_DEST` from
+`pipeline.cfg` (default `$DQM_DEST_BASE/plots`), or to `--output-dir`, which
+is required with `--local`. To publish on a CERNBox web area, set for example
+`PLOTS_DEST="/eos/user/<u>/<username>/www/..."` in `pipeline.cfg`.
+
+Code layout:
+
+| file | contents |
+|---|---|
+| `scouting_plot.py` | plotting framework (classes) for the Scouting comparison scripts |
+| `plotting_functions.py` | shared helpers: config loading, output directory, input lookup via `pipeline.cfg`, common options, run-number parsing, the Z-to-ee DCB fit |
+| `luminosity.py` | luminosity from the brilcalc CSV and the CMS label |
+| `dqm_runs.py` | run discovery and `--runs`/`--per-run` selection |
 
 ## Scouting DQM comparison
 
@@ -9,7 +28,7 @@ and the [HLT Z-to-ee fit plotters](#hlt-z-to-ee-fit-plotters).
 
 The hand-tuned entry scripts (`variables_ScoutingECALRecHits.py`,
 `invariantMass_ScoutingDielectron.py`, ...) each compare a short, hardcoded
-list of histograms across the conditions in `config.yaml`. The Scouting DQM
+list of histograms across the conditions in `plotting_config.yaml`. The Scouting DQM
 files, however, contain about 2500 1D histograms (`TH1*`) in ~45 sub-folders
 (`Jet/...`, `EGamma/...`, `Muons/...`, `Miscellaneous/...`, `Tracks/...`, ...).
 
@@ -22,15 +41,15 @@ uncertainty band of the reference.
 ## Prerequisites
 
 * Python 3 with `numpy`, `uproot`, `pyyaml`, `matplotlib`, `mplhep`
-  (same as the other plotting scripts; see the virtual-environment recipe below).
+  (same as the other plotting scripts; see [Python environment](#python-environment): `cmsenv` or a virtual environment).
 * Run from the `plotting/` directory (the script imports `scouting_plot.py`
-  and reads `config.yaml` from there).
+  and reads `plotting_config.yaml` from there).
 * In default pipeline mode, set `DQM_DEST_BASE` in the pipeline's `pipeline.cfg`, for example
   `DQM_DEST_BASE="DQM_OUTPUT"`. Relative base paths are resolved from the
   directory containing `pipeline.cfg`, not from `plotting/`; absolute paths
   and Bash variable expansion are supported. The config is sourced with Bash,
   just as in the pipeline, so use a trusted config file.
-* The per-condition paths from `config.yaml` (`Prompt`, `HLT`, `NGT`
+* The per-condition paths from `plotting_config.yaml` (`Prompt`, `HLT`, `NGT`
   by default) are resolved under `$DQM_DEST_BASE/scouting/` when that folder
   exists, otherwise directly under `$DQM_DEST_BASE/` for older outputs.
   With the example above, inputs are `DQM_OUTPUT/scouting/Prompt/*.root`,
@@ -39,19 +58,44 @@ uncertainty band of the reference.
   an empty `DQM_DEST_BASE` produce an error. These directories must contain
   the DQM files (`DQM_V0001_ScoutingDQM_R00XXXXXX.root`). Everything about *which*
   conditions, the reference, colours, the CMS label (year / lumi / √s) and the
-  path inside the ROOT file is taken from `config.yaml` exactly as for the
+  path inside the ROOT file is taken from `plotting_config.yaml` exactly as for the
   other scripts; nothing plot-specific has to be edited in the script.
+* The hand-tuned entry scripts and `sanity_check_event_counter.py` find
+  their inputs the same way and accept the same `--local`, `--pipeline-cfg`
+  and `--output-dir` options.
 * With `--local`, `pipeline.cfg` is never read or sourced, and `DQM_DEST_BASE`
-  is not required. Each condition's `path` in `config.yaml` is used relative
+  is not required; pass the plot destination with `--output-dir`. Each condition's `path` in `plotting_config.yaml` is used relative
   to the current working directory; absolute paths and `~` paths also work.
   This flag controls input lookup, so it can also be used on LXPLUS.
 
-## Python environment for Scouting plots (LXPLUS or laptop)
+## Python environment
 
-For LXPLUS, first connect with `ssh YOUR_CERN_USERNAME@lxplus.cern.ch`.
-Run the following setup on the machine where you will plot. Use a fresh shell
-without `cmsenv` or an LCG environment: plotting uses uproot, not PyROOT, and
-does not require CMSSW. On LXPLUS, `/usr/bin/python3` can be used in place of
+### Recommended: CMSSW (`cmsenv`)
+
+On LXPLUS (or any machine with CVMFS), use the CMSSW release of the pipeline.
+It provides `numpy`, `uproot`, `pyyaml`, `matplotlib`, `mplhep` **and PyROOT**,
+so every script works, including the Z-to-ee fits and `run_all_plots.py`.
+In each new terminal:
+
+```bash
+source /cvmfs/cms.cern.ch/cmsset_default.sh   # if cmsenv is not yet defined
+cd /path/to/max_internship/CMSSW_16_0_10/src
+cmsenv
+cd ../../plotting
+python3 -c "import ROOT, numpy, uproot, yaml, matplotlib, mplhep; print('Environment ready')"
+```
+
+See the [pipeline README](../README.md#getting-started) for creating the
+release area (`cmsrel CMSSW_16_0_10`).
+
+### Alternative: virtual environment (laptop, no CMSSW)
+
+Without CMSSW, a virtual environment is enough for the Scouting plots, which use
+uproot only. It does not provide PyROOT, so the Z-to-ee fits need a separate
+ROOT installation (`run_all_plots.py` skips them otherwise). For LXPLUS, first
+connect with `ssh YOUR_CERN_USERNAME@lxplus.cern.ch`. Use a fresh shell without
+`cmsenv` or an LCG environment so that CMS packages do not leak into the
+virtual environment. On LXPLUS, `/usr/bin/python3` can be used in place of
 `python3` below to explicitly select the system Python.
 
 Create the environment once (do not copy a laptop environment to LXPLUS):
@@ -113,11 +157,11 @@ to the number of allocated cores. Omit `--no-png` to also write PNGs.
 ## Local recipe: use condition folders directly
 
 Place the DQM ROOT files in these folders (or edit the condition paths in
-`config.yaml` to point to their actual locations):
+`plotting_config.yaml` to point to their actual locations):
 
 ```text
 plotting/
-  config.yaml
+  plotting_config.yaml
   Prompt/*.root
   HLT/*.root
   NGT/*.root
@@ -127,9 +171,10 @@ With the environment activated, run:
 
 ```bash
 cd /path/to/max_internship/plotting
-python3 all_1D_ScoutingDQM.py --local --list
-python3 all_1D_ScoutingDQM.py --local --limit 5 --jobs 1
-python3 all_1D_ScoutingDQM.py --local --jobs 2 --no-png
+OUT=/path/to/plots   # e.g. on EOS
+python3 all_1D_ScoutingDQM.py --local --output-dir "$OUT" --list
+python3 all_1D_ScoutingDQM.py --local --output-dir "$OUT" --limit 5 --jobs 1
+python3 all_1D_ScoutingDQM.py --local --output-dir "$OUT" --jobs 2 --no-png
 ```
 
 `--local` does not search recursively or add a `scouting/` prefix. For example,
@@ -138,7 +183,8 @@ uses that relative directory. Relative paths remain relative to your working
 directory even when using `--config /somewhere/other.yaml`. A missing or empty
 `pipeline.cfg` is irrelevant; even an explicit `--pipeline-cfg` is ignored.
 Every configured condition directory must exist and should contain its `.root`
-files. PDFs are written to the working directory and PNGs to `output.png_dir`.
+files. All plots (PDFs and PNGs) are written to `--output-dir`, which `--local`
+requires (it never reads `PLOTS_DEST` from `pipeline.cfg`).
 
 ## Basic usage
 
@@ -157,9 +203,9 @@ group, all cores by default) and writes:
   `Comparison_All1D_Jet.pdf`, `Comparison_All1D_EGamma.pdf`,
   `Comparison_All1D_Miscellaneous.pdf`, ... (one page per histogram, page
   title = `sub/folder/histogram_name`);
-* one PNG per histogram in `output.png_dir` (default `png/`), named
+* one PNG per histogram, named
   `Comparison_<sub_folder>_<histogram_name>.png`, e.g.
-  `png/Comparison_Miscellaneous_CaloRecHitsAccepted_ebRechits_energy.png`
+  `Comparison_Miscellaneous_CaloRecHitsAccepted_ebRechits_energy.png`
   (the folder is part of the name because e.g. `Jet/L1_HTT200er` and
   `Jet/L1_HTT255er` contain identically named histograms).
 
@@ -179,7 +225,7 @@ filters below to run only what you need.
 To compare Prompt, HLT and NGT **separately for each run**, add `--per-run`:
 
 ```bash
-python3 all_1D_ScoutingDQM.py --local --per-run --jobs 1
+python3 all_1D_ScoutingDQM.py --local --output-dir "$OUT" --per-run --jobs 1
 ```
 
 Supply a run number to plot only that run (also works with `--list`):
@@ -196,14 +242,14 @@ ROOT files. Files for the same run and condition are summed; different runs
 are never combined. Each run has its own histogram discovery and empty-plot
 filtering. Outputs include the run number, for example
 `Comparison_All1D_Run403775_EGamma.pdf` and
-`png/Comparison_Run403775_EGamma_<histogram>.png`, with the run also labelled
+`Comparison_Run403775_EGamma_<histogram>.png`, with the run also labelled
 on each plot. `--single-pdf` writes one PDF **per run**;
 `--limit N` applies separately to each run, and `--list` lists histograms per run.
 Runs available in any condition are included; missing conditions are reported
 and omitted from the overlay. If Prompt (or the configured reference) is
 missing, the ratio panel has no ratios. Empty histograms are still skipped
 unless `--keep-empty` is set. The CMS luminosity label is calculated from that plot’s contributing runs
-using the run-level CSV configured by `lumi_csv` in `config.yaml`.
+using the run-level CSV configured by `lumi_csv` in `plotting_config.yaml`.
 Without `--per-run`, histograms are summed across runs within each condition.
 Use `--runs` or `--exclude-runs` to control which runs enter that sum:
 
@@ -233,14 +279,15 @@ python3 all_1D_ScoutingDQM.py -h
 
 | option | meaning |
 |---|---|
-| `--config PATH` | alternative `config.yaml` (default `config.yaml`) |
-| `--lumi-csv PATH` | override the run-level luminosity CSV configured in `config.yaml` |
+| `--config PATH` | alternative `plotting_config.yaml` (default `plotting_config.yaml`) |
+| `--lumi-csv PATH` | override the run-level luminosity CSV configured in `plotting_config.yaml` |
+| `--output-dir DIR` | write all plots to DIR (default: `PLOTS_DEST` from `pipeline.cfg`, else `$DQM_DEST_BASE/plots`; required with `--local`) |
 | `--xlabel TEXT` | override the x-axis label on every selected 1D plot |
 | `--xlim MIN MAX` | shared x limits for the main and ratio panels |
 | `--ylim MIN MAX` | main-panel y limits; a nonpositive minimum makes `auto` scale linear; explicit `log` requires positive limits |
 | `--ratio-ylim MIN MAX` | ratio-panel y limits (default: `0 2`) |
 | `--ylabel TEXT` | override the main-panel y-axis label on every selected 1D plot; the ratio label stays unchanged |
-| `--local` | bypass `pipeline.cfg`; use condition paths relative to the current working directory (absolute paths also work) |
+| `--local` | bypass `pipeline.cfg`; use condition paths relative to the current working directory (absolute paths also work); requires `--output-dir` |
 | `--per-run [RUN]` | compare conditions separately for all runs, or only RUN if supplied, with run numbers in output names and plots |
 | `--runs RUN [RUN ...]` | use only the listed runs; sum them unless `--per-run` is set |
 | `--exclude-runs RUN [RUN ...]` | omit the listed runs from summed or per-run plots |
@@ -368,9 +415,9 @@ double-sided Crystal Ball signal plus an exponential background.
 ### Environment and inputs
 
 These scripts require **ROOT with PyROOT** (`import ROOT`), plus `numpy`,
-`matplotlib`, `mplhep`, and `uproot`. Use a Python environment with these
-packages and a compatible ROOT installation; the uproot-only Scouting
-environment above is not sufficient. Check it with:
+`matplotlib`, `mplhep`, and `uproot`. The recommended `cmsenv` setup
+[above](#recommended-cmssw-cmsenv) provides all of them; the uproot-only
+virtual environment is not sufficient. Check it with:
 
 ```bash
 python3 -c "import ROOT, numpy, matplotlib, mplhep, uproot; print('HLT plotting environment ready')"
@@ -398,8 +445,11 @@ the run number. The histogram path is:
 DQMData/Run <run>/HLT/Run summary/ObjectMonitor/MainShifter/di-Electron_Mass
 ```
 
-These scripts do not read `config.yaml`; condition names, fit settings, and
-plot labels are defined in the scripts.
+The condition folders, colours, markers, ratio reference and CMS label come
+from `plotting_config.yaml` (the same `conditions[].path`
+values as for the Scouting plots, resolved under the `hlt/` recipe
+directory). The fit settings and histogram path are defined in the scripts;
+the DCB fit itself lives in `plotting_functions.py`.
 
 ### Get the luminosity CSV with brilcalc
 
@@ -421,7 +471,7 @@ luminosity from intervening CSV runs even if their DQM files are absent.
 
 ### Run the HLT plots
 
-From the checkout's `plotting/` directory, with the ROOT-enabled environment
+From the checkout's `plotting/` directory, with `cmsenv` (or another ROOT-enabled environment)
 active and `DQM_DEST_BASE` configured:
 
 ```bash
@@ -435,21 +485,22 @@ pipeline configuration. To use `HLT/`, `NGT/`, and `Prompt/` folders directly
 under the current directory instead, bypass the pipeline config with `--local`:
 
 ```bash
-python3 Z_to_ee_fit.py --local
-python3 Z_to_ee_fit_stability_per_fill.py --local --lumi-csv lumi_data.csv
+python3 Z_to_ee_fit.py --local --output-dir /path/to/plots
+python3 Z_to_ee_fit_stability_per_fill.py --local --output-dir /path/to/plots --lumi-csv lumi_data.csv
 ```
 
-All plots are saved under the current working directory. `--lumi-csv` also
-accepts an absolute path; its default is `lumi_data.csv` in the current
-directory. Both HLT plotters require the luminosity CSV and accept `--lumi-csv`.
+All plots are saved in `PLOTS_DEST` (default `$DQM_DEST_BASE/plots`) or `--output-dir`, the fit sanity checks
+in its `fit_sanity_checks/` (resp. `fit_sanity_checks_per_fill/`,
+`fit_sanity_checks_per_run/`) subfolder. `--lumi-csv` also accepts an absolute
+path; its default is `lumi_csv` from `plotting_config.yaml`. Both HLT plotters require
+the luminosity CSV.
 
 ### Automatic luminosity labels
 
 All plotters use `luminosity.py` to calculate recorded luminosity from the
 unique runs actually contributing to each histogram. Scouting scripts use
-`lumi_csv: "lumi_data.csv"` in `config.yaml` (relative to the working directory);
-all three entry scripts accept `--lumi-csv` (overriding the config for
-`all_1D_ScoutingDQM.py`). The HLT scripts default to `lumi_data.csv`.
+`lumi_csv: "lumi_data.csv"` in `plotting_config.yaml` (relative to the working directory);
+every script accepts `--lumi-csv` to override it.
 The CSV must contain one row per run with
 `recorded(/pb)`, as generated by the brilcalc command above. Luminosity is
 converted to fb⁻¹; repeated files for a run do not duplicate its luminosity.
@@ -497,3 +548,34 @@ python3 all_1D_ScoutingDQM.py --lumi-csv lumi_data.csv --per-run 401623
 python3 Z_to_ee_fit.py --lumi-csv lumi_data.csv --per-run 401623
 python3 Z_to_ee_fit_stability_per_fill.py --lumi-csv lumi_data.csv --per-run 401623
 ```
+
+## Event-count sanity check
+
+`sanity_check_event_counter.py` cross-checks the Z -> ee event counts of the
+conditions. For every run it reads `DiLepton/electrons_mass` from the Scouting
+DQM files and prints GetEntries against the summed bin contents, the yield
+ratio of each condition to the reference, and the per-condition totals. It
+writes `Zee_EventCounts_PerRun.png` (entries vs. run number). Inputs are found
+as for the other Scouting plots:
+
+```bash
+python3 sanity_check_event_counter.py
+python3 sanity_check_event_counter.py --local --output-dir /path/to/plots
+```
+
+## Run all plots
+
+`run_all_plots.py` runs every plotting script with the same common options
+and prints a summary of what succeeded or failed (exit code 1 if anything
+failed). The Z-to-ee scripts need PyROOT and are skipped with a warning if
+`import ROOT` fails.
+
+```bash
+python3 run_all_plots.py
+python3 run_all_plots.py --local --output-dir /path/to/plots --jobs 4
+python3 run_all_plots.py --only Z_to_ee_fit sanity_check_event_counter
+python3 run_all_plots.py --skip all_1D_ScoutingDQM
+```
+
+`--jobs` is passed to `all_1D_ScoutingDQM.py` only; on a shared LXPLUS login
+node use `--jobs 1`.
