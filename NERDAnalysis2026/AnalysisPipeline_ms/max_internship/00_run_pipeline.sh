@@ -45,6 +45,10 @@ done
 source "$HERE/pipeline.cfg"
 (( ${#TAGS[@]} > 0 )) || { echo "ERROR: TAGS is empty in pipeline.cfg" >&2; exit 1; }
 
+# Check the proxy before the background steps: voms-proxy-init may need a
+# passphrase, and DAS queries and the jobs rely on it.
+bash "$HERE/ensure_proxy.sh" || { echo "ERROR: no valid proxy." >&2; exit 1; }
+
 echo "Starting file-list and CMSSW configuration generation in parallel..."
 bash "$HERE/generate_filelists.sh" &
 filelist_pid=$!

@@ -11,6 +11,8 @@ source "$CFG"
 [[ -n "$DATASET_PATTERN" ]] || { echo "DATASET_PATTERN is empty in $CFG" >&2; exit 1; }
 [[ -n "$FILELIST" ]] || { echo "FILELIST is empty in $CFG" >&2; exit 1; }
 command -v dasgoclient >/dev/null || { echo "dasgoclient is not available" >&2; exit 1; }
+bash "$HERE/ensure_proxy.sh" "$CFG"
+export X509_USER_PROXY="$HERE/$PROXY"
 
 if [[ "$FILELIST" = /* ]]; then
   FILELIST_PATH="$FILELIST"

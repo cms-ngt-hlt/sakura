@@ -21,8 +21,20 @@ cmsenv
 git cms-init
 scram b -j 20
 cd ../../
-voms-proxy-init --voms cms -rfc --valid 168:00
-cp "/tmp/x509up_u$(id -u)" .
+```
+
+The pipeline uses a local copy of the grid proxy (`PROXY` in
+[pipeline.cfg](pipeline.cfg), by default `x509up_u<uid>` in this directory).
+[ensure_proxy.sh](ensure_proxy.sh) runs automatically before the steps that need
+it (`00_run_pipeline.sh`, `generate_filelists.sh`, `02_submit.py` and
+`04_run_dqm.sh`). It reuses the local file while it carries the `cms` VO and
+is valid for at least `PROXY_MIN_VALID` (default 24 h); otherwise it calls
+`voms-proxy-init --voms cms -rfc --valid $PROXY_VALID` (default 168 h) and copies
+the new proxy here. The proxy in `/tmp` is never used directly, since a node may
+hold a stale one. You can also run it by hand:
+
+```bash
+./ensure_proxy.sh
 ```
 
 Add packages via `git cms-addpkg` for custom changes (e.g. checking out private branches) before building.
@@ -44,9 +56,9 @@ Before running, edit [pipeline.cfg](pipeline.cfg). Its checked-in paths and data
 | `DQM_JOBS_BASE`, `DQM_JOB_FLAVOUR`, `DQM_REQUEST_CPUS`, `DQM_REQUEST_MEMORY_MB`, `DQM_REQUEST_DISK_KB` | DQM job directories and per-job Condor resources. |
 | `DQM_ARTIFACT_EXCLUDE` | Patterns left out of the artifacts a DQM job copies back; by default the ROOT files and `dqm.log`. |
 
-Keep `PROXY` consistent with the copied proxy filename. Check that the selected
-streams, menu, era, and batch resources suit your production. For NGT,
-`oms_runs.csv` must contain a snapshot time for every input run.
+Check that the selected streams, menu, era, and batch resources suit your
+production. For NGT, `oms_runs.csv` must contain a snapshot time for every input
+run.
 
 Run the commands below from this pipeline directory unless stated otherwise.
 
@@ -70,7 +82,8 @@ condor_submit condor_NGT.sub
 
 To prepare and submit in one invocation, use `./00_run_pipeline.sh --fulltrust`
 instead. Both modes require the configuration above; automatic submission also
-requires the proxy and `condor_submit` to be ready beforehand.
+requires `condor_submit`. The wrapper checks the proxy first, so any
+`voms-proxy-init` passphrase prompt comes before the parallel preparation steps.
 
 Existing `Jobs_<tag>` directories cause preparation to stop. `--force` deletes
 and regenerates those directories, including local logs, but leaves EOS outputs
