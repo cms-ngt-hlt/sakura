@@ -429,7 +429,12 @@ status_condor() {
 
 if [[ "$MODE" == "status" ]]; then
     status_condor
-elif [[ "$BACKEND" == "local" ]]; then
+    exit 0
+fi
+
+bash "$HERE/ensure_proxy.sh"
+
+if [[ "$BACKEND" == "local" ]]; then
     run_local
 else
     run_condor
