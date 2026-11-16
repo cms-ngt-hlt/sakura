@@ -1,0 +1,19 @@
+--- a/luminosity.py
++++ b/luminosity.py
+@@ -5,6 +5,7 @@
+ """
+ import csv
+ import math
++import inspect
+ import re
+ from functools import lru_cache
+ from pathlib import Path
+@@ -114,5 +115,8 @@
+     kwargs.pop("lumi", None)
+     year = kwargs.get("year")
+     suffix = f", {year}" if year else ""
++    # mplhep >= 1.0 ignores the deprecated `label=` and wants `text=` instead
++    if "label" in kwargs and "text" in inspect.signature(hep.cms.label).parameters:
++        kwargs["text"] = kwargs.pop("label")
+     return hep.cms.label(ax=ax, lumi=None,
+                          rlabel=f"{text}{suffix} ({com:g} TeV)", **kwargs)
