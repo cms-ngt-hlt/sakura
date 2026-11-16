@@ -1,0 +1,389 @@
+run,start,nevents,issue,detail,recommendation
+401597,2026-03-06 13:49,1481,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401598,2026-03-06 13:59,173195,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401599,2026-03-06 14:43,353944,low statistics,"0 tracks, 5 pi0 candidates",NOT-EVALUATED
+401606,2026-03-07 09:43,12839,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401613,2026-03-07 10:16,348,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401614,2026-03-07 10:20,16239,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401615,2026-03-07 11:13,9178,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401616,2026-03-07 11:43,31791,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401621,2026-03-07 14:12,398,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401623,2026-03-07 14:56,666928,low statistics,"2.34e+06 tracks, 5.92e+03 pi0 candidates",NOT-EVALUATED
+401624,2026-03-07 16:04,1348123,low statistics,"4.9e+06 tracks, 1.69e+04 pi0 candidates",NOT-EVALUATED
+401625,2026-03-07 18:16,466988,low statistics,"1.93e+06 tracks, 5.67e+03 pi0 candidates",NOT-EVALUATED
+401626,2026-03-07 19:07,522662,low statistics,"2.26e+06 tracks, 6.4e+03 pi0 candidates",NOT-EVALUATED
+401627,2026-03-07 19:57,1053158,low statistics,"4.51e+06 tracks, 1.31e+04 pi0 candidates",NOT-EVALUATED
+401628,2026-03-07 21:35,300602,low statistics,"0 tracks, 1 pi0 candidates",NOT-EVALUATED
+401630,2026-03-07 22:56,366089,low statistics,"2.14e+06 tracks, 4.33e+03 pi0 candidates",NOT-EVALUATED
+401631,2026-03-07 23:31,142994,low statistics,"1.13e+06 tracks, 2.2e+03 pi0 candidates",NOT-EVALUATED
+401632,2026-03-07 23:47,135450,low statistics,"1.14e+06 tracks, 2.15e+03 pi0 candidates",NOT-EVALUATED
+401633,2026-03-08 00:01,139493,low statistics,"1.15e+06 tracks, 2.01e+03 pi0 candidates",NOT-EVALUATED
+401634,2026-03-08 00:17,146066,low statistics,"1.25e+06 tracks, 2.26e+03 pi0 candidates",NOT-EVALUATED
+401635,2026-03-08 00:32,142461,low statistics,"1.2e+06 tracks, 2.19e+03 pi0 candidates",NOT-EVALUATED
+401636,2026-03-08 00:48,142093,low statistics,"1.25e+06 tracks, 2.28e+03 pi0 candidates",NOT-EVALUATED
+401637,2026-03-08 01:04,137454,low statistics,"1.19e+06 tracks, 2.08e+03 pi0 candidates",NOT-EVALUATED
+401638,2026-03-08 01:19,143712,low statistics,"1.29e+06 tracks, 2.23e+03 pi0 candidates",NOT-EVALUATED
+401639,2026-03-08 01:35,150814,low statistics,"1.26e+06 tracks, 2.33e+03 pi0 candidates",NOT-EVALUATED
+401640,2026-03-08 01:51,142823,low statistics,"1.18e+06 tracks, 2.31e+03 pi0 candidates",NOT-EVALUATED
+401641,2026-03-08 02:06,138266,low statistics,"9.46e+05 tracks, 2.27e+03 pi0 candidates",NOT-EVALUATED
+401645,2026-03-08 07:53,21171,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401653,2026-03-08 09:07,1581,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401658,2026-03-08 09:44,2023,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401661,2026-03-08 11:52,131872,low statistics,"1.1e+06 tracks, 6.26e+03 pi0 candidates",NOT-EVALUATED
+401663,2026-03-08 16:30,1078802,strips off (short part of run),9.1% of tracks without strip hits (regime median 3.6%),CAUTION
+401664,2026-03-08 20:37,129550,strips off (short part of run),6.1% of tracks without strip hits (regime median 3.6%),CAUTION
+401665,2026-03-08 21:21,209358,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401668,2026-03-08 22:52,107078,low statistics,"4.52e+06 tracks, 1.04e+04 pi0 candidates",NOT-EVALUATED
+401672,2026-03-09 08:50,33886,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401673,2026-03-09 08:57,286476,low statistics,"0 tracks, 33 pi0 candidates",NOT-EVALUATED
+401676,2026-03-09 09:30,61169,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401681,2026-03-09 09:58,73768,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401684,2026-03-09 10:12,13013,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401685,2026-03-09 10:19,7471,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401686,2026-03-09 10:22,22693,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401689,2026-03-09 11:15,268842,low statistics,"0 tracks, 1 pi0 candidates",NOT-EVALUATED
+401696,2026-03-09 23:32,146415,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401699,2026-03-10 00:58,13372184,strips off (whole run),100.0% of tracks without strip hits,EXCLUDE-TRACKING
+401707,2026-03-10 10:02,448,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401709,2026-03-10 10:11,28,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401730,2026-03-10 16:54,362994,low statistics,"1.69e+06 tracks, 1.92e+04 pi0 candidates",NOT-EVALUATED
+401731,2026-03-10 17:07,3506518,strips off (whole run),99.4% of tracks without strip hits,EXCLUDE-TRACKING
+401733,2026-03-10 19:04,14872218,strips off (whole run),99.4% of tracks without strip hits,EXCLUDE-TRACKING
+401734,2026-03-11 02:05,185904,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401739,2026-03-11 07:46,42810,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401785,2026-03-11 16:56,973,low statistics,"0 tracks, 127 pi0 candidates",NOT-EVALUATED
+401789,2026-03-11 17:46,154595,low statistics,"0 tracks, 8 pi0 candidates",NOT-EVALUATED
+401790,2026-03-11 18:18,63458,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401792,2026-03-11 18:39,508878,low statistics,"0 tracks, 2 pi0 candidates",NOT-EVALUATED
+401794,2026-03-11 20:17,8095,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401796,2026-03-11 23:45,2978,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401810,2026-03-12 12:30,1645,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401817,2026-03-12 12:54,2,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401832,2026-03-12 15:17,1151,low statistics,"89 tracks, 0 pi0 candidates",NOT-EVALUATED
+401837,2026-03-12 17:17,127375,low statistics,"0 tracks, 2 pi0 candidates",NOT-EVALUATED
+401838,2026-03-12 17:35,137,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401844,2026-03-12 20:55,5894070,strips off (whole run),100.0% of tracks without strip hits,EXCLUDE-TRACKING
+401845,2026-03-13 00:19,372787,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401849,2026-03-13 11:18,44923,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401866,2026-03-13 16:58,1198717,low statistics,"3.26e+06 tracks, 8.92e+03 pi0 candidates",NOT-EVALUATED
+401867,2026-03-13 18:03,106536,low statistics,"3.15e+05 tracks, 775 pi0 candidates",NOT-EVALUATED
+401869,2026-03-13 21:28,1977265,low statistics,"1.98e+06 tracks, 4.88e+03 pi0 candidates",NOT-EVALUATED
+401874,2026-03-14 00:14,219675,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401878,2026-03-14 01:44,5382940,strips off (whole run),99.1% of tracks without strip hits,EXCLUDE-TRACKING
+401879,2026-03-14 04:22,394377,low statistics,"0 tracks, 1 pi0 candidates",NOT-EVALUATED
+401885,2026-03-14 15:15,1,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401887,2026-03-14 15:19,556,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401891,2026-03-14 15:26,88848,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401899,2026-03-14 17:41,264841,strips off (short part of run),5.4% of tracks without strip hits (regime median 3.6%),CAUTION
+401900,2026-03-14 18:24,108702,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401901,2026-03-14 18:38,139388,low statistics,"0 tracks, 21 pi0 candidates",NOT-EVALUATED
+401902,2026-03-14 18:58,208946,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401904,2026-03-14 19:41,15488,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401905,2026-03-14 19:46,254418,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401907,2026-03-14 20:13,9758,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401908,2026-03-14 20:18,6599,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401909,2026-03-14 20:23,12317,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401910,2026-03-14 20:27,18624,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401911,2026-03-14 20:33,127270,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401925,2026-03-15 08:45,93,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401926,2026-03-15 08:53,990,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401952,2026-03-15 10:49,4303208,strips off (whole run),100.0% of tracks without strip hits,EXCLUDE-TRACKING
+401955,2026-03-15 12:29,353334,low statistics,"0 tracks, 1 pi0 candidates",NOT-EVALUATED
+401957,2026-03-15 12:49,790478,low statistics,"0 tracks, 108 pi0 candidates",NOT-EVALUATED
+401963,2026-03-15 16:47,9785,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401964,2026-03-15 16:53,285418,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401968,2026-03-15 17:18,3051,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401974,2026-03-16 00:20,381699,low statistics,"1 tracks, 3 pi0 candidates",NOT-EVALUATED
+401978,2026-03-16 07:52,393880,low statistics,"1 tracks, 138 pi0 candidates",NOT-EVALUATED
+401983,2026-03-16 08:22,250592,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401988,2026-03-16 08:43,49147,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+401998,2026-03-16 09:14,52998,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402000,2026-03-16 09:33,3141,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402001,2026-03-16 09:36,3087,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402003,2026-03-16 09:40,1898,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402004,2026-03-16 09:42,87281,low statistics,"0 tracks, 12 pi0 candidates",NOT-EVALUATED
+402009,2026-03-16 10:01,42684,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402011,2026-03-16 10:12,23030,low statistics,"0 tracks, 1 pi0 candidates",NOT-EVALUATED
+402012,2026-03-16 10:19,166293,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402015,2026-03-16 10:56,307822,low statistics,"0 tracks, 3 pi0 candidates",NOT-EVALUATED
+402016,2026-03-16 11:19,1039665,low statistics,"2 tracks, 11 pi0 candidates",NOT-EVALUATED
+402018,2026-03-16 12:30,151100,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402019,2026-03-16 12:45,92839,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402020,2026-03-16 12:57,2630,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402023,2026-03-16 13:24,147228,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402024,2026-03-16 13:39,612851,low statistics,"2 tracks, 0 pi0 candidates",NOT-EVALUATED
+402030,2026-03-16 14:55,3363,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402031,2026-03-16 15:09,3603,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402032,2026-03-16 15:16,6283,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402039,2026-03-16 19:36,1623245,strips off (whole run),99.4% of tracks without strip hits,EXCLUDE-TRACKING
+402043,2026-03-17 01:41,2,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402044,2026-03-17 01:48,49345,low statistics,"0 tracks, 1 pi0 candidates",NOT-EVALUATED
+402046,2026-03-17 03:35,37148658,strips off (whole run),99.3% of tracks without strip hits,EXCLUDE-TRACKING
+402080,2026-03-18 09:17,37981,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402099,2026-03-18 19:20,3675744,strips off (whole run),100.0% of tracks without strip hits,EXCLUDE-TRACKING
+402100,2026-03-18 21:11,2175550,strips off (whole run),100.0% of tracks without strip hits,EXCLUDE-TRACKING
+402101,2026-03-19 01:37,194716,low statistics,"3.74e+06 tracks, 1.67e+04 pi0 candidates",NOT-EVALUATED
+402107,2026-03-19 04:27,64654,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402108,2026-03-19 04:32,156835,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402109,2026-03-19 04:43,62282,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402143,2026-03-19 16:26,15759907,strips off (whole run),99.0% of tracks without strip hits,EXCLUDE-TRACKING
+402144,2026-03-19 22:11,21656525,strips off (whole run),99.0% of tracks without strip hits,EXCLUDE-TRACKING
+402146,2026-03-20 05:16,551102,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402147,2026-03-20 05:38,1129202,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402160,2026-03-20 09:09,6856,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402163,2026-03-20 09:29,3039,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402173,2026-03-20 19:30,13431936,EB supermodule deviation,EB+12 +5%,CAUTION
+402174,2026-03-21 00:11,19419123,EB supermodule miscalibration,EB+12 +9%; pi0 133.7 MeV,EXCLUDE-ECAL
+402175,2026-03-21 06:32,1183,low statistics,"0 tracks, 89 pi0 candidates",NOT-EVALUATED
+402176,2026-03-21 06:38,137886,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402179,2026-03-21 06:55,6122,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402180,2026-03-21 07:01,133429,low statistics,"0 tracks, 64 pi0 candidates",NOT-EVALUATED
+402181,2026-03-21 07:22,476625,low statistics,"2 tracks, 55 pi0 candidates",NOT-EVALUATED
+402189,2026-03-21 09:53,658092,EB supermodule miscalibration,"EB+12 +12%, EB+07 +10%, EB-04 +8%, EB-07 +6%, EB+02 -3%; pi0 136.0 MeV",EXCLUDE-ECAL
+402190,2026-03-21 10:23,447962,low statistics,"0 tracks, 1 pi0 candidates",NOT-EVALUATED
+402191,2026-03-21 10:57,2925053,low statistics,"5 tracks, 3 pi0 candidates",NOT-EVALUATED
+402195,2026-03-21 13:37,505453,low statistics,"2 tracks, 6 pi0 candidates",NOT-EVALUATED
+402205,2026-03-22 00:40,24603577,EB supermodule miscalibration,"EB+12 +15%, EB+07 +14%, EB-03 +13%, EB-04 +12%, EB-07 +10%, EB+02 -5%; pi0 136.4 MeV",EXCLUDE-ECAL
+402206,2026-03-22 09:31,5448406,EB supermodule miscalibration,"EB+12 +15%, EB+07 +14%, EB-03 +13%, EB-04 +12%, EB-07 +10%, EB+02 -4%; pi0 136.7 MeV",EXCLUDE-ECAL
+402207,2026-03-22 11:41,9662429,EB supermodule miscalibration,"EB+12 +15%, EB+07 +14%, EB-03 +12%, EB-04 +12%, EB-07 +10%, EB+02 -4%; pi0 136.3 MeV",EXCLUDE-ECAL
+402221,2026-03-22 16:47,29012087,EB supermodule miscalibration,"EB+12 +15%, EB+07 +14%, EB-03 +13%, EB-04 +12%, EB-07 +10%, EB+02 -4%; pi0 136.7 MeV",EXCLUDE-ECAL
+402243,2026-03-23 10:20,5420847,EB supermodule miscalibration,"EB+12 +15%, EB+07 +14%, EB-03 +13%, EB-04 +12%, EB-07 +10%, EB+02 -4%; pi0 136.2 MeV",EXCLUDE-ECAL
+402244,2026-03-23 12:23,39710018,EB supermodule miscalibration,"EB+12 +15%, EB+07 +14%, EB-03 +14%, EB-04 +12%, EB-07 +10%, EB+02 -4%; pi0 135.8 MeV",EXCLUDE-ECAL
+402247,2026-03-24 03:16,11245850,EB supermodule miscalibration,"EB+12 +15%, EB+07 +13%, EB-03 +13%, EB-04 +12%, EB-07 +10%, EB+02 -4%; pi0 135.8 MeV",EXCLUDE-ECAL
+402273,2026-03-25 06:24,11637,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402370,2026-03-26 21:30,20533,low statistics,"4.99e+05 tracks, 2.17e+03 pi0 candidates",NOT-EVALUATED
+402395,2026-03-27 10:56,921,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402399,2026-03-27 13:59,141033,low statistics,"5.01e+04 tracks, 2.09e+04 pi0 candidates",NOT-EVALUATED
+402456,2026-03-28 18:20,2106,low statistics,"5.35e+04 tracks, 229 pi0 candidates",NOT-EVALUATED
+402457,2026-03-28 18:24,35476,low statistics,"8.38e+05 tracks, 3.58e+03 pi0 candidates",NOT-EVALUATED
+402503,2026-03-29 14:31,6277,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402574,2026-04-01 21:42,28434905,strips off (part of run),23.5% of tracks without strip hits,EXCLUDE-TRACKING
+402601,2026-04-02 17:18,23818093,strips off (whole run),99.7% of tracks without strip hits,EXCLUDE-TRACKING
+402602,2026-04-03 02:55,263156,strips off (whole run),100.0% of tracks without strip hits,EXCLUDE-TRACKING
+402649,2026-04-05 04:51,86380,low statistics,"1.71e+04 tracks, 1.07e+04 pi0 candidates",NOT-EVALUATED
+402652,2026-04-05 07:31,29255890,strips off (whole run),99.7% of tracks without strip hits,EXCLUDE-TRACKING
+402653,2026-04-05 18:47,32661979,strips off (whole run),99.7% of tracks without strip hits,EXCLUDE-TRACKING
+402654,2026-04-06 08:29,20503806,strips off (whole run),99.7% of tracks without strip hits,EXCLUDE-TRACKING
+402655,2026-04-06 18:35,35790133,strips off (part of run),39.2% of tracks without strip hits,EXCLUDE-TRACKING
+402680,2026-04-07 12:13,156555,low statistics,"2.84e+06 tracks, 1.42e+04 pi0 candidates",NOT-EVALUATED
+402760,2026-04-09 08:27,7468,low statistics,"0 tracks, 22 pi0 candidates",NOT-EVALUATED
+402761,2026-04-09 08:55,292,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402762,2026-04-09 09:01,2525,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402764,2026-04-09 09:31,45968,low statistics,"0 tracks, 3 pi0 candidates",NOT-EVALUATED
+402765,2026-04-09 12:10,8683,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402839,2026-04-13 07:37,335,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402842,2026-04-13 07:46,164,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402843,2026-04-13 08:03,101,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402972,2026-04-15 08:33,10252,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402980,2026-04-15 09:00,1602,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402989,2026-04-15 12:15,18648,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402990,2026-04-15 13:04,3444,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402992,2026-04-15 13:42,81687,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+402999,2026-04-15 22:52,5372,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403000,2026-04-15 23:11,3140,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403004,2026-04-16 00:32,10061,low statistics,"0 tracks, 2 pi0 candidates",NOT-EVALUATED
+403008,2026-04-16 02:54,2047,low statistics,"9.47e+03 tracks, 67 pi0 candidates",NOT-EVALUATED
+403091,2026-04-19 23:58,67780,low statistics,"1.04e+06 tracks, 5.01e+03 pi0 candidates",NOT-EVALUATED
+403136,2026-04-20 18:46,1,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403178,2026-04-23 17:17,3810,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403179,2026-04-23 17:33,16671,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403195,2026-04-24 18:36,18295282,EB rechit energy step,"EB <E> +4.9% vs nearby runs, HBHE -0.0%",CAUTION
+403213,2026-04-25 16:32,70749,low statistics,"2.12e+04 tracks, 8.74e+03 pi0 candidates",NOT-EVALUATED
+403214,2026-04-25 16:41,21363845,EB rechit energy step,"EB <E> +4.8% vs nearby runs, HBHE +0.0%",CAUTION
+403216,2026-04-26 05:22,6273,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403228,,0,low statistics,"0 tracks, 2 pi0 candidates",NOT-EVALUATED
+403231,,0,low statistics,"0 tracks, 2 pi0 candidates",NOT-EVALUATED
+403235,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403237,2026-04-26 21:27,82826,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403244,,0,strips off (whole run),99.3% of tracks without strip hits,EXCLUDE-TRACKING
+403256,,0,strip modules masked,1.11 strip hits lost per track vs reference,EXCLUDE-TRACKING
+403324,2026-04-29 15:09,5263,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403332,2026-04-29 18:09,15154,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403336,2026-04-29 19:53,2126,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403346,2026-04-30 01:47,108178,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403348,2026-04-30 02:10,6412739,low statistics,"9.31e+03 tracks, 41 pi0 candidates",NOT-EVALUATED
+403350,2026-04-30 05:37,998540,low statistics,"923 tracks, 7 pi0 candidates",NOT-EVALUATED
+403392,,0,low statistics,"1.47e+04 tracks, 76 pi0 candidates",NOT-EVALUATED
+403397,2026-04-30 19:08,17716,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403404,2026-04-30 21:46,8006,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403410,2026-04-30 23:05,14759012,low statistics,"3.54e+04 tracks, 185 pi0 candidates",NOT-EVALUATED
+403413,2026-05-01 05:28,2181730,low statistics,"6.84e+03 tracks, 57 pi0 candidates",NOT-EVALUATED
+403420,2026-05-01 08:41,3542737,low statistics,"1.11e+04 tracks, 62 pi0 candidates",NOT-EVALUATED
+403421,2026-05-01 10:04,9529651,low statistics,"1.56e+04 tracks, 110 pi0 candidates",NOT-EVALUATED
+403450,2026-05-01 22:43,9,low statistics,"83 tracks, 0 pi0 candidates",NOT-EVALUATED
+403472,2026-05-02 20:19,2520,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403557,2026-05-06 19:21,269,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403559,2026-05-06 20:10,59,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403567,2026-05-07 01:05,13920760,strip modules masked (local),0.10 strip hits lost per track vs reference,CAUTION
+403572,,0,strip modules masked (local),0.13 strip hits lost per track vs reference,CAUTION
+403688,2026-05-10 00:44,1226948,strip modules masked (local),0.10 strip hits lost per track vs reference,CAUTION
+403748,2026-05-11 11:21,21345,low statistics,"4.41e+05 tracks, 2.31e+03 pi0 candidates",NOT-EVALUATED
+403781,2026-05-12 12:46,14968,low statistics,"0 tracks, 7.27e+03 pi0 candidates",NOT-EVALUATED
+403786,2026-05-12 13:06,2575,low statistics,"0 tracks, 453 pi0 candidates",NOT-EVALUATED
+403788,2026-05-12 13:09,146531,low statistics,"0 tracks, 2.12e+04 pi0 candidates",NOT-EVALUATED
+403792,,0,low statistics,"0 tracks, 2.42e+04 pi0 candidates",NOT-EVALUATED
+403799,2026-05-12 14:29,5291,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403808,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403811,2026-05-12 17:34,6891526,strip modules masked (local),0.09 strip hits lost per track vs reference,CAUTION
+403863,,0,low statistics,"2.26e+06 tracks, 7.03e+03 pi0 candidates",NOT-EVALUATED
+403864,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403866,2026-05-14 02:21,31469835,EB supermodule deviation,"EB-07 -6%, EB-06 +6%, EB+04 -6%, EB+15 +6%, EB+16 -5%, EB-04 -5% (only 3 reference runs, special conditions)",CAUTION
+403893,2026-05-15 00:53,4,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+403894,2026-05-15 01:00,10786203,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 11%,EXCLUDE-TRACKING
+403895,,0,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 12%,EXCLUDE-TRACKING
+403937,2026-05-16 17:55,10941048,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 12%,EXCLUDE-TRACKING
+404010,2026-05-19 14:57,47878,low statistics,"0 tracks, 2 pi0 candidates",NOT-EVALUATED
+404078,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404081,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404082,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404091,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404094,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404099,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404101,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404143,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404144,2026-05-22 13:44,47,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404145,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404156,,0,low statistics,"0 tracks, 6.68e+03 pi0 candidates",NOT-EVALUATED
+404170,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404174,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404176,2026-05-23 09:41,62,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404177,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404179,2026-05-23 10:17,76,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404185,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404186,2026-05-23 17:15,956120,low statistics,"0 tracks, 6.99e+03 pi0 candidates",NOT-EVALUATED
+404187,,0,low statistics,"0 tracks, 513 pi0 candidates",NOT-EVALUATED
+404188,,0,low statistics,"0 tracks, 1.18e+03 pi0 candidates",NOT-EVALUATED
+404189,,0,low statistics,"0 tracks, 709 pi0 candidates",NOT-EVALUATED
+404190,,0,low statistics,"0 tracks, 638 pi0 candidates",NOT-EVALUATED
+404191,2026-05-23 19:03,185460,low statistics,"0 tracks, 571 pi0 candidates",NOT-EVALUATED
+404192,,0,low statistics,"0 tracks, 832 pi0 candidates",NOT-EVALUATED
+404193,2026-05-23 19:34,85050,low statistics,"0 tracks, 264 pi0 candidates",NOT-EVALUATED
+404194,,0,low statistics,"0 tracks, 518 pi0 candidates",NOT-EVALUATED
+404195,,0,low statistics,"0 tracks, 584 pi0 candidates",NOT-EVALUATED
+404196,,0,low statistics,"0 tracks, 544 pi0 candidates",NOT-EVALUATED
+404197,,0,low statistics,"0 tracks, 991 pi0 candidates",NOT-EVALUATED
+404200,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404204,,0,low statistics,"0 tracks, 118 pi0 candidates",NOT-EVALUATED
+404205,,0,low statistics,"0 tracks, 102 pi0 candidates",NOT-EVALUATED
+404206,,0,low statistics,"0 tracks, 43 pi0 candidates",NOT-EVALUATED
+404207,2026-05-24 09:12,28118,low statistics,"0 tracks, 66 pi0 candidates",NOT-EVALUATED
+404208,2026-05-24 09:26,24110,low statistics,"0 tracks, 38 pi0 candidates",NOT-EVALUATED
+404209,,0,low statistics,"0 tracks, 37 pi0 candidates",NOT-EVALUATED
+404210,,0,low statistics,"0 tracks, 88 pi0 candidates",NOT-EVALUATED
+404211,,0,low statistics,"0 tracks, 3 pi0 candidates",NOT-EVALUATED
+404229,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404230,,0,low statistics,"0 tracks, 2.11e+03 pi0 candidates",NOT-EVALUATED
+404231,,0,low statistics,"0 tracks, 834 pi0 candidates",NOT-EVALUATED
+404232,,0,low statistics,"0 tracks, 1.27e+03 pi0 candidates",NOT-EVALUATED
+404233,,0,low statistics,"0 tracks, 750 pi0 candidates",NOT-EVALUATED
+404235,,0,low statistics,"0 tracks, 622 pi0 candidates",NOT-EVALUATED
+404236,2026-05-24 18:53,921196,low statistics,"0 tracks, 2.79e+03 pi0 candidates",NOT-EVALUATED
+404242,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404265,2026-05-25 10:27,8433,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404266,2026-05-25 10:45,36481,low statistics,"0 tracks, 80 pi0 candidates",NOT-EVALUATED
+404275,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404276,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404279,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404282,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404283,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404284,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404286,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404287,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404288,2026-05-25 19:05,11,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404290,2026-05-25 19:26,7,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404299,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404323,2026-05-26 11:16,9467,low statistics,"86 tracks, 4.81e+03 pi0 candidates",NOT-EVALUATED
+404334,2026-05-26 12:53,57,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404335,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404337,,0,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 19%,EXCLUDE-TRACKING
+404338,2026-05-26 14:47,105127,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 21%,EXCLUDE-TRACKING
+404339,,0,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 21%,EXCLUDE-TRACKING
+404347,2026-05-26 19:05,558,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404349,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404350,,0,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 3%,EXCLUDE-TRACKING
+404352,,0,low statistics,"0 tracks, 1.01e+03 pi0 candidates",NOT-EVALUATED
+404353,,0,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 14%,EXCLUDE-TRACKING
+404354,2026-05-26 22:09,278796,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 17%,EXCLUDE-TRACKING
+404355,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404357,2026-05-27 00:08,6238,low statistics,"0 tracks, 4 pi0 candidates",NOT-EVALUATED
+404359,,0,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 18%,EXCLUDE-TRACKING
+404360,2026-05-27 06:19,3192566,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 17%,EXCLUDE-TRACKING
+404360,2026-05-27 06:19,3192566,pi0 peak outlier,"m=143.2 MeV (+6.8%), sigma=36.8 MeV (x1.52); HBHE <E> 2.35 GeV",CAUTION
+404370,2026-05-27 08:51,3,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404375,,0,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 18%,EXCLUDE-TRACKING
+404382,,0,low statistics,"0 tracks, 2 pi0 candidates",NOT-EVALUATED
+404387,2026-05-27 17:06,2749063,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 2%,EXCLUDE-TRACKING
+404388,2026-05-27 18:12,1861935,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 2%,EXCLUDE-TRACKING
+404389,,0,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 18%,EXCLUDE-TRACKING
+404390,,0,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 18%,EXCLUDE-TRACKING
+404394,,0,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 18%,EXCLUDE-TRACKING
+404395,2026-05-28 02:45,6065617,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 19%,EXCLUDE-TRACKING
+404395,2026-05-28 02:45,6065617,pi0 peak outlier,"m=143.5 MeV (+7.0%), sigma=36.4 MeV (x1.51); HBHE <E> 2.38 GeV",CAUTION
+404398,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404402,,0,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 18%,EXCLUDE-TRACKING
+404402,,0,pi0 peak outlier,"m=138.5 MeV (+3.3%), sigma=28.2 MeV (x1.17); HBHE <E> 1.90 GeV",CAUTION
+404402,,0,EB rechit energy step,"EB <E> -4.6% vs nearby runs, HBHE -1.7%",CAUTION
+404403,,0,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 18%,EXCLUDE-TRACKING
+404403,,0,pi0 peak outlier,"m=140.0 MeV (+4.4%), sigma=32.2 MeV (x1.33); HBHE <E> 1.97 GeV",CAUTION
+404414,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404422,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404426,,0,low statistics,"8.01e+04 tracks, 71 pi0 candidates",NOT-EVALUATED
+404427,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404428,2026-05-28 21:43,8468,low statistics,"64 tracks, 588 pi0 candidates",NOT-EVALUATED
+404429,2026-05-28 21:52,25604,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 24%,EXCLUDE-TRACKING
+404433,2026-05-29 01:26,29861,low statistics,"0 tracks, 4 pi0 candidates",NOT-EVALUATED
+404436,2026-05-29 05:35,4493787,FPix +x halves missing,forward track occupancy in |phi|<1.5 at 22%,EXCLUDE-TRACKING
+404448,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404449,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404457,2026-05-29 13:35,16,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404463,2026-05-29 17:14,5767,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404468,2026-05-29 18:30,26658,low statistics,"0 tracks, 1.27e+04 pi0 candidates",NOT-EVALUATED
+404473,,0,low statistics,"1.39e+05 tracks, 56 pi0 candidates",NOT-EVALUATED
+404478,2026-05-30 02:32,1,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404487,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404488,2026-05-30 07:35,28615,low statistics,"0 tracks, 2.1e+03 pi0 candidates",NOT-EVALUATED
+404500,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404507,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404508,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404528,2026-06-01 10:30,36402,low statistics,"1.02e+06 tracks, 421 pi0 candidates",NOT-EVALUATED
+404541,2026-06-01 14:57,25128,low statistics,"0 tracks, 3 pi0 candidates",NOT-EVALUATED
+404547,2026-06-02 01:40,415946,low statistics,"2.43e+06 tracks, 2.28e+04 pi0 candidates",NOT-EVALUATED
+404548,,0,low statistics,"1.01e+06 tracks, 471 pi0 candidates",NOT-EVALUATED
+404549,,0,pi0 peak outlier,"m=130.6 MeV (-2.6%), sigma=18.7 MeV (x0.77); HBHE <E> 1.78 GeV",CAUTION
+404561,2026-06-02 11:15,15,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404563,2026-06-02 11:51,21,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404564,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404598,2026-06-03 10:18,8,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404605,,0,low statistics,"0 tracks, 2 pi0 candidates",NOT-EVALUATED
+404608,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404609,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404614,,0,low statistics,"0 tracks, 2 pi0 candidates",NOT-EVALUATED
+404620,2026-06-03 19:19,2681295,pi0 peak outlier,"m=138.8 MeV (+3.5%), sigma=31.4 MeV (x1.30); HBHE <E> 2.34 GeV",CAUTION
+404645,2026-06-04 13:17,38,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404653,,0,low statistics,"1.13e+06 tracks, 5.9e+03 pi0 candidates",NOT-EVALUATED
+404654,,0,low statistics,"6.42e+05 tracks, 253 pi0 candidates",NOT-EVALUATED
+404655,,0,low statistics,"3.45e+05 tracks, 141 pi0 candidates",NOT-EVALUATED
+404656,2026-06-05 00:06,40664,low statistics,"9.43e+05 tracks, 363 pi0 candidates",NOT-EVALUATED
+404677,2026-06-05 20:32,6698,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404697,,0,low statistics,"9.36e+05 tracks, 1.21e+04 pi0 candidates",NOT-EVALUATED
+404735,2026-06-08 07:40,1786784,strip modules masked (local),0.16 strip hits lost per track vs reference,CAUTION
+404759,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404773,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404796,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404797,,0,low statistics,"0 tracks, 5.75e+03 pi0 candidates",NOT-EVALUATED
+404798,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404802,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404804,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404832,2026-06-11 07:13,138298,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404848,2026-06-11 13:29,11075,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404851,2026-06-11 14:52,2263905,strip modules masked,0.33 strip hits lost per track vs reference,EXCLUDE-TRACKING
+404851,2026-06-11 14:52,2263905,pi0 peak outlier,"m=142.7 MeV (+8.9%), sigma=36.4 MeV (x1.83); HBHE <E> 2.71 GeV",CAUTION
+404856,2026-06-11 18:59,1905998,strip modules masked (local),0.15 strip hits lost per track vs reference,CAUTION
+404856,2026-06-11 18:59,1905998,pi0 peak outlier,"m=141.0 MeV (+7.6%), sigma=35.1 MeV (x1.76); HBHE <E> 2.57 GeV",CAUTION
+404859,,0,low statistics,"0 tracks, 21 pi0 candidates",NOT-EVALUATED
+404914,2026-06-13 08:18,15489,low statistics,"0 tracks, 3 pi0 candidates",NOT-EVALUATED
+404918,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404922,2026-06-13 16:20,1,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404953,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404957,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
+404960,,0,low statistics,"0 tracks, 0 pi0 candidates",NOT-EVALUATED
