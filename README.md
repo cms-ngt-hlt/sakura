@@ -20,6 +20,8 @@ Repository for Task 3.4 of the CMS-NGT-HLT project (**S**peedy **A**lignment & *
 
 8. **Zarucki, M.** (2026) *Demonstrating the Processing Chain for the Next Generation Triggers in the CMS Experiment*, CMS Note CMS-CR-2026-162 (19 Oct 2026). [CDS](https://cds.cern.ch/record/2973159)
 
+9. **CMS Collaboration**, *NGT Optimal Calibrations Demonstrator: Physics and Computing Performance Update*, CMS Detector Performance Note CMS-DP-2026/158 (23 Nov 2026). [CDS](https://cds.cern.ch/record/2975829)
+
 ## Public Presentations
 
 - **Tomei, T.** et al. (2026)  *Task 3.4: Optimal Calibrations for the CMS High-Level Trigger*. Next Generation Triggers 1st Technical Workshop, CERN, 27 November 2024. [DOI](https://doi.org/10.17181/0n182-6dk77).
